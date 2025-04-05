@@ -1,27 +1,39 @@
 <!DOCTYPE html>
 <html lang="ja">
     <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tabdock Home</title>
-    <link rel="stylesheet" href="style.css">
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Tabdock Home</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="style.css">
     </head>
 
-    <body>
-    <div class="grid">
-        <div class="card">
-        <div class="clock" id="clock">--:--</div>
-        </div>
-        <div class="card">
-        <h2>天気</h2>
-        <p>まだ未取得</p>
-        </div>
-        <div class="card">
-        <h2>メモ</h2>
-        <p>ここにメモを書く予定</p>
-        </div>
-    </div>
+    <body class="h-screen bg-gray-900 text-white overflow-hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+        
+            <!-- clock -->
+            <div class="card card-standard">
+                <div id="clock" class="text-3xl font-bold tracking-wide text-center">--:--</div>
+                <button id="toggleFormat"
+                class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
+                <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
+                </button>
+            </div>
 
-    <script src="script.js"></script>
+            <!-- status -->
+            <div class="card card-standard">
+                <h2 class="text-lg font-semibold mb-2">PC Status</h2>
+                <ul class="text-sm font-mono leading-relaxed">
+                    <li>PC (DARUKS): <span class="text-green-400">Online</span></li>
+                    <li>Port 21: <span class="text-green-400">Active</span></li>
+                    <li>Battery : 100%</li>
+                    <li>eGPU : <span class="text-green-400">Active</span></li>
+                    <li>WAN : <span class="text-red-400">Offline</span></li> <!-- 状況によって切替 -->
+                </ul>
+            </div>
+  
+        
+        </div>
+        <script src="script.js" defer></script>
     </body>
 </html>
