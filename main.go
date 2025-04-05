@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -9,6 +10,20 @@ import (
 type responseWriterWithStatus struct {
 	http.ResponseWriter
 	status int
+}
+
+// ステータス構造体（任意の値で拡張）
+type PCStatus struct {
+	PC      string `json:"pc"`
+	Port21  string `json:"port21"`
+	Battery string `json:"battery"`
+	EGPU    string `json:"egpu"`
+	WAN     string `json:"wan"`
+	Temp    string `json:"temp"`
+	GPULoad string `json:"gpuLoad"`
+	RAM     string `json:"ram"`
+	DriveE  string `json:"driveE"`
+	VPN     string `json:"vpn"`
 }
 
 func (rw *responseWriterWithStatus) WriteHeader(code int) {
@@ -26,6 +41,9 @@ func main() {
 	// Error Pages
 	mux.Handle("/error/404/", http.StripPrefix("/error/404/", http.FileServer(http.Dir("./error/404")))) // Not Found
 	mux.Handle("/error/503/", http.StripPrefix("/error/503/", http.FileServer(http.Dir("./error/503")))) // Service Unavailable
+
+	// apis
+	http.HandleFunc("/api/status", handleStatusAPI)
 
 	// ルートアクセス時 → /home/ にリダイレクト
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -59,4 +77,36 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 			return
 		}
 	})
+}
+
+// APIハンドラ関数
+func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	status, err := getPCStatus()
+	if err != nil {
+		log.Println("ステータス取得失敗:", err)
+		http.Error(w, "Failed to get status", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(status)
+}
+
+// ステータスを実際に取得する関数（ここでPowerShellやOHMにアクセス）
+func getPCStatus() (*PCStatus, error) {
+	// TODO: PowerShellやOHMの出力から実データ取得
+	// とりあえず仮の静的データ
+	return &PCStatus{
+		PC:      "DARUKS",
+		Port21:  "Active",
+		Battery: "100%",
+		EGPU:    "Active",
+		WAN:     "Offline",
+		Temp:    "43°C",
+		GPULoad: "38%",
+		RAM:     "65%",
+		DriveE:  "All Ready!",
+		VPN:     "Disconnected",
+	}, nil
 }

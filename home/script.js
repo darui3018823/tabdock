@@ -28,15 +28,26 @@ document.addEventListener("DOMContentLoaded", () => {
     updateClock();
     setInterval(updateClock, 10000); // 10秒ごと更新
 
-    function updateStatusDisplay(data) {
-        document.getElementById("pc-name").textContent = `PC (${data.pcName}): Online`;
-        document.getElementById("port21").textContent = data.port21 ? "Active" : "Closed";
-        document.getElementById("egpu").textContent = data.egpu ? "Active" : "Inactive";
-        document.getElementById("wan").textContent = navigator.onLine ? "Active" : "Offline";
+    function updatePCStatus() {
+        fetch("/api/status")
+          .then(res => res.json())
+          .then(data => {
+            document.getElementById("pc-online").textContent = data.pc + ": Online";
+            document.getElementById("port21").textContent = data.port21;
+            document.getElementById("battery").textContent = data.battery;
+            document.getElementById("egpu").textContent = data.egpu;
+            document.getElementById("wan").textContent = data.wan;
       
-        navigator.getBattery().then(battery => {
-          document.getElementById("battery").textContent = `${Math.round(battery.level * 100)}%`;
-        });
-    }
+            document.getElementById("temp").textContent = data.temp;
+            document.getElementById("gpu-load").textContent = data.gpuLoad;
+            document.getElementById("ram").textContent = data.ram;
+            document.getElementById("drive-e").textContent = data.driveE;
+            document.getElementById("vpn").textContent = data.vpn;
+          })
+          .catch(err => console.error("Status fetch error:", err));
+      }
+      
+      setInterval(updatePCStatus, 5000); // 5秒ごと更新
+      updatePCStatus(); // 初回実行      
       
   });
