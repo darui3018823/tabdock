@@ -1,0 +1,70 @@
+/* 基本スタイル */
+body {
+    font-family: 'Lato', 'Zen Kaku Gothic New', sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    padding-top: 60px;
+    background-color: #000;
+    color: #fff;
+}
+
+/* ヘッダー */
+header {
+    color: #fff;
+    height: 40px; /* ヘッダーの高さを40pxに設定 */
+    display: flex;
+    align-items: center;
+    padding-left: 20px; /* 左寄せの余白 */
+    position: fixed;
+    width: 100%;
+    top: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-family: "Lato", serif; /* Google Fonts */
+    font-weight: 400;
+    font-style: normal;
+
+    /* ヘッダーの見やすさ調整 */
+    padding: 1rem 2rem;
+    border-left: 6px double #fff;
+    background: #111;
+}
+
+header h1 {
+    font-size: 1.2em; /* 文字サイズを調整 */
+    margin: 0;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+img {
+    max-width: 80%;
+    height: auto;
+}
+
+.message {
+    margin-top: 10px;
+    font-size: 1.2em;
+}
+
+/* フッター */
+footer {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    padding: 10px;
+    color: #666; /* 灰色 */
+    font-size: 0.8em;
+    text-align: right;
+    background-color: transparent;
+}
+
