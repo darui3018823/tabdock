@@ -23,3 +23,8 @@ go.work.sum
 
 # env file
 .env
+
+# from Visual Studio Code
+tabdock.key
+tabdock.crt
+.gitignore
