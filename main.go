@@ -19,7 +19,8 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 func main() {
 	mux := http.NewServeMux()
 
-	// 静的ファイルルート
+	// main page!
+	mux.Handle("/main/", withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))))
 	mux.Handle("/home/", withSlashAndErrorHandler(http.StripPrefix("/home/", http.FileServer(http.Dir("./home")))))
 
 	// Error Pages
