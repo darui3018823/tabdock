@@ -1,12 +1,11 @@
-// weather.js
-
 document.addEventListener("DOMContentLoaded", () => {
+    // モーダルの表示
     function showDetail(day) {
         const key = `weather-${day}-detail`;
         const text = localStorage.getItem(key) || "詳細情報が見つかりませんでした。";
         const modal = document.getElementById(`modal-${day}`);
         const content = document.getElementById(`modal-${day}-content`);
-    
+
         if (modal && content) {
             content.textContent = text;
             modal.classList.remove("hidden");
@@ -15,7 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
     window.showDetail = showDetail;
-    
+
+    // モーダルの非表示
     function closeModal(day) {
         const modal = document.getElementById(`modal-${day}`);
         if (modal) {
@@ -25,17 +25,46 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
     window.closeModal = closeModal;
-    
 
+    // Cookieの取得
+    function getCookie(name) {
+        const cookies = document.cookie.split("; ");
+        for (let c of cookies) {
+            const [key, val] = c.split("=");
+            if (key === name) return decodeURIComponent(val);
+        }
+        return null;
+    }
+
+    // 天気情報のUI更新
+    function updateWeatherUI(weather) {
+        const today = weather.forecasts[0];
+        const tomorrow = weather.forecasts[1];
+
+        document.getElementById("weather-today-label").textContent = today.dateLabel;
+        document.getElementById("weather-today-temp").textContent =
+            `${today.temperature.max?.celsius ?? "--"}℃ / ${today.temperature.min?.celsius ?? "--"}℃`;
+        document.getElementById("weather-today-telop").textContent = today.telop;
+
+        document.getElementById("weather-tomorrow-label").textContent = tomorrow.dateLabel;
+        document.getElementById("weather-tomorrow-temp").textContent =
+            `${tomorrow.temperature.max?.celsius ?? "--"}℃ / ${tomorrow.temperature.min?.celsius ?? "--"}℃`;
+        document.getElementById("weather-tomorrow-telop").textContent = tomorrow.telop;
+
+        // 明後日のデータを保存
+        window.dayafterForecast = weather.forecasts[2];
+    }
+
+    // 天気情報の取得
     async function fetchWeather() {
         const pref = getCookie("prefname");
         const city = getCookie("cityname");
-    
+
         if (!pref || !city) {
             console.warn("都道府県名または市区町村名がCookieに保存されていません。");
             return;
         }
-    
+
         try {
             const response = await fetch("/api/weather", {
                 method: "POST",
@@ -51,47 +80,31 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 })
             });
-    
+
+            if (!response.ok) {
+                console.error(`APIエラー: ${response.status} ${response.statusText}`);
+                return;
+            }
+
             const data = await response.json();
-    
+
             if (!data.body || !data.body.main_data) {
                 console.error("weatherAPI: data.body.main_data is missing", data);
                 return;
             }
-    
-            const weather = JSON.parse(data.body.main_data); // ここでmain_dataをJSONにパース
-    
-            // UI 反映処理（例）
-            document.getElementById("weather-today-label").textContent = weather.forecasts[0].dateLabel;
-            document.getElementById("weather-today-temp").textContent =
-                `${weather.forecasts[0].temperature.max?.celsius ?? "--"}℃ / ${weather.forecasts[0].temperature.min?.celsius ?? "--"}℃`;
-            document.getElementById("weather-today-telop").textContent = weather.forecasts[0].telop;
-    
-            document.getElementById("weather-tomorrow-label").textContent = weather.forecasts[1].dateLabel;
-            document.getElementById("weather-tomorrow-temp").textContent =
-                `${weather.forecasts[1].temperature.max?.celsius ?? "--"}℃ / ${weather.forecasts[1].temperature.min?.celsius ?? "--"}℃`;
-            document.getElementById("weather-tomorrow-telop").textContent = weather.forecasts[1].telop;
-    
-            // 明後日のために詳細を保存（必要に応じて）
-            window.dayafterForecast = weather.forecasts[2];
+
+            const weather = JSON.parse(data.body.main_data);
+            updateWeatherUI(weather);
         } catch (error) {
             console.error("天気取得エラー：", error);
         }
     }
-    
 
-    function getCookie(name) {
-        const cookies = document.cookie.split("; ");
-        for (let c of cookies) {
-            const [key, val] = c.split("=");
-            if (key === name) return decodeURIComponent(val);
-        }
-        return null;
-    }
-
+    // 初回の天気取得と定期更新
     fetchWeather();
     setInterval(fetchWeather, 120000); // 120秒ごとに更新
 
+    // モーダル関連のイベントリスナー
     const openLocationModalBtn = document.getElementById("openLocationModal");
     const closeLocationModalBtn = document.getElementById("closeLocationModal");
     const saveLocationBtn = document.getElementById("saveLocationBtn");
@@ -100,7 +113,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const prefInput = document.getElementById("prefInput");
     const cityInput = document.getElementById("cityInput");
 
-    // モーダル開閉
     openLocationModalBtn?.addEventListener("click", () => {
         locationModal?.classList.remove("hidden");
     });
@@ -109,7 +121,6 @@ document.addEventListener("DOMContentLoaded", () => {
         locationModal?.classList.add("hidden");
     });
 
-    // 保存ボタン処理
     saveLocationBtn?.addEventListener("click", () => {
         const prefname = prefInput?.value.trim();
         const cityname = cityInput?.value.trim();
