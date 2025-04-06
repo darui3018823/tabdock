@@ -77,15 +77,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const openLocationModalBtn = document.getElementById("openLocationModal");
     const closeLocationModalBtn = document.getElementById("closeLocationModal");
+    const saveLocationBtn = document.getElementById("saveLocationBtn");
     const locationModal = document.getElementById("locationModal");
 
-    if (openLocationModalBtn && closeLocationModalBtn && locationModal) {
-        openLocationModalBtn.addEventListener("click", () => {
-            locationModal.classList.remove("hidden");
-        });
+    const prefInput = document.getElementById("prefInput");
+    const cityInput = document.getElementById("cityInput");
 
-        closeLocationModalBtn.addEventListener("click", () => {
-            locationModal.classList.add("hidden");
-        });
-    }
+    // モーダル開閉
+    openLocationModalBtn?.addEventListener("click", () => {
+        locationModal?.classList.remove("hidden");
+    });
+
+    closeLocationModalBtn?.addEventListener("click", () => {
+        locationModal?.classList.add("hidden");
+    });
+
+    // 保存ボタン処理
+    saveLocationBtn?.addEventListener("click", () => {
+        const prefname = prefInput?.value.trim();
+        const cityname = cityInput?.value.trim();
+
+        if (prefname && cityname) {
+            document.cookie = `prefname=${encodeURIComponent(prefname)}; path=/`;
+            document.cookie = `cityname=${encodeURIComponent(cityname)}; path=/`;
+
+            locationModal?.classList.add("hidden");
+            fetchWeather(); // 保存後に天気を再取得
+        } else {
+            alert("都道府県名と市区町村名を入力してください");
+        }
+    });
 });
