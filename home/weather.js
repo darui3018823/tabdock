@@ -1,22 +1,30 @@
 // weather.js
 
 document.addEventListener("DOMContentLoaded", () => {
-    const modal = document.getElementById("weatherModal");
-    const modalText = document.getElementById("weatherModalText");
-    const closeModalBtn = document.getElementById("closeWeatherModal");
-
     function showDetail(day) {
         const key = `weather-${day}-detail`;
         const text = localStorage.getItem(key) || "詳細情報が見つかりませんでした。";
-        modalText.textContent = text;
-        modal.classList.remove("hidden");
+    
+        const modal = document.getElementById(`modal-${day}`);
+        const content = document.getElementById(`modal-${day}-content`);
+    
+        if (modal && content) {
+            content.textContent = text;
+            modal.classList.remove("hidden");
+        } else {
+            console.warn(`モーダルの要素が見つかりません: modal-${day} または modal-${day}-content`);
+        }
     }
-
-    window.showDetail = showDetail;
-
-    closeModalBtn.addEventListener("click", () => {
-        modal.classList.add("hidden");
-    });
+    
+    function closeModal(day) {
+        const modal = document.getElementById(`modal-${day}`);
+        if (modal) {
+            modal.classList.add("hidden");
+        } else {
+            console.warn(`閉じようとしたモーダルが見つかりません: modal-${day}`);
+        }
+    }
+    
 
     function fetchWeather() {
         const prefname = getCookie("prefname");
