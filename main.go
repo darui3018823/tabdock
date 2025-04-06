@@ -74,7 +74,6 @@ func logToFile(ip, content string) error {
 	fileName := fmt.Sprintf("%s_%s.log", ip, date)
 	logDir := "./log"
 
-	// ログディレクトリを作成（存在しない場合）
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 		return err
 	}
@@ -124,8 +123,9 @@ func main() {
 	mux.HandleFunc("/api/status", handleStatusAPI)
 	mux.HandleFunc("/api/weather", handleWeather)
 	mux.HandleFunc("/api/upload-wallpaper", handleWallpaperUpload)
+	mux.HandleFunc("/api/list-wallpapers", listWallpapersHandler)
 
-	// ルートアクセス時 → /home/ にリダイレクト
+	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/home/", http.StatusFound)
 	})
@@ -248,5 +248,33 @@ func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":   "success",
 		"filename": filename,
+	})
+}
+
+func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
+	wallpaperDir := "./home/wallpapers"
+	files := []string{}
+
+	err := filepath.Walk(wallpaperDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".jpg") || strings.HasSuffix(info.Name(), ".png")) {
+			relPath := strings.TrimPrefix(path, "./home/")
+			relPath = strings.ReplaceAll(relPath, "\\", "/") // 追加！Windows対策
+			files = append(files, relPath)
+		}
+		return nil
+	})
+
+	if err != nil {
+		http.Error(w, "failed to read wallpapers", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "success",
+		"images": files,
 	})
 }

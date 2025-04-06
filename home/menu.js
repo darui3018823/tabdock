@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("openWallpaperModal").onclick = () => {
         document.getElementById("menuModal").classList.add("hidden");
         document.getElementById("wallpaperModal").classList.remove("hidden");
+        loadWallpapers(); 
     };
     
     document.getElementById("closeWallpaperModal").onclick = () => {
@@ -143,5 +144,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     brightnessSlider.oninput = updateWallpaperFilter;
     blurSlider.oninput = updateWallpaperFilter;
+    
+    async function loadWallpapers() {
+        const response = await fetch("/api/list-wallpapers");
+        const data = await response.json();
+    
+        if (data.status !== "success") return;
+    
+        const container = document.getElementById("presetWallpapers");
+        container.innerHTML = ""; // 一度クリア
+    
+        data.images.forEach(imgPath => {
+            const img = document.createElement("img");
+            img.src = "/home/" + imgPath;
+            img.alt = imgPath;
+            img.className = "rounded cursor-pointer hover:ring-2 ring-white";
+            img.onclick = () => {
+                document.body.style.backgroundImage = `url(${img.src})`;
+            };
+            container.appendChild(img);
+        });
+    }
     
 });
