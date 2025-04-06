@@ -133,43 +133,48 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("wallpaperAdvancedModal").classList.add("hidden");
     };
 
-    // スライダーで反映
+    // 修正: 閉じるボタンのIDを正しく設定
+    document.getElementById("closeEffectModal").onclick = () => {
+        document.getElementById("wallpaperAdvancedModal").classList.add("hidden");
+    };
+
+    // 修正: スライダの初期値を設定
     const brightnessSlider = document.getElementById("brightnessSlider");
     const blurSlider = document.getElementById("blurSlider");
-
-    function updateWallpaperFilter() {
-        const brightness = brightnessSlider.value;
-        const blur = blurSlider.value;
-        document.body.style.backdropFilter = `brightness(${brightness}%) blur(${blur}px)`;
-    }
-    brightnessSlider.oninput = updateWallpaperFilter;
-    blurSlider.oninput = updateWallpaperFilter;
-    
     const brightnessValue = document.getElementById("brightnessValue");
     const blurValue = document.getElementById("blurValue");
-    const resetBtn = document.getElementById("resetBackgroundSettings");
 
-    // スライダー連動表示
-    brightnessSlider.addEventListener("input", () => {
+    // 初期値を設定
     brightnessValue.textContent = `${brightnessSlider.value}%`;
-    document.body.style.filter = `brightness(${brightnessSlider.value}%) blur(${blurSlider.value}px)`;
+    blurValue.textContent = `${blurSlider.value}px`;
+
+    // 修正: 背景フィルタの適用先をdocument.bodyに変更
+    function updateBackgroundEffect() {
+        const brightness = brightnessSlider.value;
+        const blur = blurSlider.value;
+        document.body.style.filter = `brightness(${brightness}%) blur(${blur}px)`;
+    }
+
+    // 修正: スライダのイベントリスナーを正しく設定
+    brightnessSlider.addEventListener("input", () => {
+        brightnessValue.textContent = `${brightnessSlider.value}%`;
+        updateBackgroundEffect();
     });
 
     blurSlider.addEventListener("input", () => {
-    blurValue.textContent = `${blurSlider.value}%`;
-    document.body.style.filter = `brightness(${brightnessSlider.value}%) blur(${blurSlider.value}px)`;
+        blurValue.textContent = `${blurSlider.value}px`;
+        updateBackgroundEffect();
     });
 
-    // デフォルトに戻す
-    resetBtn.addEventListener("click", () => {
-    brightnessSlider.value = 100;
-    blurSlider.value = 0;
-    brightnessValue.textContent = `100%`;
-    blurValue.textContent = `0%`;
-    document.body.style.filter = `brightness(100%) blur(0px)`;
+    // 修正: デフォルトに戻すボタンの動作を修正
+    document.getElementById("resetWallpaperEffect").addEventListener("click", () => {
+        brightnessSlider.value = 100;
+        blurSlider.value = 0;
+        brightnessValue.textContent = "100%";
+        blurValue.textContent = "0px";
+        updateBackgroundEffect();
     });
 
-    
     async function loadWallpapers() {
         try {
             const response = await fetch("/api/list-wallpapers");
