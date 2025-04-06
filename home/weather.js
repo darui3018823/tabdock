@@ -1,5 +1,7 @@
 let weatherDetailData = [];
 let weatherData = null;
+let weatherDetailParsedData = {};
+
 
 async function fetchWeather() {
     const pref = getCookie("prefname");
@@ -83,25 +85,46 @@ function setWeatherDetailEvents() {
 }
 
 
-function showDetail(dayKey, label, detail, bodyText) {
-    const modal = document.getElementById("modal");
+function showDetail(dayKey) {
+    if (!weatherDetailData || !Array.isArray(weatherDetailData)) return;
+
+    let index = 0;
+    let label = "今日";
+
+    if (dayKey === "tomorrow") {
+        index = 1;
+        label = "明日";
+    } else if (dayKey === "dayafter") {
+        index = 2;
+        label = "明後日";
+    }
+
+    const data = weatherDetailData[index];
+    const parsed = weatherDetailParsedData;  // global変数（fetchで代入してる場合）
+
+    const detail = data.detail;
+    const overview = parsed.description?.bodyText || "情報なし";
+
     const modalTitle = document.getElementById("modalTitle");
     const modalText = document.getElementById("modalText");
 
-    if (!modal || !modalTitle || !modalText) return;
+    modalTitle.textContent = `${label} の天気の詳細`;
 
-    // タイトルと詳細情報の表示
-    modalTitle.textContent = `${label}の天気の詳細`;
     modalText.innerHTML = `
-        <p>${detail.weather}</p>
-        <p>${detail.wind}</p>
-        <p>${detail.wave}</p>
-        <hr class="my-2 border-gray-600">
-        <p class="text-xs text-gray-300 whitespace-pre-line">${bodyText}</p>
+        <div class="text-base leading-relaxed">
+            <p><strong>天気:</strong> ${detail.weather || "情報なし"}</p>
+            <p><strong>風:</strong> ${detail.wind || "情報なし"}</p>
+            <p><strong>波:</strong> ${detail.wave || "情報なし"}</p>
+        </div>
+        <hr class="my-3 border-gray-600" />
+        <div class="text-sm text-gray-300">
+            <p><strong>概況:</strong><br>${overview.replace(/\n/g, "<br>")}</p>
+        </div>
     `;
 
-    modal.classList.remove("hidden");
+    document.getElementById("modal").classList.remove("hidden");
 }
+
 
 
 function closeModal() {
