@@ -1,46 +1,54 @@
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
-  
+
     const clockEl = document.getElementById("clock");
+    const dateEl = document.getElementById("date");
     const toggleBtn = document.getElementById("toggleFormat");
   
+    const weekdays = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
+  
+    function formatTime(now) {
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+  
+      if (is24Hour) {
+        return `${String(hours).padStart(2, '0')}:${minutes}:${seconds}`;
+      } else {
+        const ampm = hours >= 12 ? "PM" : "AM";
+        hours = hours % 12 || 12;
+        return `${ampm} ${hours}:${minutes}:${seconds}`;
+      }
+    }
+  
     function updateClock() {
-        const now = new Date();
-        let hours = now.getHours();
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-      
-        if (is24Hour) {
-          clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds}`;
-        } else {
-          const ampm = hours >= 12 ? "PM" : "AM";
-          hours = hours % 12 || 12;
-          clockEl.textContent = `${ampm} ${hours}:${minutes}:${seconds}`;
-        }
+      const now = new Date();
+      clockEl.textContent = formatTime(now);
     }
-      
-
+  
     function updateDate() {
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const weekday = now.toLocaleDateString('ja-JP', { weekday: 'long' });
-      
-        document.getElementById("date").textContent = `${yyyy}/${mm}/${dd} (${weekday})`;
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const day = weekdays[now.getDay()];
+      dateEl.textContent = `${y}/${m}/${d} (${day})`;
     }
-    
-    updateDate();
-    setInterval(updateDate, 60000);  // 1分ごと更新で十分
-
   
     toggleBtn.addEventListener("click", () => {
-        is24Hour = !is24Hour;
-        updateClock();
+      is24Hour = !is24Hour;
+      updateClock();
     });
   
+    // 初回更新
     updateClock();
-    setInterval(updateClock, 10000); // 10秒ごとに時計更新
+    updateDate();
+  
+    // 毎秒時刻更新（秒のため）
+    setInterval(updateClock, 1000);
+  
+    // 日付（曜日）は10秒ごとに更新（そんなに変化しないので）
+    setInterval(updateDate, 10000);
   
     function updateLastUpdateTime() {
         const now = new Date();
