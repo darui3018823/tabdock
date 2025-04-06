@@ -14,41 +14,34 @@
             <!-- clock -->
             <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col justify-center max-w-[500px] w-full">
                 <div id="clock" class="text-3xl font-bold tracking-wide text-center">--:--</div>
-                <button id="toggleFormat"
-                class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
+                <button id="toggleFormat" class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
                 <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
                 </button>
             </div>
 
             <!-- status -->
-            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col justify-center max-w-[500px] w-full">
+            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col relative">
                 <h2 class="text-lg font-semibold mb-2">PC Status</h2>
-                <!-- last update-->
-                <div id="last-update" class="absolute top-2 right-3 text-xs text-white/70">
-                    Last Update: --
-                </div>
-                <!-- content -->
+                <div id="last-update" class="absolute top-2 right-3 text-xs text-white/70">Last Update: --</div>
                 <div class="grid grid-cols-2 gap-x-6 text-sm font-mono leading-relaxed">
                     <ul class="space-y-1">
-                        <li>PC (DARUKS): <span class="text-green-400">Online</span></li>
-                        <li>Port 21: <span class="text-green-400">Active</span></li>
-                        <li>Battery : 100%</li>
-                        <li>eGPU : <span class="text-green-400">Active</span></li>
-                        <li>WAN : <span class="text-red-400">Offline</span></li>
+                        <li>PC (DARUKS): <span id="pc" class="text-green-400">--</span></li>
+                        <li>Port 21: <span id="port21" class="text-green-400">--</span></li>
+                        <li>Battery: <span id="battery">--</span></li>
+                        <li>eGPU: <span id="egpu" class="text-green-400">--</span></li>
+                        <li>WAN: <span id="wan" class="text-red-400">--</span></li>
                     </ul>
                     <ul class="space-y-1">
-                        <li>Temp : NaN°C</li>
-                        <li>GPU Load : NaN%</li>
-                        <li>RAM : NaN%</li>
-                        <li>Drive E: : All Ready!</li>
-                        <li>VPN : <span class="text-yellow-400">Disconnected</span></li>
+                        <li>GPU: <span id="gpu">--</span></li>
+                        <li>RAM: <span id="ram">--</span></li>
+                        <li>Drive E: <span id="drive-e">--</span></li>
+                        <li>VPN: <span id="vpn" class="text-yellow-400">--</span></li>
                     </ul>
                 </div>
             </div>
 
-  
-        
         </div>
+
         <script src="script.js" defer></script>
     </body>
 </html>
