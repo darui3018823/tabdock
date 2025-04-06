@@ -73,4 +73,5 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     fetchWeather();
+    setInterval(fetchWeather, 120000); // 120秒ごとに更新
 });
