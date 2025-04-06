@@ -74,4 +74,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetchWeather();
     setInterval(fetchWeather, 120000); // 120秒ごとに更新
+
+    const openLocationModalBtn = document.getElementById("openLocationModal");
+    const closeLocationModalBtn = document.getElementById("closeLocationModal");
+    const locationModal = document.getElementById("locationModal");
+
+    if (openLocationModalBtn && closeLocationModalBtn && locationModal) {
+        openLocationModalBtn.addEventListener("click", () => {
+            locationModal.classList.remove("hidden");
+        });
+
+        closeLocationModalBtn.addEventListener("click", () => {
+            locationModal.classList.add("hidden");
+        });
+    }
 });
