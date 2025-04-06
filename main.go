@@ -43,7 +43,7 @@ func main() {
 	mux.Handle("/error/503/", http.StripPrefix("/error/503/", http.FileServer(http.Dir("./error/503")))) // Service Unavailable
 
 	// apis
-	http.HandleFunc("/api/status", handleStatusAPI)
+	mux.HandleFunc("/api/status", handleStatusAPI)
 
 	// ルートアクセス時 → /home/ にリダイレクト
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,8 @@ func getPCStatus() (*PCStatus, error) {
 		return nil, err
 	}
 
-	log.Println("get_status.exe output:", string(output)) // ★ここ重要
+	log.Println("== get_status.exe output ==")
+	log.Println(string(output))
 
 	var status PCStatus
 	if err := json.Unmarshal(output, &status); err != nil {
