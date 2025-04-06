@@ -8,21 +8,31 @@ document.addEventListener("DOMContentLoaded", () => {
         const now = new Date();
         let hours = now.getHours();
         const minutes = String(now.getMinutes()).padStart(2, '0');
-    
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+      
         if (is24Hour) {
-            clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}`;
-            if (document.getElementById("ampm")) {
-            document.getElementById("ampm").textContent = "";
-            }
+          clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds}`;
         } else {
-            const ampm = hours >= 12 ? "PM" : "AM";
-            hours = hours % 12 || 12;
-            clockEl.textContent = `${ampm} ${hours}:${minutes}`;
-            if (document.getElementById("ampm")) {
-            document.getElementById("ampm").textContent = ampm;
-            }
+          const ampm = hours >= 12 ? "PM" : "AM";
+          hours = hours % 12 || 12;
+          clockEl.textContent = `${ampm} ${hours}:${minutes}:${seconds}`;
         }
     }
+      
+
+    function updateDate() {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const weekday = now.toLocaleDateString('ja-JP', { weekday: 'long' });
+      
+        document.getElementById("date").textContent = `${yyyy}/${mm}/${dd} (${weekday})`;
+    }
+    
+    updateDate();
+    setInterval(updateDate, 60000);  // 1分ごと更新で十分
+
   
     toggleBtn.addEventListener("click", () => {
         is24Hour = !is24Hour;

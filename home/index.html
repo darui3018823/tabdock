@@ -12,16 +12,17 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
         
             <!-- clock -->
-            <div class="card card-standard relative">
-                <div id="clock" class="text-3xl font-bold tracking-wide text-center">--:--</div>
+            <div class="card card-standard relative flex flex-col justify-center">
+                <div id="date" class="text-lg text-white/90 mb-2 ml-2">YYYY/MM/DD (曜日)</div>
+                <div id="clock" class="text-5xl font-bold tracking-wide text-white absolute bottom-6 right-6">--:--:--</div>
                 <button id="toggleFormat" class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
-                <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
+                    <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
                 </button>
             </div>
   
 
             <!-- status -->
-            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col relative md:col-span-2">
+            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col relative md:col-span-2 xl:col-span-1">
                 <h2 class="text-lg font-semibold mb-2">PC Status</h2>
                 <div id="last-update" class="absolute top-2 right-3 text-xs text-white/70">Last Update: --</div>
                 <div class="grid grid-cols-2 gap-x-6 text-sm font-mono leading-relaxed">
