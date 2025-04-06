@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -61,6 +62,7 @@ func main() {
 	// apis
 	mux.HandleFunc("/api/status", handleStatusAPI)
 	mux.HandleFunc("/api/weather", handleWeather)
+	mux.HandleFunc("/api/upload-wallpaper", handleWallpaperUpload)
 
 	// ルートアクセス時 → /home/ にリダイレクト
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -159,4 +161,31 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	w.Write(apiRespBody)
+}
+
+func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(10 << 20) // 最大10MB
+
+	file, handler, err := r.FormFile("wallpaper")
+	if err != nil {
+		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	filename := handler.Filename
+	filepath := "wallpapers/" + filename
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
+		return
+	}
+	defer out.Close()
+	io.Copy(out, file)
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":   "success",
+		"filename": filename,
+	})
 }

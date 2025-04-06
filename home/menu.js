@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    
+
     const uploadInput = document.getElementById("wallpaperUpload");
     const presetContainer = document.getElementById("presetWallpapers");
 
@@ -70,4 +70,60 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     reader.readAsDataURL(file);
     });
+
+    document.getElementById("confirmUploadBtn").onclick = () => {
+        document.getElementById("uploadConfirmModal").classList.remove("hidden");
+      };
+      
+      document.getElementById("cancelUploadConfirm").onclick = () => {
+        document.getElementById("uploadConfirmModal").classList.add("hidden");
+      };
+      
+      document.getElementById("acceptUploadConfirm").onclick = () => {
+        document.getElementById("uploadConfirmModal").classList.add("hidden");
+        // ここでアップロード処理をトリガー
+        document.getElementById("uploadForm").submit(); // 例
+      };
+    
+      document.getElementById("confirmUploadBtn").addEventListener("click", () => {
+        const file = document.getElementById("wallpaperUpload").files[0];
+        if (!file) {
+            alert("画像を選択してください。");
+            return;
+        }
+        // アップロード確認モーダルを表示
+        document.getElementById("uploadConfirmModal").classList.remove("hidden");
+    });
+    
+    document.getElementById("cancelUploadConfirm").addEventListener("click", () => {
+        document.getElementById("uploadConfirmModal").classList.add("hidden");
+    });
+    
+    document.getElementById("acceptUploadConfirm").addEventListener("click", async () => {
+        const input = document.getElementById("wallpaperUpload");
+        const file = input.files[0];
+        if (!file) return;
+    
+        const formData = new FormData();
+        formData.append("wallpaper", file);
+    
+        try {
+            const res = await fetch("/api/upload-wallpaper", {
+                method: "POST",
+                body: formData,
+            });
+            const result = await res.json();
+            console.log("アップロード完了:", result);
+    
+            // 背景にすぐ適用したい場合（任意）
+            document.body.style.backgroundImage = `url(wallpapers/${result.filename})`;
+    
+            // モーダルを閉じる
+            document.getElementById("uploadConfirmModal").classList.add("hidden");
+        } catch (e) {
+            alert("アップロードに失敗しました。");
+            console.error(e);
+        }
+    });
+    
 });
