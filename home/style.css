@@ -44,4 +44,14 @@ body {
     max-width: 500px;
     width: 100%;
   }
-  
+
+.omgfooter {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    padding: 10px;
+    color: #666; /* 灰色 */
+    font-size: 0.8em;
+    text-align: right;
+    background-color: transparent;
+}
