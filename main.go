@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -66,16 +68,42 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
-// ログ出力ミドルウェア
+func logToFile(ip, content string) error {
+	now := time.Now()
+	date := now.Format("2006-01-02")
+	fileName := fmt.Sprintf("%s_%s.log", ip, date)
+	logDir := "./log"
+
+	// ログディレクトリを作成（存在しない場合）
+	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	fullPath := filepath.Join(logDir, fileName)
+	f, err := os.OpenFile(fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(content)
+	return err
+}
+
 func logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := getClientIP(r)
-		path := r.URL.Path
 		method := r.Method
-		ua := r.Header.Get("User-Agent")
+		path := r.URL.Path
+		ua := r.UserAgent()
 		t := time.Now().Format("2006/01/02 15:04:05")
 
-		log.Printf("[%s] IP: %s | Method: %s | Path: %s | UA: %s", t, ip, method, path, ua)
+		logLine := fmt.Sprintf("[%s] %s %s UA: %s\n", t, method, path, ua)
+		fmt.Print("ログ出力 → ", logLine)
+
+		// ログファイルに出力
+		_ = logToFile(ip, logLine)
+
 		next.ServeHTTP(w, r)
 	})
 }
