@@ -27,25 +27,61 @@ async function fetchWeather() {
             return;
         }
 
-        const parsed = JSON.parse(data.body.main_data);
-        const forecasts = parsed.forecasts;
+        weatherData = JSON.parse(data.body.main_data);
+        const forecasts = weatherData.forecasts;
         weatherDetailData = forecasts;
 
-        document.getElementById("weather-today-temp").textContent =
-            (forecasts[0].temperature.max.celsius || "--") + "℃ / " +
-            (forecasts[0].temperature.min.celsius || "--") + "℃";
-        document.getElementById("weather-today-telop").textContent =
-            forecasts[0].telop;
+        const todayTempEl = document.getElementById("weather-today-temp");
+        const todayTelopEl = document.getElementById("weather-today-telop");
+        const tomorrowTempEl = document.getElementById("weather-tomorrow-temp");
+        const tomorrowTelopEl = document.getElementById("weather-tomorrow-telop");
 
-        document.getElementById("weather-tomorrow-temp").textContent =
-            (forecasts[1].temperature.max.celsius || "--") + "℃ / " +
-            (forecasts[1].temperature.min.celsius || "--") + "℃";
-        document.getElementById("weather-tomorrow-telop").textContent =
-            forecasts[1].telop;
+        if (todayTempEl && todayTelopEl) {
+            todayTempEl.textContent =
+                (forecasts[0].temperature.max.celsius || "--") + "℃ / " +
+                (forecasts[0].temperature.min.celsius || "--") + "℃";
+            todayTelopEl.textContent = forecasts[0].telop;
+        }
+
+        if (tomorrowTempEl && tomorrowTelopEl) {
+            tomorrowTempEl.textContent =
+                (forecasts[1].temperature.max.celsius || "--") + "℃ / " +
+                (forecasts[1].temperature.min.celsius || "--") + "℃";
+            tomorrowTelopEl.textContent = forecasts[1].telop;
+        }
+
+        // 詳細ボタンイベントの追加（初回のみ）
+        setWeatherDetailEvents();
+
     } catch (err) {
         console.error("天気取得エラー:", err);
     }
 }
+
+function setWeatherDetailEvents() {
+    const todayBtn = document.getElementById("todayDetailBtn");
+    const tomorrowBtn = document.getElementById("tomorrowDetailBtn");
+    const dayafterBtn = document.getElementById("dayafterDetailBtn");
+
+    if (todayBtn) {
+        todayBtn.onclick = () => {
+            showDetail("today", "今日", weatherData.forecasts[0].detail, weatherData.description.bodyText);
+        };
+    }
+
+    if (tomorrowBtn) {
+        tomorrowBtn.onclick = () => {
+            showDetail("tomorrow", "明日", weatherData.forecasts[1].detail, weatherData.description.bodyText);
+        };
+    }
+
+    if (dayafterBtn) {
+        dayafterBtn.onclick = () => {
+            showDetail("dayafter", "明後日", weatherData.forecasts[2].detail, weatherData.description.bodyText);
+        };
+    }
+}
+
 
 function showDetail(dayKey, label, detail, bodyText) {
     const modal = document.getElementById("modal");
