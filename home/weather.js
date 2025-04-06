@@ -191,3 +191,10 @@ function getCookie(name) {
     const value = document.cookie.match(`(^|;)\\s*${name}=([^;]*)`);
     return value ? decodeURIComponent(value[2]) : null;
 }
+
+function closeModal() {
+    const modal = document.getElementById("weatherDetailModal");
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
