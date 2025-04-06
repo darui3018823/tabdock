@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
         fetch("/api/status")
             .then(res => res.json())
             .then(data => {
-                document.getElementById("pc-online").textContent = data.pc + ": Online";
+                document.getElementById("pc").textContent = " (" + data.pc + ") : Online";
                 document.getElementById("port21").textContent = data.port21;
                 document.getElementById("battery").textContent = data.battery;
                 document.getElementById("egpu").textContent = data.egpu;
