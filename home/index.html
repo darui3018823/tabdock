@@ -46,13 +46,13 @@
             <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] md:min-h-[180px] flex flex-col justify-between max-w-[500px] w-full relative">
                 <h2 class="text-lg font-semibold">天気予報</h2>
                 <div class="grid grid-cols-2 gap-2 text-sm font-mono">
-                    <button id="openLocationModal" class="absolute top-2 right-2 bg-white/10 text-white text-xs px-2 py-1 rounded hover:bg-white/20 transition">地域選択</button>
+                    <button id="openLocationModalBtn" class="absolute top-2 right-2 bg-white/10 text-white text-xs px-2 py-1 rounded hover:bg-white/20 transition">地域選択</button>
                     <!-- today -->
                     <div>
                         <div class="font-bold text-white" id="weather-today-label">今日</div>
                         <div id="weather-today-temp">--℃ / --℃</div>
                         <div id="weather-today-telop">--</div>
-                        <button onclick="showDetail('today')" class="text-blue-400 text-xs hover:underline mt-1">詳細</button>
+                        <button onclick="showDetail('today')" class="text-blue-400 text-xs hover:underline mt-1" id="todayDetailBtn">詳細</button>
                     </div>
             
                     <!-- tomorrow -->
@@ -60,50 +60,32 @@
                         <div class="font-bold text-white" id="weather-tomorrow-label">明日</div>
                         <div id="weather-tomorrow-temp">--℃ / --℃</div>
                         <div id="weather-tomorrow-telop">--</div>
-                        <button onclick="showDetail('tomorrow')" class="text-blue-400 text-xs hover:underline mt-1">詳細</button>
+                        <button onclick="showDetail('tomorrow')" class="text-blue-400 text-xs hover:underline mt-1" id="tomorrowDetailBtn">詳細</button>
                     </div>
                 </div>
             
                 <!-- 明後日はボタンだけ -->
                 <div class="flex justify-end">
-                    <button onclick="showDetail('dayafter')" class="text-xs text-gray-300 hover:text-white">明後日はこちら</button>
+                    <button onclick="showDetail('dayafter')" class="text-xs text-gray-300 hover:text-white" id="dayafterDetailBtn">明後日はこちら</button>
                 </div>
             </div>
 
 
 
             <!-- 以下はモーダル-->
-            <div id="modal-today" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-                <div class="bg-white text-black p-6 rounded-lg max-w-md w-full">
-                    <h2 class="text-lg font-semibold mb-2">今日の詳細</h2>
-                    <div id="modal-today-content" class="text-sm whitespace-pre-line">読み込み中...</div>
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button onclick="closeModal('today')" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">閉じる</button>
+            <!-- 天気の詳細モーダル -->
+            <div id="modal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                <div class="bg-gray-800 text-white rounded-lg p-6 max-w-2xl w-full shadow-lg">
+                    <h2 id="modalTitle" class="text-xl font-bold mb-4">天気の詳細</h2>
+                    <div id="modalText" class="text-sm space-y-3">
+                        <!-- JavaScriptで内容が挿入されます -->
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button id="closeModalBtn" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">閉じる</button>
                     </div>
                 </div>
             </div>
 
-            <div id="modal-tomorrow" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-                <div class="bg-white text-black p-6 rounded-lg max-w-md w-full">
-                    <h2 class="text-lg font-semibold mb-2">明日の詳細</h2>
-                    <div id="modal-tomorrow-content" class="text-sm whitespace-pre-line">読み込み中...</div>
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button onclick="closeModal('tomorrow')" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">閉じる</button>
-                    </div>
-                </div>
-            </div>
-              
-            <div id="modal-dayafter" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-                <div class="bg-white text-black p-6 rounded-lg max-w-md w-full">
-                    <h2 class="text-lg font-semibold mb-2">明後日の詳細</h2>
-                    <div id="modal-dayafter-content" class="text-sm whitespace-pre-line">読み込み中...</div>
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button onclick="closeModal('dayafter')" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400" id="closeModalBtn">閉じる</button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 地域選択モーダル -->
             <!-- 地域選択モーダル -->
             <div id="locationModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
                 <div class="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full shadow-lg">
