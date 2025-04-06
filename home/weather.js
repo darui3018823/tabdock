@@ -103,7 +103,10 @@ function showDetail(dayKey) {
     const parsed = weatherDetailParsedData;  // global変数（fetchで代入してる場合）
 
     const detail = data.detail;
-    const overview = parsed.description?.bodyText || "情報なし";
+    const overview = parsed?.description?.bodyText?.trim();
+    if (!overview) {
+        console.warn("概況（bodyText）が見つかりません。", parsed.description);
+    }
 
     const modalTitle = document.getElementById("modalTitle");
     const modalText = document.getElementById("modalText");
@@ -111,15 +114,15 @@ function showDetail(dayKey) {
     modalTitle.textContent = `${label} の天気の詳細`;
 
     modalText.innerHTML = `
-        <div class="text-base leading-relaxed">
-            <p><strong>天気:</strong> ${detail.weather || "情報なし"}</p>
-            <p><strong>風:</strong> ${detail.wind || "情報なし"}</p>
-            <p><strong>波:</strong> ${detail.wave || "情報なし"}</p>
-        </div>
-        <hr class="my-3 border-gray-600" />
-        <div class="text-sm text-gray-300">
-            <p><strong>概況:</strong><br>${overview.replace(/\n/g, "<br>")}</p>
-        </div>
+    <div class="text-base leading-relaxed space-y-2">
+        <p><strong>天気:</strong> ${detail.weather || "情報なし"}</p>
+        <p><strong>風:</strong> ${detail.wind || "情報なし"}</p>
+        <p><strong>波:</strong> ${detail.wave || "情報なし"}</p>
+    </div>
+    <hr class="my-3 border-gray-600" />
+    <div class="text-sm text-gray-300 whitespace-pre-wrap">
+        <p><strong>概況:</strong><br>${overview || "情報なし"}</p>
+    </div>
     `;
 
     document.getElementById("modal").classList.remove("hidden");
@@ -173,12 +176,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // モーダルを閉じる
-    document.addEventListener("DOMContentLoaded", () => {
-        const closeModalBtn = document.getElementById("closeModalBtn");
-        if (closeModalBtn) {
-            closeModalBtn.addEventListener("click", closeModal);
-        }
+    document.getElementById("modalCloseBtn")?.addEventListener("click", () => {
+        document.getElementById("modal").classList.add("hidden");
     });
+    
 
     // 保存ボタンの処理
     if (saveLocationBtn) {
