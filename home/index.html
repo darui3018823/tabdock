@@ -41,6 +41,34 @@
                     </ul>
                 </div>
             </div>
+
+            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] md:min-h-[180px] flex flex-col justify-between max-w-[500px] w-full">
+
+                <h2 class="text-lg font-semibold">天気予報</h2>
+                <div class="grid grid-cols-2 gap-2 text-sm font-mono">
+                    <!-- 今日 -->
+                    <div>
+                        <div class="font-bold text-white" id="weather-today-label">今日</div>
+                        <div id="weather-today-temp">--℃ / --℃</div>
+                        <div id="weather-today-telop">--</div>
+                        <button onclick="showDetail('today')" class="text-blue-400 text-xs hover:underline mt-1">詳細</button>
+                    </div>
+            
+                    <!-- 明日 -->
+                    <div>
+                        <div class="font-bold text-white" id="weather-tomorrow-label">明日</div>
+                        <div id="weather-tomorrow-temp">--℃ / --℃</div>
+                        <div id="weather-tomorrow-telop">--</div>
+                        <button onclick="showDetail('tomorrow')" class="text-blue-400 text-xs hover:underline mt-1">詳細</button>
+                    </div>
+                </div>
+            
+                <!-- 明後日はボタンだけ -->
+                <div class="flex justify-end">
+                    <button onclick="showDetail('dayafter')" class="text-xs text-gray-300 hover:text-white">明後日は→</button>
+                </div>
+            </div>
+            
         </div>
 
         <footer class="omgfooter">
