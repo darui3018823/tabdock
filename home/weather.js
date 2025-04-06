@@ -94,6 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const weather = JSON.parse(data.body.main_data);
+            console.log(weather.description.text);
             updateWeatherUI(weather);
         } catch (error) {
             console.error("天気取得エラー：", error);

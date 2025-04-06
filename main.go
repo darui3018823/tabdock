@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -132,35 +134,29 @@ func getPCStatus() (*PCStatus, error) {
 func handleWeather(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	response := WeatherResponse{
-		City: "名瀬",
-		Forecasts: []Forecast{
-			{
-				Date:    "2025-04-06",
-				Label:   "今日",
-				Telop:   "くもりのち晴れ",
-				TempMin: "--",
-				TempMax: "21",
-				Detail:  "曇りで夕方から晴れ、一部で雨の可能性あり。",
-			},
-			{
-				Date:    "2025-04-07",
-				Label:   "明日",
-				Telop:   "晴れ",
-				TempMin: "17",
-				TempMax: "22",
-				Detail:  "晴れの予報。風は北から東へ変わる見込み。",
-			},
-			{
-				Date:    "2025-04-08",
-				Label:   "明後日",
-				Telop:   "晴時々曇",
-				TempMin: "8",
-				TempMax: "23",
-				Detail:  "晴れ時々曇り。昼頃に一時的に曇る時間帯があるかも。",
-			},
-		},
+	// クライアントからのリクエストボディを読み取る
+	reqBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "failed to read request", http.StatusBadRequest)
+		return
 	}
 
-	json.NewEncoder(w).Encode(response)
+	// APIにリクエストを転送
+	resp, err := http.Post("https://api.daruks.com/weather", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		http.Error(w, "failed to call weather API", http.StatusInternalServerError)
+		log.Println("weather API error:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// APIのレスポンスをそのまま返す
+	apiRespBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "failed to read weather API response", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(resp.StatusCode)
+	w.Write(apiRespBody)
 }
