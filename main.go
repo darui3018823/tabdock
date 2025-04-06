@@ -15,15 +15,14 @@ type responseWriterWithStatus struct {
 // ステータス構造体（任意の値で拡張）
 type PCStatus struct {
 	PC      string `json:"pc"`
-	Port21  string `json:"port21"`
 	Battery string `json:"battery"`
-	EGPU    string `json:"egpu"`
 	WAN     string `json:"wan"`
-	Temp    string `json:"temp"`
-	GPULoad string `json:"gpuLoad"`
-	RAM     string `json:"ram"`
-	DriveE  string `json:"driveE"`
 	VPN     string `json:"vpn"`
+	Port21  string `json:"port21"`
+	RAM     string `json:"ram"`
+	EGPU    string `json:"egpu"`
+	GPU     string `json:"gpu"`
+	DriveE  string `json:"driveE"`
 }
 
 func (rw *responseWriterWithStatus) WriteHeader(code int) {
@@ -93,20 +92,18 @@ func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-// ステータスを実際に取得する関数（ここでPowerShellやOHMにアクセス）
 func getPCStatus() (*PCStatus, error) {
 	// TODO: PowerShellやOHMの出力から実データ取得
 	// とりあえず仮の静的データ
 	return &PCStatus{
 		PC:      "DARUKS",
-		Port21:  "Active",
 		Battery: "100%",
-		EGPU:    "Active",
 		WAN:     "Offline",
-		Temp:    "43°C",
-		GPULoad: "38%",
-		RAM:     "65%",
-		DriveE:  "All Ready!",
 		VPN:     "Disconnected",
+		Port21:  "Active",
+		RAM:     "65%",
+		EGPU:    "Active",
+		GPU:     "NVIDIA GeForce GTX 1070",
+		DriveE:  "All Ready!",
 	}, nil
 }
