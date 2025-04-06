@@ -81,8 +81,6 @@ document.addEventListener("DOMContentLoaded", () => {
       
       document.getElementById("acceptUploadConfirm").onclick = () => {
         document.getElementById("uploadConfirmModal").classList.add("hidden");
-        // ここでアップロード処理をトリガー
-        document.getElementById("uploadForm").submit(); // 例
       };
     
       document.getElementById("confirmUploadBtn").addEventListener("click", () => {

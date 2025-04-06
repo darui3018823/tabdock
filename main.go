@@ -174,7 +174,7 @@ func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	filename := handler.Filename
-	filepath := "wallpapers/" + filename
+	filepath := "home/wallpapers/" + filename
 
 	out, err := os.Create(filepath)
 	if err != nil {
