@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
         data.images.forEach(imgPath => {
             const img = document.createElement("img");
-            img.src = "/home/" + imgPath;
+            img.src = `/home/wallpapers/${fileName}`; // ここで初めてパスをつける
             img.alt = imgPath;
             img.className = "rounded cursor-pointer hover:ring-2 ring-white";
             img.onclick = () => {
