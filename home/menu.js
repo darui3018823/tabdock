@@ -123,5 +123,25 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error(e);
         }
     });
+
+    // 開閉処理
+    document.getElementById("openWallpaperAdvancedBtn").onclick = () => {
+        document.getElementById("wallpaperAdvancedModal").classList.remove("hidden");
+    };
+    document.getElementById("closeWallpaperAdvancedModal").onclick = () => {
+        document.getElementById("wallpaperAdvancedModal").classList.add("hidden");
+    };
+
+    // スライダーで反映
+    const brightnessSlider = document.getElementById("brightnessSlider");
+    const blurSlider = document.getElementById("blurSlider");
+
+    function updateWallpaperFilter() {
+        const brightness = brightnessSlider.value;
+        const blur = blurSlider.value;
+        document.body.style.backdropFilter = `brightness(${brightness}%) blur(${blur}px)`;
+    }
+    brightnessSlider.oninput = updateWallpaperFilter;
+    blurSlider.oninput = updateWallpaperFilter;
     
 });
