@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function showDetail(day) {
         const key = `weather-${day}-detail`;
         const text = localStorage.getItem(key) || "詳細情報が見つかりませんでした。";
-    
         const modal = document.getElementById(`modal-${day}`);
         const content = document.getElementById(`modal-${day}-content`);
     
@@ -40,6 +39,9 @@ document.addEventListener("DOMContentLoaded", () => {
         })
             .then(res => res.json())
             .then(data => {
+                const parsed = JSON.parse(data.body.main_data);
+                const todayDetail = parsed.forecasts[0].detail.weather;
+
                 const today = data.forecasts[0];
                 const tomorrow = data.forecasts[1];
                 const dayafter = data.forecasts[2];
@@ -53,9 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("weather-tomorrow-telop").textContent = tomorrow.telop;
 
                 // 詳細データを保存
-                localStorage.setItem("weather-today-detail", today.detail.weather);
-                localStorage.setItem("weather-tomorrow-detail", tomorrow.detail.weather);
-                localStorage.setItem("weather-dayafter-detail", dayafter.detail.weather || "詳細情報なし");
+                localStorage.setItem("weather-today-detail", today.detail);
+                localStorage.setItem("weather-tomorrow-detail", tomorrow.detail);
+                localStorage.setItem("weather-dayafter-detail", dayafter.detail);
+
             })
             .catch(err => console.error("天気取得エラー:", err));
     }

@@ -58,7 +58,7 @@ func main() {
 
 	// apis
 	mux.HandleFunc("/api/status", handleStatusAPI)
-	http.HandleFunc("/api/weather", handleWeather)
+	mux.HandleFunc("/api/weather", handleWeather)
 
 	// ルートアクセス時 → /home/ にリダイレクト
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
