@@ -27,41 +27,58 @@ document.addEventListener("DOMContentLoaded", () => {
     window.closeModal = closeModal;
     
 
-    function fetchWeather() {
-        const prefname = getCookie("prefname");
-        const cityname = getCookie("cityname");
-        if (!prefname || !cityname) return;
-
-        fetch("/api/weather", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prefname, cityname })
-        })
-            .then(res => res.json())
-            .then(data => {
-                const parsed = JSON.parse(data.body.main_data);
-                const todayDetail = parsed.forecasts[0].detail.weather;
-
-                const today = data.forecasts[0];
-                const tomorrow = data.forecasts[1];
-                const dayafter = data.forecasts[2];
-
-                document.getElementById("weather-today-label").textContent = today.dateLabel;
-                document.getElementById("weather-today-temp").textContent = `${today.temperature.max?.celsius || "--"}℃ / ${today.temperature.min?.celsius || "--"}℃`;
-                document.getElementById("weather-today-telop").textContent = today.telop;
-
-                document.getElementById("weather-tomorrow-label").textContent = tomorrow.dateLabel;
-                document.getElementById("weather-tomorrow-temp").textContent = `${tomorrow.temperature.max?.celsius || "--"}℃ / ${tomorrow.temperature.min?.celsius || "--"}℃`;
-                document.getElementById("weather-tomorrow-telop").textContent = tomorrow.telop;
-
-                // 詳細データを保存
-                localStorage.setItem("weather-today-detail", today.detail);
-                localStorage.setItem("weather-tomorrow-detail", tomorrow.detail);
-                localStorage.setItem("weather-dayafter-detail", dayafter.detail);
-
-            })
-            .catch(err => console.error("天気取得エラー:", err));
+    async function fetchWeather() {
+        const pref = getCookie("prefname");
+        const city = getCookie("cityname");
+    
+        if (!pref || !city) {
+            console.warn("都道府県名または市区町村名がCookieに保存されていません。");
+            return;
+        }
+    
+        try {
+            const response = await fetch("/api/weather", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    program_type: "Get_Weather",
+                    program_langs: "Golang",
+                    data: {
+                        prefname: pref,
+                        cityname: city
+                    }
+                })
+            });
+    
+            const data = await response.json();
+    
+            if (!data.body || !data.body.main_data) {
+                console.error("weatherAPI: data.body.main_data is missing", data);
+                return;
+            }
+    
+            const weather = JSON.parse(data.body.main_data); // ここでmain_dataをJSONにパース
+    
+            // UI 反映処理（例）
+            document.getElementById("weather-today-label").textContent = weather.forecasts[0].dateLabel;
+            document.getElementById("weather-today-temp").textContent =
+                `${weather.forecasts[0].temperature.max?.celsius ?? "--"}℃ / ${weather.forecasts[0].temperature.min?.celsius ?? "--"}℃`;
+            document.getElementById("weather-today-telop").textContent = weather.forecasts[0].telop;
+    
+            document.getElementById("weather-tomorrow-label").textContent = weather.forecasts[1].dateLabel;
+            document.getElementById("weather-tomorrow-temp").textContent =
+                `${weather.forecasts[1].temperature.max?.celsius ?? "--"}℃ / ${weather.forecasts[1].temperature.min?.celsius ?? "--"}℃`;
+            document.getElementById("weather-tomorrow-telop").textContent = weather.forecasts[1].telop;
+    
+            // 明後日のために詳細を保存（必要に応じて）
+            window.dayafterForecast = weather.forecasts[2];
+        } catch (error) {
+            console.error("天気取得エラー：", error);
+        }
     }
+    
 
     function getCookie(name) {
         const cookies = document.cookie.split("; ");
