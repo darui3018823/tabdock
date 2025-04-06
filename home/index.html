@@ -29,6 +29,34 @@
                 </div>
             </div>
         </div>
+
+        <!-- wallpaper-->
+        <div id="wallpaperModal" class="hidden fixed inset-0 bg-black/60 flex justify-center items-center z-50">
+            <div class="bg-white/35 backdrop-blur-md rounded-xl p-6 w-full max-w-xl text-white">
+                <h2 class="text-xl font-bold mb-4">壁紙の設定</h2>
+                
+                <div class="mb-4">
+                    <label class="block mb-1">画像をアップロード（JPG, PNG など）</label>
+                    <input type="file" accept="image/*" id="wallpaperUpload" class="w-full bg-white/20 text-white p-2 rounded"/>
+                </div>
+            
+                <div class="mb-4">
+                    <label class="block mb-1">既にある画像から選ぶ</label>
+                    <div id="presetWallpapers" class="grid grid-cols-3 gap-2">
+                        <!-- プリセット画像：後でJSで挿入しても可 -->
+                        <img src="wallpapers/o3840216013887561789.jpg" alt="Windows10_lock" class="rounded cursor-pointer hover:ring-2 ring-white">
+                        <img src="wallpapers/Silver_Original.PNG" alt="macOS的な何か" class="rounded cursor-pointer hover:ring-2 ring-white">
+                        <img src="wallpapers/win10.jpg" alt="Windows10_Default" class="rounded cursor-pointer hover:ring-2 ring-white">
+                        <img src="wallpapers/MacBook Pro M3 Space Black Wallpaper TechRushi.com.png" alt="Macbook_Pro_M3" class="rounded cursor-pointer hover:ring-2 ring-white">
+                    </div>
+                </div>
+            
+                <div class="text-right">
+                    <button id="closeWallpaperModal" class="px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded">閉じる</button>
+                </div>
+            </div>
+        </div>
+  
         
         <!-- main contents-->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
