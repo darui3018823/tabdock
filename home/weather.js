@@ -150,11 +150,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // モーダルを閉じる
-    if (closeLocationModalBtn) {
-        closeLocationModalBtn.addEventListener("click", () => {
-            locationModal.classList.add("hidden");
-        });
-    }
+    document.addEventListener("DOMContentLoaded", () => {
+        const closeModalBtn = document.getElementById("closeModalBtn");
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener("click", closeModal);
+        }
+    });
 
     // 保存ボタンの処理
     if (saveLocationBtn) {
