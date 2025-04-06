@@ -1,4 +1,5 @@
 let weatherDetailData = [];
+let weatherData = null;
 
 async function fetchWeather() {
     const pref = getCookie("prefname");
@@ -136,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
-    
+
     document.getElementById("todayDetailBtn").onclick = () => {
         showDetail("today", "今日", weatherData.forecasts[0].detail, weatherData.description.bodyText);
     };
