@@ -63,6 +63,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   
     updatePCStatus(); // 初回実行
-    setInterval(updatePCStatus, 5000); // 5秒ごとに更新
+    setInterval(updatePCStatus, 120000); // 120秒ごとに更新
   });
   

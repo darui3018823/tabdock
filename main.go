@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
@@ -83,24 +82,33 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 // APIハンドラ関数
 func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	status, err := getPCStatus()
 	if err != nil {
+		log.Println("status error:", err)
 		http.Error(w, "Failed to get status", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(status)
+
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		log.Println("encode error:", err)
+	}
 }
 
 func getPCStatus() (*PCStatus, error) {
-	cmd := exec.Command("./get_status.exe") // .exe を必ず明示
+	cmd := exec.Command("./get_status.exe")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run binary: %w", err)
+		log.Println("Command execution failed:", err)
+		return nil, err
 	}
+
+	log.Println("get_status.exe output:", string(output)) // ★ここ重要
 
 	var status PCStatus
 	if err := json.Unmarshal(output, &status); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		log.Println("JSON parse failed:", err)
+		return nil, err
 	}
 	return &status, nil
 }
