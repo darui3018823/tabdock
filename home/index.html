@@ -6,6 +6,13 @@
         <title>Home | Tabdock</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link rel="stylesheet" href="style.css">
+
+        <meta property="og:site_name" content="Tabdock">
+        <meta property="og:title" content="Tabdock Home">
+        <meta property="og:description" content="A gateway to making effective use of surplus tablets.">
+        <meta property="og:url" content="https://192.168.3.57/home/">
+        <meta property="og:type" content="website">
+
     </head>
 
     <body class="h-screen bg-gray-900 text-white overflow-hidden">
@@ -27,9 +34,16 @@
                 <h2 class="text-lg font-semibold mb-4">メニュー</h2>
                 <ul class="space-y-3">
                     <li>
-                        <button id="openWallpaperModal" class="w-full text-left px-4 py-2 bg-white/20 hover:bg-white/30 rounded transition">
-                            壁紙の設定
-                        </button>
+                        <div class="mb-2">
+                            <button id="openWallpaperSettingsBtn" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                                壁紙の設定
+                            </button>
+                        </div>
+                        <div class="mb-2">
+                            <button id="openWallpaperAdvancedBtn" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                                背景の詳細設定
+                            </button>
+                        </div>
                     </li>
                 </ul>
                 <div class="mt-4 text-right">
@@ -85,6 +99,26 @@
             </div>
         </div>
   
+        <div id="wallpaperAdvancedModal" class="hidden fixed inset-0 bg-black/60 flex justify-center items-center z-50">
+            <div class="bg-white/30 backdrop-blur-md rounded-xl p-6 w-full max-w-md text-white">
+                <h2 class="text-xl font-bold mb-4">背景の詳細設定</h2>
+            
+                <div class="mb-4">
+                    <label for="brightnessSlider" class="block mb-1">明るさ</label>
+                    <input type="range" id="brightnessSlider" min="50" max="150" value="100" class="w-full">
+                </div>
+            
+                <div class="mb-4">
+                    <label for="blurSlider" class="block mb-1">ぼかし強度</label>
+                    <input type="range" id="blurSlider" min="0" max="20" value="10" class="w-full">
+                </div>
+            
+                <div class="text-right">
+                    <button id="closeWallpaperAdvancedModal" class="px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded">閉じる</button>
+                </div>
+            </div>
+        </div>
+          
         
         <!-- main contents-->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6">

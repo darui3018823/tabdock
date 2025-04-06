@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type responseWriterWithStatus struct {
@@ -48,8 +50,39 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
+// クライアントIPを取得する関数
+func getClientIP(r *http.Request) string {
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+
+	if strings.Contains(ip, ":") {
+		host, _, err := net.SplitHostPort(ip)
+		if err == nil {
+			return host
+		}
+	}
+	return ip
+}
+
+// ログ出力ミドルウェア
+func logMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := getClientIP(r)
+		path := r.URL.Path
+		method := r.Method
+		ua := r.Header.Get("User-Agent")
+		t := time.Now().Format("2006/01/02 15:04:05")
+
+		log.Printf("[%s] IP: %s | Method: %s | Path: %s | UA: %s", t, ip, method, path, ua)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	mux := http.NewServeMux()
+	loggedMux := logMiddleware(mux)
 
 	// main page!
 	mux.Handle("/main/", withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))))
@@ -70,7 +103,7 @@ func main() {
 	})
 
 	log.Println("Serving on https://127.0.0.1:443 ...")
-	err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
+	err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", loggedMux)
 	if err != nil {
 		log.Fatal("HTTPS Server error:", err)
 	}
