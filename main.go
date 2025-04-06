@@ -26,6 +26,20 @@ type PCStatus struct {
 	DriveE  string `json:"driveE"`
 }
 
+type Forecast struct {
+	Date    string `json:"date"`
+	Label   string `json:"label"`
+	Telop   string `json:"telop"`
+	TempMin string `json:"temp_min"`
+	TempMax string `json:"temp_max"`
+	Detail  string `json:"detail"`
+}
+
+type WeatherResponse struct {
+	City      string     `json:"city"`
+	Forecasts []Forecast `json:"forecasts"`
+}
+
 func (rw *responseWriterWithStatus) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
@@ -44,6 +58,7 @@ func main() {
 
 	// apis
 	mux.HandleFunc("/api/status", handleStatusAPI)
+	http.HandleFunc("/api/weather", handleWeather)
 
 	// ルートアクセス時 → /home/ にリダイレクト
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -112,4 +127,40 @@ func getPCStatus() (*PCStatus, error) {
 		return nil, err
 	}
 	return &status, nil
+}
+
+func handleWeather(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	response := WeatherResponse{
+		City: "名瀬",
+		Forecasts: []Forecast{
+			{
+				Date:    "2025-04-06",
+				Label:   "今日",
+				Telop:   "くもりのち晴れ",
+				TempMin: "--",
+				TempMax: "21",
+				Detail:  "曇りで夕方から晴れ、一部で雨の可能性あり。",
+			},
+			{
+				Date:    "2025-04-07",
+				Label:   "明日",
+				Telop:   "晴れ",
+				TempMin: "17",
+				TempMax: "22",
+				Detail:  "晴れの予報。風は北から東へ変わる見込み。",
+			},
+			{
+				Date:    "2025-04-08",
+				Label:   "明後日",
+				Telop:   "晴時々曇",
+				TempMin: "8",
+				TempMax: "23",
+				Detail:  "晴れ時々曇り。昼頃に一時的に曇る時間帯があるかも。",
+			},
+		},
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
