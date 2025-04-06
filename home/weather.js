@@ -38,6 +38,10 @@ async function fetchWeather() {
         const tomorrowTempEl = document.getElementById("weather-tomorrow-temp");
         const tomorrowTelopEl = document.getElementById("weather-tomorrow-telop");
 
+        const parsed = JSON.parse(data.body.main_data);
+        weatherDetailData = parsed.forecasts;
+        weatherOverview = parsed.description.bodyText || "";
+
         if (todayTempEl && todayTelopEl) {
             todayTempEl.textContent =
                 (forecasts[0].temperature.max.celsius || "--") + "℃ / " +
@@ -84,50 +88,35 @@ function setWeatherDetailEvents() {
     }
 }
 
-
-function showDetail(dayKey) {
-    if (!weatherDetailData || !Array.isArray(weatherDetailData)) return;
-
-    let index = 0;
-    let label = "今日";
-
-    if (dayKey === "tomorrow") {
-        index = 1;
-        label = "明日";
-    } else if (dayKey === "dayafter") {
-        index = 2;
-        label = "明後日";
-    }
-
-    const data = weatherDetailData[index];
-    const parsed = weatherDetailParsedData;  // global変数（fetchで代入してる場合）
-
-    const detail = data.detail;
-    const overview = parsed?.description?.bodyText?.trim();
-    if (!overview) {
-        console.warn("概況（bodyText）が見つかりません。", parsed.description);
-    }
-
+function showDetail(key, label, detail, overview) {
+    const modal = document.getElementById("modal");
     const modalTitle = document.getElementById("modalTitle");
     const modalText = document.getElementById("modalText");
 
+    if (!modal || !modalTitle || !modalText) {
+        console.error("Modal elements not found");
+        return;
+    }
+
+    // タイトル更新
     modalTitle.textContent = `${label} の天気の詳細`;
 
+    // モーダル内容組み立て
     modalText.innerHTML = `
-    <div class="text-base leading-relaxed space-y-2">
-        <p><strong>天気:</strong> ${detail.weather || "情報なし"}</p>
-        <p><strong>風:</strong> ${detail.wind || "情報なし"}</p>
-        <p><strong>波:</strong> ${detail.wave || "情報なし"}</p>
-    </div>
-    <hr class="my-3 border-gray-600" />
-    <div class="text-sm text-gray-300 whitespace-pre-wrap">
+        <p><strong>天気:</strong> ${detail.weather}</p>
+        <p><strong>風:</strong> ${detail.wind}</p>
+        <p><strong>波:</strong> ${detail.wave}</p>
+        <hr class="my-2 border-gray-600" />
         <p><strong>概況:</strong><br>${overview || "情報なし"}</p>
-    </div>
     `;
 
-    document.getElementById("modal").classList.remove("hidden");
+    modal.classList.remove("hidden");
 }
 
+// モーダル閉じる処理
+document.getElementById("modalCloseBtn")?.addEventListener("click", () => {
+    document.getElementById("modal")?.classList.add("hidden");
+});
 
 
 function closeModal() {
