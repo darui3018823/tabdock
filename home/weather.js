@@ -2,11 +2,11 @@ let weatherDetailData = [];
 let weatherData = null;
 let weatherDetailParsedData = {};
 
-
 async function fetchWeather() {
     const pref = getCookie("prefname");
     const city = getCookie("cityname");
     if (!pref || !city) return;
+    document.getElementById("weather-title").textContent = `天気予報（地域：${pref}、${city}）`;
 
     try {
         const response = await fetch("/api/weather", {
