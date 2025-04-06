@@ -145,25 +145,61 @@ document.addEventListener("DOMContentLoaded", () => {
     brightnessSlider.oninput = updateWallpaperFilter;
     blurSlider.oninput = updateWallpaperFilter;
     
+    const brightnessValue = document.getElementById("brightnessValue");
+    const blurValue = document.getElementById("blurValue");
+    const resetBtn = document.getElementById("resetBackgroundSettings");
+
+    // スライダー連動表示
+    brightnessSlider.addEventListener("input", () => {
+    brightnessValue.textContent = `${brightnessSlider.value}%`;
+    document.body.style.filter = `brightness(${brightnessSlider.value}%) blur(${blurSlider.value}px)`;
+    });
+
+    blurSlider.addEventListener("input", () => {
+    blurValue.textContent = `${blurSlider.value}%`;
+    document.body.style.filter = `brightness(${brightnessSlider.value}%) blur(${blurSlider.value}px)`;
+    });
+
+    // デフォルトに戻す
+    resetBtn.addEventListener("click", () => {
+    brightnessSlider.value = 100;
+    blurSlider.value = 0;
+    brightnessValue.textContent = `100%`;
+    blurValue.textContent = `0%`;
+    document.body.style.filter = `brightness(100%) blur(0px)`;
+    });
+
+    
     async function loadWallpapers() {
-        const response = await fetch("/api/list-wallpapers");
-        const data = await response.json();
+        try {
+            const response = await fetch("/api/list-wallpapers");
+            const data = await response.json();
     
-        if (data.status !== "success") return;
+            const presetWallpapers = document.getElementById("presetWallpapers");
+            presetWallpapers.innerHTML = ""; // 一度クリア
     
-        const container = document.getElementById("presetWallpapers");
-        container.innerHTML = ""; // 一度クリア
+            if (!data.images || data.images.length === 0) {
+                presetWallpapers.innerHTML = "<p class='text-sm text-gray-300'>画像が見つかりませんでした。</p>";
+                return;
+            }
     
-        data.images.forEach(imgPath => {
-            const img = document.createElement("img");
-            img.src = `/home/wallpapers/${fileName}`; // ここで初めてパスをつける
-            img.alt = imgPath;
-            img.className = "rounded cursor-pointer hover:ring-2 ring-white";
-            img.onclick = () => {
-                document.body.style.backgroundImage = `url(${img.src})`;
-            };
-            container.appendChild(img);
-        });
+            data.images.forEach((path) => {
+                const fileName = path.split("/").pop(); // ファイル名の抽出
+                const img = document.createElement("img");
+                img.src = "/" + path.replace(/\\/g, "/"); // スラッシュ統一
+                img.alt = fileName;
+                img.className = "rounded cursor-pointer hover:ring-2 ring-white";
+                img.onclick = () => {
+                    document.body.style.backgroundImage = `url('${img.src}')`;
+                    // 必要ならここで Cookie や localStorage に保存も可能
+                };
+                presetWallpapers.appendChild(img);
+            });
+    
+        } catch (error) {
+            console.error("壁紙の読み込み中にエラーが発生しました:", error);
+        }
     }
+    
     
 });
