@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.warn(`モーダルの要素が見つかりません: modal-${day} または modal-${day}-content`);
         }
     }
+    window.showDetail = showDetail;
     
     function closeModal(day) {
         const modal = document.getElementById(`modal-${day}`);
@@ -24,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.warn(`閉じようとしたモーダルが見つかりません: modal-${day}`);
         }
     }
+    window.closeModal = closeModal;
     
 
     function fetchWeather() {
