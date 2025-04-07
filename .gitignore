@@ -27,6 +27,7 @@ go.work.sum
 tabdock.key
 tabdock.crt
 .gitignore
+trusted_ips.json
 Releases/
 home/wallpapers/
 log/
