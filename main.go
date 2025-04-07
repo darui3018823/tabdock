@@ -112,18 +112,18 @@ func main() {
 	loggedMux := logMiddleware(mux)
 
 	// main page!
-	mux.Handle("/main/", withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))))
-	mux.Handle("/home/", withSlashAndErrorHandler(http.StripPrefix("/home/", http.FileServer(http.Dir("./home")))))
+	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
+	mux.Handle("/home/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/home/", http.FileServer(http.Dir("./home")))).ServeHTTP))
 
 	// Error Pages
-	mux.Handle("/error/404/", http.StripPrefix("/error/404/", http.FileServer(http.Dir("./error/404")))) // Not Found
-	mux.Handle("/error/503/", http.StripPrefix("/error/503/", http.FileServer(http.Dir("./error/503")))) // Service Unavailable
+	mux.Handle("/error/404/", secureHandler(http.StripPrefix("/error/404/", http.FileServer(http.Dir("./error/404"))).ServeHTTP)) // Not Found
+	mux.Handle("/error/503/", secureHandler(http.StripPrefix("/error/503/", http.FileServer(http.Dir("./error/503"))).ServeHTTP)) // Service Unavailable
 
 	// apis
-	mux.HandleFunc("/api/status", handleStatusAPI)
-	mux.HandleFunc("/api/weather", handleWeather)
-	mux.HandleFunc("/api/upload-wallpaper", handleWallpaperUpload)
-	mux.HandleFunc("/api/list-wallpapers", listWallpapersHandler)
+	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
+	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
+	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
+	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
