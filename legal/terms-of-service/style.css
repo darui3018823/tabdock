@@ -1,0 +1,18 @@
+.omgfooter {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    padding: 10px;
+    color: #666; /* 灰色 */
+    font-size: 0.8em;
+    text-align: right;
+    background-color: transparent;
+}
+
+.lastupdate {
+    position: absolute;
+    top: -25px; /* アコーディオンの上に配置 */
+    right: 10px; /* 右上の位置 */
+    font-size: 1.1em;
+    color: #222;
+}
