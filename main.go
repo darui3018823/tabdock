@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -12,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 type responseWriterWithStatus struct {
@@ -68,48 +66,8 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
-func logToFile(ip, content string) error {
-	now := time.Now()
-	date := now.Format("2006-01-02")
-	fileName := fmt.Sprintf("%s_%s.log", ip, date)
-	logDir := "./log"
-
-	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-		return err
-	}
-
-	fullPath := filepath.Join(logDir, fileName)
-	f, err := os.OpenFile(fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.WriteString(content)
-	return err
-}
-
-func logMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := getClientIP(r)
-		method := r.Method
-		path := r.URL.Path
-		ua := r.UserAgent()
-		t := time.Now().Format("2006/01/02 15:04:05")
-
-		logLine := fmt.Sprintf("[%s] %s %s UA: %s\n", t, method, path, ua)
-		fmt.Print("ログ出力 → ", logLine)
-
-		// ログファイルに出力
-		_ = logToFile(ip, logLine)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 func main() {
 	mux := http.NewServeMux()
-	loggedMux := logMiddleware(mux)
 
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
@@ -129,13 +87,17 @@ func main() {
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
+	// test
+	mux.Handle("/test/log", secureTestHandler(secureHandler(http.HandlerFunc(handleTestLog))))
+	mux.Handle("/test/", secureTestHandler(secureHandler(withSlashAndErrorHandler(http.StripPrefix("/test/", http.FileServer(http.Dir("./test")))).ServeHTTP)))
+
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/home/", http.StatusFound)
 	})
 
 	log.Println("Serving on https://127.0.0.1:443 ...")
-	err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", loggedMux)
+	err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
 	if err != nil {
 		log.Fatal("HTTPS Server error:", err)
 	}

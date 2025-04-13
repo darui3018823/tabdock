@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -11,10 +12,18 @@ import (
 	"time"
 )
 
-// 信頼済みIPの定義
 var trustedCIDRs []*net.IPNet
 var scoreFile = "ip_scores.json"
 var ipScores = map[string]int{}
+var blockedDirectIPs = []string{""}
+
+func init() {
+	err := loadTrustedIPs("trusted_ips.json")
+	if err != nil {
+		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
+		os.Exit(1)
+	}
+}
 
 func loadTrustedIPs(filepath string) error {
 	file, err := os.Open(filepath)
@@ -34,20 +43,15 @@ func loadTrustedIPs(filepath string) error {
 	for _, cidr := range data.Trusted {
 		_, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			// 単一IPの場合（例: "127.0.0.1"）
 			ip := net.ParseIP(cidr)
 			if ip != nil {
-				ipnet = &net.IPNet{
-					IP:   ip,
-					Mask: net.CIDRMask(32, 32),
-				}
+				ipnet = &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}
 			} else {
-				continue // 無効なIPはスキップ
+				continue
 			}
 		}
 		trustedCIDRs = append(trustedCIDRs, ipnet)
 	}
-
 	return nil
 }
 
@@ -64,57 +68,54 @@ func isTrustedIP(ipStr string) bool {
 	return false
 }
 
-// ロード
-func loadScores() {
-	data, err := os.ReadFile(scoreFile)
-	if err == nil {
-		json.Unmarshal(data, &ipScores)
-	}
-}
-
-// 保存
-func saveScores() {
-	data, _ := json.MarshalIndent(ipScores, "", "  ")
-	_ = os.WriteFile(scoreFile, data, 0644)
-}
-
-// スコア加算
-func incrementScore(ip string, amount int) {
-	ipScores[ip] += amount
-	saveScores()
-}
-
-// レベル取得
-func getLevel(ip string) string {
-	score := ipScores[ip]
-	if score >= 10 {
-		return "warn"
-	}
-	return "info"
-}
-
-// Cloudflareからかどうか判定
-func isFromCloudflare(r *http.Request) bool {
-	return r.Header.Get("CF-Connecting-IP") != "" || r.Header.Get("cf-ray") != ""
-}
-
-// 信頼IPかどうか
-func isTrusted(ip string) bool {
-	for _, trusted := range trustedCIDRs {
-		if trusted.Contains(net.ParseIP(ip)) {
+func isBlockedDirectIP(ip string) bool {
+	for _, blocked := range blockedDirectIPs {
+		if ip == blocked {
 			return true
 		}
 	}
 	return false
 }
 
-// User-Agent の判定
+func isPrivateOrLoopback(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed.IsLoopback() || parsed.IsPrivate()
+}
+
+func loadScores() {
+	data, err := os.ReadFile(scoreFile)
+	if err == nil {
+		_ = json.Unmarshal(data, &ipScores)
+	}
+}
+
+func saveScores() {
+	data, _ := json.MarshalIndent(ipScores, "", "  ")
+	_ = os.WriteFile(scoreFile, data, 0644)
+}
+
+func incrementScore(ip string, amount int) {
+	ipScores[ip] += amount
+	saveScores()
+}
+
+func getLevel(ip string) string {
+	score := ipScores[ip]
+	if score >= 15 {
+		return "block"
+	} else if score >= 10 {
+		return "warn"
+	}
+	return "info"
+}
+
+func isFromCloudflare(r *http.Request) bool {
+	return r.Header.Get("CF-Connecting-IP") != "" || r.Header.Get("cf-ray") != ""
+}
+
 func detectSuspiciousUA(ua string) string {
 	lower := strings.ToLower(ua)
-	if ua == "" {
-		return "deny"
-	}
-	if strings.Contains(lower, "sqlmap") || strings.Contains(lower, "nessus") {
+	if ua == "" || strings.Contains(lower, "sqlmap") || strings.Contains(lower, "nessus") || strings.Contains(lower, "acunetix") {
 		return "deny"
 	}
 	if strings.Contains(lower, "curl") || strings.Contains(lower, "python") || strings.Contains(lower, "bot") {
@@ -123,68 +124,124 @@ func detectSuspiciousUA(ua string) string {
 	return "ok"
 }
 
-// ログ保存
-func logRequest(r *http.Request, ip string, level string) {
-	now := time.Now().Format("[2006/01/02 15:04:05]")
-	logLine := fmt.Sprintf("%s %s %s UA: %s ReqIP: %s\n",
-		now, r.Method, r.URL.Path, r.UserAgent(), ip)
+func isSuspiciousPath(path string) bool {
+	lower := strings.ToLower(path)
+	attackPatterns := []string{".php", ".env", ".bak", ".old", ".git", ".htaccess", "wp-", "admin", "login"}
+	for _, pattern := range attackPatterns {
+		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+	return false
+}
 
+func logRequest(r *http.Request, ip, level string) {
+	now := time.Now().Format("[2006/01/02 15:04:05]")
+	msg := fmt.Sprintf("%s [%s] %s %s UA: %s ReqIP: %s\n", now, strings.ToUpper(level), r.Method, r.URL.Path, r.UserAgent(), ip)
 	dir := fmt.Sprintf("./log/%s/%s", level, ip)
 	_ = os.MkdirAll(dir, fs.ModePerm)
 	path := fmt.Sprintf("%s/%s.log", dir, time.Now().Format("2006-01-02"))
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer f.Close()
-		f.WriteString(logLine)
+		f.WriteString(msg)
+	}
+	if level == "warn" || level == "attack" {
+		go sendDiscordWebhook(ip, level, r.Method, r.URL.Path, r.UserAgent())
 	}
 }
 
-// ミドルウェア的なログ処理
 func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := getIPAddress(r)
 		ua := r.UserAgent()
 		loadScores()
 
-		// UA判定
-		uaStatus := detectSuspiciousUA(ua)
-		level := getLevel(ip)
+		internalLevelBoost := 0
+		if !isFromCloudflare(r) {
+			internalLevelBoost += 2
+			if isPrivateOrLoopback(ip) {
+				internalLevelBoost -= 3
+			}
+		}
 
-		// UAがない
-		if uaStatus == "deny" {
-			incrementScore(ip, 5)
+		if isBlockedDirectIP(ip) {
+			incrementScore(ip, 5+internalLevelBoost)
 			logRequest(r, ip, "warn")
 			http.Redirect(w, r, "/error/403", http.StatusFound)
 			return
 		}
 
-		// 明らかに悪質
-		if uaStatus == "warn" {
-			incrementScore(ip, 3)
+		if isSuspiciousPath(r.URL.Path) {
+			incrementScore(ip, 5+internalLevelBoost)
+			logRequest(r, ip, "attack")
+			http.Redirect(w, r, "/error/403", http.StatusFound)
+			return
+		}
+
+		uaStatus := detectSuspiciousUA(ua)
+		if uaStatus == "deny" {
+			incrementScore(ip, 5+internalLevelBoost)
+			logRequest(r, ip, "warn")
+			http.Redirect(w, r, "/error/403", http.StatusFound)
+			return
+		} else if uaStatus == "warn" {
+			incrementScore(ip, 3+internalLevelBoost)
 			logRequest(r, ip, "warn")
 		} else {
-			logRequest(r, ip, level)
+			logRequest(r, ip, getLevel(ip))
 		}
 
-		// IPチェック
-		if !isTrusted(ip) && !isFromCloudflare(r) {
-			if strings.HasPrefix(ip, "60.") {
-				logRequest(r, ip, "warn")
-				http.Redirect(w, r, "/error/403", http.StatusFound)
-				return
-			}
+		if strings.HasPrefix(ip, "60.") && !isTrustedIP(ip) {
+			incrementScore(ip, 3+internalLevelBoost)
+			logRequest(r, ip, "warn")
+			http.Redirect(w, r, "/error/403", http.StatusFound)
+			return
 		}
 
-		// 次の処理へ
+		if isTrustedIP(ip) {
+			logRequest(r, ip, "info")
+		}
+
 		next(w, r)
 	}
 }
 
-// IP取得
 func getIPAddress(r *http.Request) string {
 	if cf := r.Header.Get("CF-Connecting-IP"); cf != "" {
 		return cf
 	}
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
 	return ip
+}
+
+func sendDiscordWebhook(ip, level, method, path, ua string) {
+	webhookURL := os.Getenv("DISCORD_WEBHOOK_URL") // 環境変数から取得
+	if webhookURL == "" {
+		fmt.Println("DISCORD_WEBHOOK_URL が設定されていません")
+		return
+	}
+
+	color := 0xFFCC00
+	if level == "attack" {
+		color = 0xFF0000
+	}
+
+	content := fmt.Sprintf("```%s %s %s\nUA: %s\nIP: %s```", strings.ToUpper(level), method, path, ua, ip)
+
+	payload := map[string]interface{}{
+		"embeds": []map[string]interface{}{
+			{
+				"title":       fmt.Sprintf("[ALERT] %s アクセス検出", strings.ToUpper(level)),
+				"description": content,
+				"color":       color,
+			},
+		},
+	}
+
+	jsonPayload, _ := json.Marshal(payload)
+	http.Post(webhookURL, "application/json", bytes.NewBuffer(jsonPayload))
 }
