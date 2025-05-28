@@ -87,10 +87,6 @@ func main() {
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
-	// test
-	mux.Handle("/test/log", secureTestHandler(secureHandler(http.HandlerFunc(handleTestLog))))
-	mux.Handle("/test/", secureTestHandler(secureHandler(withSlashAndErrorHandler(http.StripPrefix("/test/", http.FileServer(http.Dir("./test")))).ServeHTTP)))
-
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/home/", http.StatusFound)
