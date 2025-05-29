@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  tabdock:
+    build: .
+    volumes:
+      - ./error:/app/error
+      - ./log:/app/log
+      - ./Python:/app/Python
+      - ./home/wallpapers:/app/home/wallpapers
+      - ./home/icons/refresh.png:/app/home/icons/refresh.png
+      - ./get_status.exe:/app/get_status.exe
+      - ./.gitignore:/app/.gitignore
+      - ./trusted_ips.json:/app/trusted_ips.json
+      - ./test.go:/app/test.go
+      - ./README.md:/app/README.md
+      - ./LICENSE:/app/LICENSE
+    restart: unless-stopped
+    environment:
+      - CLEAR_CACHE=0

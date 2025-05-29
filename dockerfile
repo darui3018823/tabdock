@@ -1,7 +1,7 @@
 FROM alpine:latest
+WORKDIR /app
 
-COPY dist/tabdock_linux_amd64 /usr/local/bin/tabdock
+COPY dist/tabdock_linux_amd64 ./tabdock
+RUN chmod +x ./tabdock
 
-RUN chmod +x /usr/local/bin/tabdock
-
-ENTRYPOINT ["/usr/local/bin/tabdock"]
+ENTRYPOINT ["./tabdock"]
