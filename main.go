@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -138,14 +139,22 @@ func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func getPCStatus() (*PCStatus, error) {
-	cmd := exec.Command("./get_status.exe")
+	var cmd *exec.Cmd
+
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("./get_status.exe")
+	} else {
+		// Linux/macOS 用: Pythonスクリプトを呼び出し
+		cmd = exec.Command("python3", "Python/get_status.py")
+	}
+
 	output, err := cmd.Output()
 	if err != nil {
 		log.Println("Command execution failed:", err)
 		return nil, err
 	}
 
-	log.Println("== get_status.exe output ==")
+	log.Println("== get_status output ==")
 	log.Println(string(output))
 
 	var status PCStatus
