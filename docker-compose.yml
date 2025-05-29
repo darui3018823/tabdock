@@ -4,6 +4,9 @@ services:
     build: .
     ports:
       - "8082:8082"
+    environment:
+      - DOCKER_PORT=8082
+      - CLEAR_CACHE=0
     volumes:
       - ./error:/app/error
       - ./log:/app/log
@@ -17,5 +20,3 @@ services:
       - ./README.md:/app/README.md
       - ./LICENSE:/app/LICENSE
     restart: unless-stopped
-    environment:
-      - CLEAR_CACHE=0
