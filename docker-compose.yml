@@ -2,6 +2,8 @@ version: "3.8"
 services:
   tabdock:
     build: .
+    ports:
+      - "8082:8082"
     volumes:
       - ./error:/app/error
       - ./log:/app/log

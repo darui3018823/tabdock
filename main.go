@@ -67,6 +67,23 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
+func serve(mux http.Handler) {
+	port := os.Getenv("DOCKER_PORT")
+	if port != "" {
+		log.Println("Dockerモードで起動：HTTP on port", port)
+		err := http.ListenAndServe(":"+port, mux)
+		if err != nil {
+			log.Fatal("HTTP Server error:", err)
+		}
+	} else {
+		log.Println("Serving on https://127.0.0.1:443 ...")
+		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
+		if err != nil {
+			log.Fatal("HTTPS Server error:", err)
+		}
+	}
+}
+
 func main() {
 	mux := http.NewServeMux()
 
@@ -93,11 +110,7 @@ func main() {
 		http.Redirect(w, r, "/home/", http.StatusFound)
 	})
 
-	log.Println("Serving on https://127.0.0.1:443 ...")
-	err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
-	if err != nil {
-		log.Fatal("HTTPS Server error:", err)
-	}
+	serve(mux)
 }
 
 // ミドルウェア：スラッシュ補完＆エラーハンドラ
