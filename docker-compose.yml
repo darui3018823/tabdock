@@ -11,6 +11,7 @@ services:
       - ./error:/app/error
       - ./log:/app/log
       - ./Python:/app/Python
+      - ./home:/app/home
       - ./home/wallpapers:/app/home/wallpapers
       - ./home/icons/refresh.png:/app/home/icons/refresh.png
       - ./get_status.exe:/app/get_status.exe
