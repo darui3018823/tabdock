@@ -16,4 +16,5 @@ Remove-Item Env:GOARCH
 
 Write-Host "Build successful! The executable is located at ./dist/tabdock_win_amd64.exe"
 Write-Host "Running the application..."
+Write-Host "===================================================="
 ./dist/tabdock_win_amd64.exe

@@ -256,7 +256,7 @@ func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".jpg") || strings.HasSuffix(info.Name(), ".png")) {
+		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".jpg") || strings.HasSuffix(info.Name(), ".png")) || strings.HasSuffix(info.Name(), ".jpeg") || strings.HasSuffix(info.Name(), ".JPG") || strings.HasSuffix(info.Name(), ".gif") {
 			relPath := strings.TrimPrefix(path, "./home/")
 			relPath = strings.ReplaceAll(relPath, "\\", "/") // 追加！Windows対策
 			files = append(files, relPath)
