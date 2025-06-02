@@ -20,7 +20,7 @@ import (
 )
 
 // var
-var fallbackHolidays []map[string]string
+var fallbackHolidays map[string]string
 
 type responseWriterWithStatus struct {
 	http.ResponseWriter
@@ -84,8 +84,8 @@ func serve(mux http.Handler) {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
-		log.Println("Tabdock Version 2.3.5")
-		log.Println("Adding calendar functionality...")
+		log.Println("Tabdock Version 2.4.0")
+		log.Println("We plan to strengthen the integration of ToDo lists and calendars.")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
 		if err != nil {
@@ -276,13 +276,13 @@ func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func preloadHolidays() []map[string]string {
+func preloadHolidays() map[string]string {
 	// ローカルの祝日JSONを事前に読み込み
 	data, err := os.ReadFile("holidays_fallback.json")
 	if err != nil {
 		log.Fatalf("ローカル祝日データの読み込みに失敗: %v", err)
 	}
-	var holidays []map[string]string
+	var holidays map[string]string
 	if err := json.Unmarshal(data, &holidays); err != nil {
 		log.Fatalf("JSONパース失敗: %v", err)
 	}

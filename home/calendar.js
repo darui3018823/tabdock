@@ -1,40 +1,31 @@
-let today = new Date();
-let currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
-let holidayMap = {};
-
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
 
-document.getElementById("prevMonth").addEventListener("click", () => {
-    currentDate.setMonth(currentDate.getMonth() - 1);
-    renderCalendar();
-});
+let today = new Date();
+let currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+let selectedDate = null;
 
-document.getElementById("nextMonth").addEventListener("click", () => {
-    currentDate.setMonth(currentDate.getMonth() + 1);
-    renderCalendar();
-});
-
-window.addEventListener("DOMContentLoaded", async () => {
-    await fetchHolidayData();
-    renderCalendar();
-});
-
-async function fetchHolidayData() {
-    try {
-        const res = await fetch("/api/holidays");
-        holidayMap = await res.json();
-    } catch (e) {
-        console.error("祝日データの取得に失敗:", e);
-        holidayMap = {}; // fallback
-    }
-}
+// 祝日判定
+let holidayMap = {};
 
 function isHoliday(year, month, day) {
     const d = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return d in holidayMap;
 }
 
+
+async function fetchHolidayData() {
+    try {
+        const res = await fetch("/api/holidays");
+        holidayMap = await res.json();
+    } catch (e) {
+        console.error("祝日取得失敗:", e);
+        holidayMap = {}; // fallback: 無祝日モード
+    }
+}
+
+
+// カレンダー描画
 function renderCalendar() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -42,49 +33,56 @@ function renderCalendar() {
 
     const firstDay = new Date(year, month, 1).getDay();
     const lastDate = new Date(year, month + 1, 0).getDate();
+
     calendarGrid.innerHTML = "";
 
     let totalCells = 35;
-    let day = 1;
+    const totalNeeded = firstDay + lastDate;
 
+    let day = 1;
     for (let i = 0; i < totalCells; i++) {
         const cell = document.createElement("div");
 
         if (i >= firstDay && day <= lastDate) {
+            const isFinalWeek = i >= 28;
             const remaining = lastDate - day + 1;
 
-            // 最終マスで残り2日を合成
             if (i === 34 && remaining === 2) {
+                // 最後の2日を1マスに収める
                 const nextDay = day + 1;
                 cell.innerHTML = `
                     <div>${day}</div>
                     <div class="text-white/50 text-xs">${nextDay}</div>
                 `;
-                applyCellStyle(cell, i % 7, year, month, day);
-                cell.addEventListener("click", () => renderSchedule(getDateStr(year, month, day)));
+                cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition text-sm leading-tight";
+                applyColor(cell, i % 7, year, month, day);
+
+                const mainDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                cell.addEventListener("click", () => renderSchedule(mainDateStr));
+
                 calendarGrid.appendChild(cell);
-                break;
+                day += 2;
+                continue;
             }
 
+            // 通常表示
             cell.textContent = day;
-            applyCellStyle(cell, i % 7, year, month, day);
-            cell.addEventListener("click", () => renderSchedule(getDateStr(year, month, day)));
+            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition";
+            applyColor(cell, i % 7, year, month, day);
+
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            cell.addEventListener("click", () => renderSchedule(dateStr));
+
             calendarGrid.appendChild(cell);
             day++;
         } else {
-            const blank = document.createElement("div");
-            calendarGrid.appendChild(blank);
+            calendarGrid.appendChild(document.createElement("div")); // 空白
         }
     }
 }
 
-function applyCellStyle(cell, weekday, year, month, day) {
-    cell.className = `
-        flex flex-col justify-center items-center
-        min-h-[36px] p-1 text-sm leading-tight
-        rounded cursor-pointer hover:bg-white/20 transition
-    `.trim();
-
+// 曜日色＆今日判定
+function applyColor(cell, weekday, year, month, day) {
     if (weekday === 0 || isHoliday(year, month, day)) {
         cell.classList.add("text-red-400");
     } else if (weekday === 6) {
@@ -100,6 +98,18 @@ function applyCellStyle(cell, weekday, year, month, day) {
     }
 }
 
-function getDateStr(year, month, day) {
-    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
+
+// 月移動
+document.getElementById("prevMonth").addEventListener("click", () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+});
+document.getElementById("nextMonth").addEventListener("click", () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+});
+
+window.addEventListener("DOMContentLoaded", async () => {
+    await fetchHolidayData();
+    renderCalendar();
+});
