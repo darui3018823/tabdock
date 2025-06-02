@@ -16,7 +16,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
+
+// var
+var fallbackHolidays []map[string]string
 
 type responseWriterWithStatus struct {
 	http.ResponseWriter
@@ -80,6 +84,8 @@ func serve(mux http.Handler) {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
+		log.Println("Tabdock Version 2.3.5")
+		log.Println("Adding calendar functionality...")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
 		if err != nil {
@@ -90,6 +96,8 @@ func serve(mux http.Handler) {
 
 func main() {
 	mux := http.NewServeMux()
+	// ローカルの祝日データを事前に読み込み
+	fallbackHolidays = preloadHolidays()
 
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
@@ -106,6 +114,7 @@ func main() {
 	// apis
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
+	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
@@ -265,4 +274,35 @@ func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"images": files,
 	})
+}
+
+func preloadHolidays() []map[string]string {
+	// ローカルの祝日JSONを事前に読み込み
+	data, err := os.ReadFile("holidays_fallback.json")
+	if err != nil {
+		log.Fatalf("ローカル祝日データの読み込みに失敗: %v", err)
+	}
+	var holidays []map[string]string
+	if err := json.Unmarshal(data, &holidays); err != nil {
+		log.Fatalf("JSONパース失敗: %v", err)
+	}
+	return holidays
+}
+
+func holidaysHandler(w http.ResponseWriter, r *http.Request) {
+	const remoteURL = "https://holidays-jp.github.io/api/v1/date.json"
+
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(remoteURL)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		w.Header().Set("Content-Type", "application/json")
+		io.Copy(w, resp.Body)
+		return
+	}
+
+	// 外部取得失敗 → fallback
+	log.Println("外部APIからの取得に失敗。ローカルデータを返します。")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(fallbackHolidays)
 }
