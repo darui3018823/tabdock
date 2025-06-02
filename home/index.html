@@ -184,6 +184,39 @@
                 </div>
             </div>
 
+            <!-- カレンダー -->
+            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <button id="prevMonth" class="text-lg font-bold hover:text-gray-300">&lt;</button>
+                    <div id="currentMonth" class="text-md font-semibold">2025年6月</div>
+                    <button id="nextMonth" class="text-lg font-bold hover:text-gray-300">&gt;</button>
+                </div>
+
+                <!-- 曜日 -->
+                <div class="grid grid-cols-7 text-center text-sm font-semibold text-white/70 mb-1">
+                    <div class="text-red-400">日</div>
+                    <div>月</div>
+                    <div>火</div>
+                    <div>水</div>
+                    <div>木</div>
+                    <div>金</div>
+                    <div class="text-blue-400">土</div>
+                </div>
+
+                <div id="calendarGrid" class="grid grid-cols-7 grid-rows-5 text-center gap-1 text-sm font-mono text-white/90"></div>
+            </div>
+
+
+            <!-- 予定リスト -->
+            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col relative">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-md font-semibold">予定リスト</h2>
+                    <button id="upcomingBtn" class="text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition">直近の予定</button>
+                </div>
+                <ul id="scheduleList" class="text-sm font-mono space-y-2 text-white/90">
+                    <li class="text-white/50">日付を選択してください</li>
+                </ul>
+            </div>
 
 
             <!-- 以下はモーダル-->
@@ -224,5 +257,6 @@
         <script src="script.js" defer></script>
         <script src="weather.js" defer></script>
         <script src="menu.js" defer></script>
+        <script src="calendar.js"></script>
     </body>
 </html>
