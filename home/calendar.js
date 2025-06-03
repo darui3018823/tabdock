@@ -70,6 +70,11 @@ const schedules = [
 
 function renderSchedule(dateStr) {
     selectedDate = dateStr;
+
+    const targetDate = new Date(dateStr);
+    const titleElem = document.getElementById("scheduleTitle");
+    titleElem.textContent = `${targetDate.getMonth() + 1}/${targetDate.getDate()} - 予定リスト`;
+
     const filtered = schedules.filter(e => e.date === dateStr);
     scheduleList.innerHTML = "";
 
@@ -83,23 +88,21 @@ function renderSchedule(dateStr) {
 
     for (const sched of filtered) {
         const li = document.createElement("li");
-        li.classList.add("mb-2");
-
-        const line1 = sched.time
-            ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
-            : "(時間未定)";
-
-        const line2 = sched.title || "無題の予定";
+        li.className = "flex justify-between items-start";
 
         const content = document.createElement("div");
+        const timeStr = sched.time && sched.endTime
+            ? `${sched.time}~${sched.endTime}`
+            : sched.time || "終日";
+
         content.innerHTML = `
-            <div class="text-sm font-semibold">${line1}</div>
-            <div class="text-xs text-white/70">${line2}</div>
+            <div class="font-semibold">${timeStr} - ${sched.title}</div>
+            <div class="text-xs text-white/70">${sched.description || ""}</div>
         `;
 
         const detailBtn = document.createElement("button");
         detailBtn.textContent = "詳細";
-        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2";
+        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2 mt-1";
         detailBtn.addEventListener("click", () => showScheduleDetail(sched));
 
         li.appendChild(content);
@@ -107,7 +110,6 @@ function renderSchedule(dateStr) {
         scheduleList.appendChild(li);
     }
 }
-
 
 document.getElementById("upcomingBtn").addEventListener("click", () => {
     const now = new Date();
@@ -193,7 +195,7 @@ document.getElementById("addScheduleBtn").addEventListener("click", async () => 
     const date = document.getElementById("scheduleDate").value;
     const time = document.getElementById("scheduleTime").value;
     const title = document.getElementById("scheduleTitle").value;
-    const location = document.getElementById("scheduleLocation").value;
+    const rawLocation = document.getElementById("scheduleLocation").value.trim();
     const description = document.getElementById("scheduleDesc").value;
     const embedmap = document.getElementById("scheduleEmbedMap").value;
     const attachmentFile = document.getElementById("scheduleAttachment").files[0];
@@ -203,9 +205,12 @@ document.getElementById("addScheduleBtn").addEventListener("click", async () => 
         return;
     }
 
-    const scheduleData = {
-        date, time, title, location, description, embedmap
-    };
+    let location = rawLocation;
+    if (rawLocation.startsWith("https://maps.app.goo.gl")) {
+        location = `<a href="${rawLocation}" class="text-blue-400 underline" target="_blank">Google Maps</a>`;
+    }
+
+    const scheduleData = { date, time, title, location, description, embedmap };
 
     const form = new FormData();
     form.append("json", JSON.stringify(scheduleData));
@@ -227,6 +232,7 @@ document.getElementById("addScheduleBtn").addEventListener("click", async () => 
     document.getElementById("scheduleModal").classList.add("hidden");
     if (selectedDate === date) renderSchedule(date);
 });
+
 
 async function loadSchedules() {
     try {
@@ -266,6 +272,20 @@ function showScheduleDetail(sched) {
         locationHTML = sched.location;
     }
 
+    const isImage = sched.attachment && /\.(jpe?g|png|gif|webp)$/i.test(sched.attachment);
+    const attachmentHTML = sched.attachment && sched.attachment !== "null" ? `
+        <div>
+            <div class="font-semibold text-white/80">添付</div>
+            <div class="break-all mb-2">
+                <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a>
+            </div>
+            ${isImage ? `
+            <div>
+                <img src="/home/assets/calendar/${sched.attachment}" alt="添付画像" class="max-w-full rounded border border-white/20">
+            </div>` : ""}
+        </div>
+    ` : "";
+
     const mapEmbed = sched.embedmap
         ? `<iframe src="${sched.embedmap}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
         : "";
@@ -289,12 +309,7 @@ function showScheduleDetail(sched) {
                     <div class="font-semibold text-white/80">メモ</div>
                     <div>${formattedDescription}</div>
                 </div>
-                ${sched.attachment ? `
-                    <div>
-                        <div class="font-semibold text-white/80">添付</div>
-                        <div><a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a></div>
-                    </div>
-                ` : ""}
+                ${attachmentHTML}
             </div>
             <div class="md:w-1/2">${mapEmbed}</div>
         </div>
@@ -302,6 +317,7 @@ function showScheduleDetail(sched) {
 
     document.getElementById("scheduleDetailModal").classList.remove("hidden");
 }
+
 
 document.getElementById("closeScheduleDetail").addEventListener("click", () => {
     document.getElementById("scheduleDetailModal").classList.add("hidden");
