@@ -136,6 +136,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // ここから追記
     const advModal = document.getElementById("wallpaperAdvancedModal");
     const closeAdvBtn = document.getElementById("closeWallpaperAdvancedModal");
+    if (closeAdvBtn) {
+        closeAdvBtn.onclick = () => {
+            document.getElementById("wallpaperAdvancedModal").classList.add("hidden");
+        };
+    }
     const applyAdvBtn = document.getElementById("applyWallpaperAdvanced");
 
     // 念のため存在チェックしてからイベント登録
