@@ -189,36 +189,44 @@ document.getElementById("closeScheduleModal").addEventListener("click", () => {
 });
 
 // 予定を追加
-document.getElementById("addScheduleBtn").addEventListener("click", () => {
+document.getElementById("addScheduleBtn").addEventListener("click", async () => {
     const date = document.getElementById("scheduleDate").value;
     const time = document.getElementById("scheduleTime").value;
     const title = document.getElementById("scheduleTitle").value;
+    const location = document.getElementById("scheduleLocation").value;
     const description = document.getElementById("scheduleDesc").value;
     const embedmap = document.getElementById("scheduleEmbedMap").value;
+    const attachmentFile = document.getElementById("scheduleAttachment").files[0];
 
     if (!date || !title) {
         alert("日付とタイトルは必須です");
         return;
     }
 
-    const newSchedule = { date, time, title, description, embedmap };
-    schedules.push(newSchedule);
+    const scheduleData = {
+        date, time, title, location, description, embedmap
+    };
 
     const form = new FormData();
-    form.append("json", JSON.stringify(newSchedule));
+    form.append("json", JSON.stringify(scheduleData));
+    if (attachmentFile) {
+        form.append("attachment", attachmentFile);
+    }
 
-    fetch("/api/schedule", {
+    const res = await fetch("/api/schedule", {
         method: "POST",
         body: form
     });
 
-    document.getElementById("scheduleModal").classList.add("hidden");
-
-    if (selectedDate === date) {
-        renderSchedule(date);
+    if (!res.ok) {
+        alert("予定の追加に失敗しました");
+        return;
     }
-});
 
+    schedules.push(scheduleData);
+    document.getElementById("scheduleModal").classList.add("hidden");
+    if (selectedDate === date) renderSchedule(date);
+});
 
 async function loadSchedules() {
     try {
