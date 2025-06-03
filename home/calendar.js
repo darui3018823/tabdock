@@ -148,6 +148,7 @@ document.getElementById("nextMonth").addEventListener("click", () => {
 
 window.addEventListener("DOMContentLoaded", async () => {
     await fetchHolidayData();
+    await loadSchedules(); // ← ここを追加
     renderCalendar();
 
     // 本日の予定を表示
@@ -157,6 +158,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     renderSchedule(todayStr);
 });
+
 
 
 // モーダル制御
@@ -188,6 +190,17 @@ document.getElementById("addScheduleBtn").addEventListener("click", () => {
         renderSchedule(date);
     }
 });
+
+async function loadSchedules() {
+    try {
+        const res = await fetch("/api/schedule");
+        const data = await res.json();
+        schedules.splice(0, schedules.length, ...data);
+    } catch (e) {
+        console.warn("予定読み込み失敗:", e);
+    }
+}
+
 
 function showScheduleDetail(sched) {
     const content = document.getElementById("scheduleDetailContent");

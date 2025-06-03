@@ -92,7 +92,7 @@ func serve(mux http.Handler) {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
-		log.Println("Tabdock Version 2.4.2")
+		log.Println("Tabdock Version 2.4.3")
 		log.Println("We plan to strengthen the integration of ToDo lists and calendars.")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
@@ -123,7 +123,7 @@ func main() {
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
-	mux.HandleFunc("/api/schedule", secureHandler(handleSchedulePost))
+	mux.HandleFunc("/api/schedule", secureHandler(handleSchedule))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
@@ -316,6 +316,17 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(fallbackHolidays)
 }
 
+func handleSchedule(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		handleScheduleGet(w, r)
+	case http.MethodPost:
+		handleSchedulePost(w, r)
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func handleSchedulePost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -388,4 +399,15 @@ func handleSchedulePost(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("OK"))
+}
+
+func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
+	data, err := os.ReadFile("./json/schedule.json")
+	if err != nil {
+		http.Error(w, "読み込み失敗", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
