@@ -40,46 +40,85 @@ function renderCalendar() {
     const totalNeeded = firstDay + lastDate;
 
     let day = 1;
-    for (let i = 0; i < totalCells; i++) {
-        const cell = document.createElement("div");
+    for (const sched of filtered) {
+    const li = document.createElement("li");
+    li.classList.add("flex", "justify-between", "items-start");
 
-        if (i >= firstDay && day <= lastDate) {
-            const isFinalWeek = i >= 28;
-            const remaining = lastDate - day + 1;
+    const content = document.createElement("div");
+    content.innerHTML = `
+        <div class="font-semibold">${sched.time} - ${sched.title}</div>
+        <div class="text-xs text-white/70">${sched.description || ""}</div>
+    `;
 
-            if (i === 34 && remaining === 2) {
-                // 最後の2日を1マスに収める
-                const nextDay = day + 1;
-                cell.innerHTML = `
-                    <div>${day}</div>
-                    <div class="text-white/50 text-xs">${nextDay}</div>
-                `;
-                cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition text-sm leading-tight";
-                applyColor(cell, i % 7, year, month, day);
+    const detailBtn = document.createElement("button");
+    detailBtn.textContent = "詳細";
+    detailBtn.className = "text-xs text-blue-400 hover:underline ml-2 mt-1";
+    detailBtn.addEventListener("click", () => showScheduleDetail(sched));
 
-                const mainDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                cell.addEventListener("click", () => renderSchedule(mainDateStr));
-
-                calendarGrid.appendChild(cell);
-                day += 2;
-                continue;
-            }
-
-            // 通常表示
-            cell.textContent = day;
-            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition";
-            applyColor(cell, i % 7, year, month, day);
-
-            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            cell.addEventListener("click", () => renderSchedule(dateStr));
-
-            calendarGrid.appendChild(cell);
-            day++;
-        } else {
-            calendarGrid.appendChild(document.createElement("div")); // 空白
-        }
+    li.appendChild(content);
+    li.appendChild(detailBtn);
+    scheduleList.appendChild(li);
     }
 }
+
+const scheduleList = document.getElementById("scheduleList");
+
+// 仮の予定データ
+const schedules = [
+    { date: "2025-06-03", title: "提出物締切", time: "17:00", description: "課題提出" },
+    { date: "2025-06-04", title: "定例ミーティング", time: "19:00", description: "プロジェクト進捗" },
+    { date: "2025-06-10", title: "通院", time: "09:30", description: "歯医者" },
+];
+
+function renderSchedule(dateStr) {
+    selectedDate = dateStr;
+    const filtered = schedules.filter(e => e.date === dateStr);
+    scheduleList.innerHTML = "";
+
+    if (filtered.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "この日には予定がありません";
+        li.className = "text-white/50";
+        scheduleList.appendChild(li);
+        return;
+    }
+
+    for (const sched of filtered) {
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <div class="font-semibold">${sched.time} - ${sched.title}</div>
+            <div class="text-xs text-white/70">${sched.description}</div>
+        `;
+        scheduleList.appendChild(li);
+    }
+}
+
+document.getElementById("upcomingBtn").addEventListener("click", () => {
+    const now = new Date();
+    const upcoming = schedules
+        .filter(e => new Date(e.date + "T" + (e.time || "00:00")) >= now)
+        .sort((a, b) => new Date(a.date + "T" + (a.time || "00:00")) - new Date(b.date + "T" + (b.time || "00:00")));
+
+    scheduleList.innerHTML = "";
+
+    if (upcoming.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "今後の予定はありません";
+        li.className = "text-white/50";
+        scheduleList.appendChild(li);
+        return;
+    }
+
+    for (const sched of upcoming.slice(0, 5)) { // 直近5件のみ表示（必要なら調整可）
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <div class="font-semibold">${sched.date} ${sched.time} - ${sched.title}</div>
+            <div class="text-xs text-white/70">${sched.description}</div>
+        `;
+        scheduleList.appendChild(li);
+    }
+});
+
 
 // 曜日色＆今日判定
 function applyColor(cell, weekday, year, month, day) {
@@ -112,4 +151,58 @@ document.getElementById("nextMonth").addEventListener("click", () => {
 window.addEventListener("DOMContentLoaded", async () => {
     await fetchHolidayData();
     renderCalendar();
+
+    // 本日の予定を表示
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    renderSchedule(todayStr);
+});
+
+
+// モーダル制御
+document.getElementById("openScheduleModal").addEventListener("click", () => {
+    document.getElementById("scheduleModal").classList.remove("hidden");
+    document.getElementById("menuModal").classList.add("hidden");
+});
+document.getElementById("closeScheduleModal").addEventListener("click", () => {
+    document.getElementById("scheduleModal").classList.add("hidden");
+});
+
+// 予定を追加
+document.getElementById("addScheduleBtn").addEventListener("click", () => {
+    const date = document.getElementById("scheduleDate").value;
+    const time = document.getElementById("scheduleTime").value;
+    const title = document.getElementById("scheduleTitle").value;
+    const description = document.getElementById("scheduleDesc").value;
+
+    if (!date || !title) {
+        alert("日付とタイトルは必須です");
+        return;
+    }
+
+    schedules.push({ date, time, title, description });
+    document.getElementById("scheduleModal").classList.add("hidden");
+
+    // 今見ている日と一致していれば更新
+    if (selectedDate === date) {
+        renderSchedule(date);
+    }
+});
+
+function showScheduleDetail(sched) {
+    const content = document.getElementById("scheduleDetailContent");
+    content.innerHTML = `
+        <p><strong>タイトル:</strong> ${sched.title}</p>
+        <p><strong>日付:</strong> ${sched.date}${sched.allday ? " (終日)" : ` ${sched.time}`}</p>
+        <p><strong>場所:</strong> ${sched.location || "未指定"}</p>
+        <p><strong>メモ:</strong><br>${sched.description || "なし"}</p>
+        ${sched.attachment ? `<p><strong>添付:</strong> <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a></p>` : ""}
+    `;
+    document.getElementById("scheduleDetailModal").classList.remove("hidden");
+}
+
+document.getElementById("closeScheduleDetail").addEventListener("click", () => {
+    document.getElementById("scheduleDetailModal").classList.add("hidden");
 });

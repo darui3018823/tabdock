@@ -9,25 +9,38 @@ import (
 	"encoding/json"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // var
 var fallbackHolidays map[string]string
+
+var (
+	schedulePath  = "./json/schedule.json"
+	calendarDir   = "./home/assets/calendar"
+	forbiddenExts = map[string]bool{
+		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
+		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
+	}
+	mutex sync.Mutex
+)
+
+// type
 
 type responseWriterWithStatus struct {
 	http.ResponseWriter
 	status int
 }
 
-// ステータス構造体（任意の値で拡張）
 type PCStatus struct {
 	PC      string `json:"pc"`
 	Battery string `json:"battery"`
@@ -54,25 +67,20 @@ type WeatherResponse struct {
 	Forecasts []Forecast `json:"forecasts"`
 }
 
+type Schedule struct {
+	Title       string `json:"title"`
+	Location    string `json:"location"`
+	Allday      bool   `json:"allday"`
+	Date        string `json:"date"` // YYYY-MM-DD
+	Time        string `json:"time,omitempty"`
+	Description string `json:"description"`
+	Attachment  string `json:"attachment,omitempty"`
+}
+
+// func
 func (rw *responseWriterWithStatus) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
-}
-
-// クライアントIPを取得する関数
-func getClientIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = r.RemoteAddr
-	}
-
-	if strings.Contains(ip, ":") {
-		host, _, err := net.SplitHostPort(ip)
-		if err == nil {
-			return host
-		}
-	}
-	return ip
 }
 
 func serve(mux http.Handler) {
@@ -84,7 +92,7 @@ func serve(mux http.Handler) {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
-		log.Println("Tabdock Version 2.4.1")
+		log.Println("Tabdock Version 2.4.2")
 		log.Println("We plan to strengthen the integration of ToDo lists and calendars.")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
@@ -115,6 +123,7 @@ func main() {
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
+	mux.HandleFunc("/api/schedule", secureHandler(handleSchedulePost))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
@@ -305,4 +314,78 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("外部APIからの取得に失敗。ローカルデータを返します。")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(fallbackHolidays)
+}
+
+func handleSchedulePost(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	err := r.ParseMultipartForm(10 << 20) // 10MB
+	if err != nil {
+		http.Error(w, "Form parse error", http.StatusBadRequest)
+		return
+	}
+
+	// JSONパート
+	jsonStr := r.FormValue("json")
+	var sched Schedule
+	if err := json.Unmarshal([]byte(jsonStr), &sched); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// 添付ファイル（任意）
+	file, handler, err := r.FormFile("attachment")
+	if err != nil && err != http.ErrMissingFile {
+		http.Error(w, "File error", http.StatusBadRequest)
+		return
+	}
+
+	if handler != nil {
+		defer file.Close()
+		ext := strings.ToLower(filepath.Ext(handler.Filename))
+		if forbiddenExts[ext] {
+			http.Error(w, "Forbidden file type", http.StatusBadRequest)
+			return
+		}
+
+		uuidName := uuid.New().String() + ext
+		outPath := filepath.Join(calendarDir, uuidName)
+
+		out, err := os.Create(outPath)
+		if err != nil {
+			http.Error(w, "Save failed", http.StatusInternalServerError)
+			return
+		}
+		defer out.Close()
+		io.Copy(out, file)
+
+		sched.Attachment = uuidName
+	}
+
+	// 書き込み（排他）
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var existing []Schedule
+	if data, err := os.ReadFile(schedulePath); err == nil {
+		json.Unmarshal(data, &existing)
+	}
+
+	existing = append(existing, sched)
+
+	f, err := os.Create(schedulePath)
+	if err != nil {
+		http.Error(w, "Write failed", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	enc.Encode(existing)
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("OK"))
 }

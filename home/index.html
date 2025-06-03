@@ -44,6 +44,11 @@
                                 背景の詳細設定
                             </button>
                         </div>
+                        <div class="mb-2">
+                            <button id="openScheduleModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                                予定を追加
+                            </button>
+                        </div>
                     </li>
                 </ul>
                 <div class="mt-4 text-right">
@@ -117,6 +122,21 @@
                 <div class="flex justify-between mt-4">
                     <button id="resetWallpaperEffect" class="bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-1 rounded">デフォルトに戻す</button>
                     <button class="px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded" id="closeEffectModal">閉じる</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+            <div class="bg-white/30 backdrop-blur-md text-white rounded-lg p-6 w-full max-w-md shadow-lg">
+                <h2 class="text-lg font-semibold mb-4">予定の追加</h2>
+                <input type="date" id="scheduleDate" class="w-full mb-2 p-2 rounded bg-white/20 border border-white/30" />
+                <input type="time" id="scheduleTime" class="w-full mb-2 p-2 rounded bg-white/20 border border-white/30" />
+                <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full mb-2 p-2 rounded bg-white/20 border border-white/30" />
+                <textarea id="scheduleDesc" placeholder="詳細" class="w-full mb-4 p-2 rounded bg-white/20 border border-white/30"></textarea>
+
+                <div class="flex justify-end space-x-2">
+                    <button id="closeScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
                 </div>
             </div>
         </div>
@@ -247,6 +267,19 @@
                     </div>
                 </div>
             </div>
+
+            <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                <div class="bg-gray-800 text-white rounded-lg p-6 max-w-lg w-full shadow-lg">
+                    <h2 class="text-xl font-bold mb-4">予定の詳細</h2>
+                    <div id="scheduleDetailContent" class="space-y-2 text-sm leading-relaxed">
+                    <!-- 内容がJSで挿入されます -->
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button id="closeScheduleDetail" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                    </div>
+                </div>
+            </div>
+
             
         </div>
 
@@ -257,6 +290,6 @@
         <script src="script.js" defer></script>
         <script src="weather.js" defer></script>
         <script src="menu.js" defer></script>
-        <script src="calendar.js"></script>
+        <script src="calendar.js" defer></script>
     </body>
 </html>
