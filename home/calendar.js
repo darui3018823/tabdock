@@ -83,17 +83,23 @@ function renderSchedule(dateStr) {
 
     for (const sched of filtered) {
         const li = document.createElement("li");
-        li.classList.add("flex", "justify-between", "items-start");
+        li.classList.add("mb-2");
+
+        const line1 = sched.time
+            ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
+            : "(時間未定)";
+
+        const line2 = sched.title || "無題の予定";
 
         const content = document.createElement("div");
         content.innerHTML = `
-            <div class="font-semibold">${sched.time} - ${sched.title}</div>
-            <div class="text-xs text-white/70">${sched.description || ""}</div>
+            <div class="text-sm font-semibold">${line1}</div>
+            <div class="text-xs text-white/70">${line2}</div>
         `;
 
         const detailBtn = document.createElement("button");
         detailBtn.textContent = "詳細";
-        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2 mt-1";
+        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2";
         detailBtn.addEventListener("click", () => showScheduleDetail(sched));
 
         li.appendChild(content);
@@ -101,6 +107,7 @@ function renderSchedule(dateStr) {
         scheduleList.appendChild(li);
     }
 }
+
 
 document.getElementById("upcomingBtn").addEventListener("click", () => {
     const now = new Date();
@@ -213,38 +220,74 @@ async function loadSchedules() {
 }
 
 
+function convertToEmbedURL(url) {
+    try {
+        const u = new URL(url);
+        if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
+            // 任意の形式: 実際にはAPIによって変える必要あり
+            return url.replace("/maps", "/maps/embed");
+        }
+    } catch (_) {}
+    return null;
+}
+
 function showScheduleDetail(sched) {
     const content = document.getElementById("scheduleDetailContent");
 
-    let locationHTML = "未指定";
-    let mapEmbed = "";
+    // 日付と時間の組み立て
+    let timeStr = sched.allday
+        ? "終日"
+        : `${sched.date}${sched.time ? ` ${sched.time}` : ""}${sched.endTime ? `~${sched.endTime}` : ""}`;
 
+    // メモの改行処理
+    const formattedDescription = (sched.description || "なし").replace(/\n/g, "<br>");
+
+    // 場所処理（埋め込みは後で対応可能）
+    let locationHTML = "未指定";
     if (sched.location && sched.location.startsWith("http")) {
-        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline">${sched.location}</a>`;
-        // iframeで埋め込み可能な場合だけ
-        const trustedDomains = ["google.com/maps", "openstreetmap.org"];
-        if (trustedDomains.some(domain => sched.location.includes(domain))) {
-            mapEmbed = `<iframe src="${sched.location}" class="w-full h-64 rounded-md border border-white/20 mt-2"></iframe>`;
-        }
+        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline break-all">${sched.location}</a>`;
     } else if (sched.location) {
         locationHTML = sched.location;
     }
 
+    // 左右分割（今は左だけフォーカス）
     content.innerHTML = `
-        <div class="flex flex-col md:flex-row gap-6">
-            <div class="md:w-1/2 space-y-2 text-sm">
-                <p><strong>タイトル:</strong> ${sched.title}</p>
-                <p><strong>日付:</strong> ${sched.date}${sched.allday ? " (終日)" : ` ${sched.time}`}</p>
-                <p><strong>場所:</strong> ${locationHTML}</p>
-                <p><strong>メモ:</strong><br>${sched.description || "なし"}</p>
-                ${sched.attachment ? `<p><strong>添付:</strong> <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a></p>` : ""}
+        <div class="flex flex-col md:flex-row gap-6 text-sm">
+            <div class="md:w-1/2 space-y-3 leading-relaxed">
+                <div>
+                    <div class="font-semibold text-white/80">タイトル</div>
+                    <div>${sched.title || "無題の予定"}</div>
+                </div>
+                <div>
+                    <div class="font-semibold text-white/80">日付</div>
+                    <div>${timeStr}</div>
+                </div>
+                <div>
+                    <div class="font-semibold text-white/80">場所</div>
+                    <div>${sched.location || "未指定"}</div>
+                </div>
+
+                <div>
+                    <div class="font-semibold text-white/80">メモ</div>
+                    <div>${formattedDescription}</div>
+                </div>
+                ${sched.attachment ? `
+                    <div>
+                        <div class="font-semibold text-white/80">添付</div>
+                        <div><a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a></div>
+                    </div>
+                ` : ""}
             </div>
-            <div class="md:w-1/2">${mapEmbed}</div>
+            <div class="md:w-1/2">
+                <!-- mapEmbedなどを右に表示したいときに使います -->
+            </div>
         </div>
     `;
 
     document.getElementById("scheduleDetailModal").classList.remove("hidden");
 }
+
+
 
 
 document.getElementById("closeScheduleDetail").addEventListener("click", () => {
