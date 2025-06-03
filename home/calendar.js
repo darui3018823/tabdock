@@ -37,29 +37,27 @@ function renderCalendar() {
     calendarGrid.innerHTML = "";
 
     let totalCells = 35;
-    const totalNeeded = firstDay + lastDate;
-
     let day = 1;
-    for (const sched of filtered) {
-    const li = document.createElement("li");
-    li.classList.add("flex", "justify-between", "items-start");
 
-    const content = document.createElement("div");
-    content.innerHTML = `
-        <div class="font-semibold">${sched.time} - ${sched.title}</div>
-        <div class="text-xs text-white/70">${sched.description || ""}</div>
-    `;
+    for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement("div");
 
-    const detailBtn = document.createElement("button");
-    detailBtn.textContent = "詳細";
-    detailBtn.className = "text-xs text-blue-400 hover:underline ml-2 mt-1";
-    detailBtn.addEventListener("click", () => showScheduleDetail(sched));
+        if (i >= firstDay && day <= lastDate) {
+            cell.textContent = day;
+            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition";
+            applyColor(cell, i % 7, year, month, day);
 
-    li.appendChild(content);
-    li.appendChild(detailBtn);
-    scheduleList.appendChild(li);
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            cell.addEventListener("click", () => renderSchedule(dateStr));
+
+            calendarGrid.appendChild(cell);
+            day++;
+        } else {
+            calendarGrid.appendChild(document.createElement("div")); // 空白マス
+        }
     }
 }
+
 
 const scheduleList = document.getElementById("scheduleList");
 
