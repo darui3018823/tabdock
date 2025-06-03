@@ -234,15 +234,12 @@ function convertToEmbedURL(url) {
 function showScheduleDetail(sched) {
     const content = document.getElementById("scheduleDetailContent");
 
-    // 日付と時間の組み立て
     let timeStr = sched.allday
         ? "終日"
         : `${sched.date}${sched.time ? ` ${sched.time}` : ""}${sched.endTime ? `~${sched.endTime}` : ""}`;
 
-    // メモの改行処理
     const formattedDescription = (sched.description || "なし").replace(/\n/g, "<br>");
 
-    // 場所処理（埋め込みは後で対応可能）
     let locationHTML = "未指定";
     if (sched.location && sched.location.startsWith("http")) {
         locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline break-all">${sched.location}</a>`;
@@ -250,7 +247,10 @@ function showScheduleDetail(sched) {
         locationHTML = sched.location;
     }
 
-    // 左右分割（今は左だけフォーカス）
+    const mapEmbed = sched.embedmap
+        ? `<iframe src="${sched.embedmap}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
+        : "";
+
     content.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 text-sm">
             <div class="md:w-1/2 space-y-3 leading-relaxed">
@@ -264,9 +264,8 @@ function showScheduleDetail(sched) {
                 </div>
                 <div>
                     <div class="font-semibold text-white/80">場所</div>
-                    <div>${sched.location || "未指定"}</div>
+                    <div>${locationHTML}</div>
                 </div>
-
                 <div>
                     <div class="font-semibold text-white/80">メモ</div>
                     <div>${formattedDescription}</div>
@@ -278,9 +277,7 @@ function showScheduleDetail(sched) {
                     </div>
                 ` : ""}
             </div>
-            <div class="md:w-1/2">
-                <!-- mapEmbedなどを右に表示したいときに使います -->
-            </div>
+            <div class="md:w-1/2">${mapEmbed}</div>
         </div>
     `;
 
