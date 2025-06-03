@@ -70,11 +70,6 @@ const schedules = [
 
 function renderSchedule(dateStr) {
     selectedDate = dateStr;
-
-    const targetDate = new Date(dateStr);
-    const titleElem = document.getElementById("scheduleTitle");
-    titleElem.textContent = `${targetDate.getMonth() + 1}/${targetDate.getDate()} - 予定リスト`;
-
     const filtered = schedules.filter(e => e.date === dateStr);
     scheduleList.innerHTML = "";
 
@@ -88,21 +83,23 @@ function renderSchedule(dateStr) {
 
     for (const sched of filtered) {
         const li = document.createElement("li");
-        li.className = "flex justify-between items-start";
+        li.classList.add("mb-2");
+
+        const line1 = sched.time
+            ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
+            : "(時間未定)";
+
+        const line2 = sched.title || "無題の予定";
 
         const content = document.createElement("div");
-        const timeStr = sched.time && sched.endTime
-            ? `${sched.time}~${sched.endTime}`
-            : sched.time || "終日";
-
         content.innerHTML = `
-            <div class="font-semibold">${timeStr} - ${sched.title}</div>
-            <div class="text-xs text-white/70">${sched.description || ""}</div>
+            <div class="text-sm font-semibold">${line1}</div>
+            <div class="text-xs text-white/70">${line2}</div>
         `;
 
         const detailBtn = document.createElement("button");
         detailBtn.textContent = "詳細";
-        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2 mt-1";
+        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2";
         detailBtn.addEventListener("click", () => showScheduleDetail(sched));
 
         li.appendChild(content);
@@ -110,6 +107,7 @@ function renderSchedule(dateStr) {
         scheduleList.appendChild(li);
     }
 }
+
 
 document.getElementById("upcomingBtn").addEventListener("click", () => {
     const now = new Date();
