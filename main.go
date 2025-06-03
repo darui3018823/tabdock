@@ -69,12 +69,13 @@ type WeatherResponse struct {
 
 type Schedule struct {
 	Title       string `json:"title"`
-	Location    string `json:"location"`
-	Allday      bool   `json:"allday"`
-	Date        string `json:"date"` // YYYY-MM-DD
+	Date        string `json:"date"`
 	Time        string `json:"time,omitempty"`
-	Description string `json:"description"`
+	EndTime     string `json:"endTime,omitempty"`
+	Location    string `json:"location,omitempty"`
+	Description string `json:"description,omitempty"`
 	Attachment  string `json:"attachment,omitempty"`
+	EmbedMap    string `json:"embedmap,omitempty"`
 }
 
 // func
@@ -92,7 +93,7 @@ func serve(mux http.Handler) {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
-		log.Println("Tabdock Version 2.4.3")
+		log.Println("Tabdock Version 2.4.5")
 		log.Println("We plan to strengthen the integration of ToDo lists and calendars.")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)

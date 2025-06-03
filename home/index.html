@@ -127,19 +127,28 @@
         </div>
 
         <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div class="bg-white/30 backdrop-blur-md text-white rounded-lg p-6 w-full max-w-md shadow-lg">
-                <h2 class="text-lg font-semibold mb-4">予定の追加</h2>
-                <input type="date" id="scheduleDate" class="w-full mb-2 p-2 rounded bg-white/20 border border-white/30" />
-                <input type="time" id="scheduleTime" class="w-full mb-2 p-2 rounded bg-white/20 border border-white/30" />
-                <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full mb-2 p-2 rounded bg-white/20 border border-white/30" />
-                <textarea id="scheduleDesc" placeholder="詳細" class="w-full mb-4 p-2 rounded bg-white/20 border border-white/30"></textarea>
+            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
+                <h2 class="text-xl font-bold mb-4">予定の追加</h2>
 
-                <div class="flex justify-end space-x-2">
+                <input type="date" id="scheduleDate" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
+                <input type="text" id="scheduleTime" placeholder="時間 (例: 12:00~14:00)" class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+                <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
+                <input type="text" id="scheduleLocation" placeholder="場所（HTML可）" class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+                <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3" class="w-full p-1 rounded bg-gray-700 text-white mb-2"></textarea>
+                <input type="text" id="scheduleEmbedMap" placeholder="埋め込みマップURL" class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm">添付ファイル</label>
+                    <input type="file" id="scheduleAttachment" class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                </div>
+
+                <div class="flex justify-end space-x-4">
                     <button id="closeScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
                     <button id="addScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
                 </div>
             </div>
         </div>
+
           
         
         <!-- main contents-->

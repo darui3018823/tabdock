@@ -194,20 +194,31 @@ document.getElementById("addScheduleBtn").addEventListener("click", () => {
     const time = document.getElementById("scheduleTime").value;
     const title = document.getElementById("scheduleTitle").value;
     const description = document.getElementById("scheduleDesc").value;
+    const embedmap = document.getElementById("scheduleEmbedMap").value;
 
     if (!date || !title) {
         alert("日付とタイトルは必須です");
         return;
     }
 
-    schedules.push({ date, time, title, description });
+    const newSchedule = { date, time, title, description, embedmap };
+    schedules.push(newSchedule);
+
+    const form = new FormData();
+    form.append("json", JSON.stringify(newSchedule));
+
+    fetch("/api/schedule", {
+        method: "POST",
+        body: form
+    });
+
     document.getElementById("scheduleModal").classList.add("hidden");
 
-    // 今見ている日と一致していれば更新
     if (selectedDate === date) {
         renderSchedule(date);
     }
 });
+
 
 async function loadSchedules() {
     try {
@@ -283,9 +294,6 @@ function showScheduleDetail(sched) {
 
     document.getElementById("scheduleDetailModal").classList.remove("hidden");
 }
-
-
-
 
 document.getElementById("closeScheduleDetail").addEventListener("click", () => {
     document.getElementById("scheduleDetailModal").classList.add("hidden");
