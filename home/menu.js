@@ -221,6 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
     } else {
+        // commit: nankasimasita
         console.error("スライダまたは値表示要素が見つかりません");
     }
 
