@@ -83,10 +83,21 @@ function renderSchedule(dateStr) {
 
     for (const sched of filtered) {
         const li = document.createElement("li");
-        li.innerHTML = `
+        li.classList.add("flex", "justify-between", "items-start");
+
+        const content = document.createElement("div");
+        content.innerHTML = `
             <div class="font-semibold">${sched.time} - ${sched.title}</div>
-            <div class="text-xs text-white/70">${sched.description}</div>
+            <div class="text-xs text-white/70">${sched.description || ""}</div>
         `;
+
+        const detailBtn = document.createElement("button");
+        detailBtn.textContent = "詳細";
+        detailBtn.className = "text-xs text-blue-400 hover:underline ml-2 mt-1";
+        detailBtn.addEventListener("click", () => showScheduleDetail(sched));
+
+        li.appendChild(content);
+        li.appendChild(detailBtn);
         scheduleList.appendChild(li);
     }
 }
@@ -204,15 +215,37 @@ async function loadSchedules() {
 
 function showScheduleDetail(sched) {
     const content = document.getElementById("scheduleDetailContent");
+
+    let locationHTML = "未指定";
+    let mapEmbed = "";
+
+    if (sched.location && sched.location.startsWith("http")) {
+        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline">${sched.location}</a>`;
+        // iframeで埋め込み可能な場合だけ
+        const trustedDomains = ["google.com/maps", "openstreetmap.org"];
+        if (trustedDomains.some(domain => sched.location.includes(domain))) {
+            mapEmbed = `<iframe src="${sched.location}" class="w-full h-64 rounded-md border border-white/20 mt-2"></iframe>`;
+        }
+    } else if (sched.location) {
+        locationHTML = sched.location;
+    }
+
     content.innerHTML = `
-        <p><strong>タイトル:</strong> ${sched.title}</p>
-        <p><strong>日付:</strong> ${sched.date}${sched.allday ? " (終日)" : ` ${sched.time}`}</p>
-        <p><strong>場所:</strong> ${sched.location || "未指定"}</p>
-        <p><strong>メモ:</strong><br>${sched.description || "なし"}</p>
-        ${sched.attachment ? `<p><strong>添付:</strong> <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a></p>` : ""}
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="md:w-1/2 space-y-2 text-sm">
+                <p><strong>タイトル:</strong> ${sched.title}</p>
+                <p><strong>日付:</strong> ${sched.date}${sched.allday ? " (終日)" : ` ${sched.time}`}</p>
+                <p><strong>場所:</strong> ${locationHTML}</p>
+                <p><strong>メモ:</strong><br>${sched.description || "なし"}</p>
+                ${sched.attachment ? `<p><strong>添付:</strong> <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a></p>` : ""}
+            </div>
+            <div class="md:w-1/2">${mapEmbed}</div>
+        </div>
     `;
+
     document.getElementById("scheduleDetailModal").classList.remove("hidden");
 }
+
 
 document.getElementById("closeScheduleDetail").addEventListener("click", () => {
     document.getElementById("scheduleDetailModal").classList.add("hidden");
