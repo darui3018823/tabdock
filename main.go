@@ -395,6 +395,7 @@ func handleSchedulePost(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	enc := json.NewEncoder(f)
+	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	enc.Encode(existing)
 
