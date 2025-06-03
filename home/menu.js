@@ -133,6 +133,52 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("wallpaperAdvancedModal").classList.add("hidden");
     };
 
+    // ここから追記
+    const advModal = document.getElementById("wallpaperAdvancedModal");
+    const closeAdvBtn = document.getElementById("closeWallpaperAdvancedModal");
+    const applyAdvBtn = document.getElementById("applyWallpaperAdvanced");
+
+    // 念のため存在チェックしてからイベント登録
+    if (closeAdvBtn) {
+        closeAdvBtn.onclick = () => {
+            advModal.classList.add("hidden");
+        };
+    }
+
+    if (applyAdvBtn) {
+        applyAdvBtn.onclick = () => {
+            const blur = document.getElementById("blurRange")?.value || 0;
+            const opacity = document.getElementById("opacityRange")?.value || 100;
+            const brightness = document.getElementById("brightnessRange")?.value || 100;
+
+            const wallpaper = document.getElementById("wallpaper");
+            if (wallpaper) {
+                wallpaper.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
+                wallpaper.style.opacity = `${opacity / 100}`;
+            }
+
+            advModal.classList.add("hidden");
+        };
+    }
+
+    // オプション：リアルタイムプレビュー（必要であれば有効化）
+    ["blurRange", "opacityRange", "brightnessRange"].forEach(id => {
+        const slider = document.getElementById(id);
+        if (slider) {
+            slider.addEventListener("input", () => {
+                const blur = document.getElementById("blurRange")?.value || 0;
+                const opacity = document.getElementById("opacityRange")?.value || 100;
+                const brightness = document.getElementById("brightnessRange")?.value || 100;
+
+                const wallpaper = document.getElementById("wallpaper");
+                if (wallpaper) {
+                    wallpaper.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
+                    wallpaper.style.opacity = `${opacity / 100}`;
+                }
+            });
+        }
+    });
+
     // 修正: 閉じるボタンのIDを正しく設定
     document.getElementById("closeEffectModal").onclick = () => {
         const modal = document.getElementById("wallpaperAdvancedModal");
