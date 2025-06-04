@@ -356,9 +356,23 @@ function openAllScheduleModal() {
 
     fullList.innerHTML = "";
     const cloned = Array.from(scheduleList.children).filter(el => el.id !== "moreScheduleItem");
+
     cloned.forEach(el => {
         const copy = el.cloneNode(true);
         copy.classList.remove("hidden");
+
+        // 🔽 詳細ボタンを再検索してイベント追加
+        const detailBtn = copy.querySelector("button");
+        if (detailBtn && detailBtn.textContent.includes("詳細")) {
+            const index = cloned.indexOf(el);  // 元の位置から予定データを推定
+            const dateStr = selectedDate;
+            const filtered = schedules.filter(e => e.date === dateStr);
+            const sched = filtered[index];
+            if (sched) {
+                detailBtn.addEventListener("click", () => showScheduleDetail(sched));
+            }
+        }
+
         fullList.appendChild(copy);
     });
 
