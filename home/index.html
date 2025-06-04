@@ -249,7 +249,7 @@
                     <h2 class="text-md font-semibold">予定リスト</h2>
                     <button id="upcomingBtn" class="text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition">直近の予定</button>
                 </div>
-                <ul id="scheduleList" class="text-sm font-mono space-y-2 text-white/90">
+                <ul id="scheduleList" class="text-sm font-mono space-y-2 text-white/90 overflow-y-auto max-h-52 pr-1">
                     <li class="text-white/50">日付を選択してください</li>
                 </ul>
             </div>
@@ -293,6 +293,17 @@
                     </div>
                 </div>
             </div>
+
+            <div id="allScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+                    <h2 class="text-xl font-bold mb-4">すべての予定</h2>
+                    <ul id="allScheduleList" class="text-sm space-y-2 font-mono text-white/90"></ul>
+                    <div class="flex justify-end mt-6">
+                        <button id="closeAllScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                    </div>
+                </div>
+            </div>
+
 
 
         </div>

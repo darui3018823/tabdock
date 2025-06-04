@@ -106,6 +106,8 @@ function renderSchedule(dateStr) {
         li.appendChild(detailBtn);
         scheduleList.appendChild(li);
     }
+
+    trimScheduleListForPreview();
 }
 
 
@@ -125,7 +127,7 @@ document.getElementById("upcomingBtn").addEventListener("click", () => {
         return;
     }
 
-    for (const sched of upcoming.slice(0, 5)) { // 直近5件のみ表示（必要なら調整可）
+    for (const sched of upcoming.slice(0, 5)) {
         const li = document.createElement("li");
         li.innerHTML = `
             <div class="font-semibold">${sched.date} ${sched.time} - ${sched.title}</div>
@@ -133,7 +135,10 @@ document.getElementById("upcomingBtn").addEventListener("click", () => {
         `;
         scheduleList.appendChild(li);
     }
+
+    trimScheduleListForPreview();
 });
+
 
 
 // 曜日色＆今日判定
@@ -319,4 +324,47 @@ function showScheduleDetail(sched) {
 
 document.getElementById("closeScheduleDetail").addEventListener("click", () => {
     document.getElementById("scheduleDetailModal").classList.add("hidden");
+});
+
+function trimScheduleListForPreview() {
+    const list = document.getElementById("scheduleList");
+    const items = Array.from(list.children);
+
+    // 過去の「もっと見る」を削除
+    const existingMore = document.getElementById("moreScheduleItem");
+    if (existingMore) existingMore.remove();
+
+    if (items.length > 3) {
+        // 3件目以降を非表示
+        items.forEach((el, index) => {
+            el.classList.toggle("hidden", index >= 2);
+        });
+
+        // 「もっと見る」を3件目として追加
+        const moreItem = document.createElement("li");
+        moreItem.id = "moreScheduleItem";
+        moreItem.innerHTML = `<button class="text-blue-400 hover:underline text-left">+ もっと見る...</button>`;
+        moreItem.querySelector("button").addEventListener("click", openAllScheduleModal);
+        list.insertBefore(moreItem, items[2]);
+    }
+}
+
+function openAllScheduleModal() {
+    const allModal = document.getElementById("allScheduleModal");
+    const fullList = document.getElementById("allScheduleList");
+    const scheduleList = document.getElementById("scheduleList");
+
+    fullList.innerHTML = "";
+    const cloned = Array.from(scheduleList.children).filter(el => el.id !== "moreScheduleItem");
+    cloned.forEach(el => {
+        const copy = el.cloneNode(true);
+        copy.classList.remove("hidden");
+        fullList.appendChild(copy);
+    });
+
+    allModal.classList.remove("hidden");
+}
+
+document.getElementById("closeAllScheduleModal").addEventListener("click", () => {
+    document.getElementById("allScheduleModal").classList.add("hidden");
 });
