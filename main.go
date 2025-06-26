@@ -109,7 +109,7 @@ func serve(mux http.Handler) {
 		}
 	} else {
 		log.Println("Serving on https://127.0.0.1:443 ...")
-		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
+		err := http.ListenAndServeTLS(":443", "./cert/tabdock.crt", "./cert/tabdock.key", mux)
 		if err != nil {
 			log.Fatal("HTTPS Server error:", err)
 		}
