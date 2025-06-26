@@ -56,3 +56,17 @@ body {
     background-color: transparent;
 }
 
+:root {
+    --widget-bg: rgba(30, 30, 30, 0.7);
+}
+
+.widget-box {
+    transition: background-color 0.3s ease;
+}
+
+#wallpaperBlurLayer {
+    background: rgba(255, 255, 255, 0);
+    backdrop-filter: blur(0px) brightness(100%);
+    -webkit-backdrop-filter: blur(0px) brightness(100%);
+    z-index: -20;
+}
