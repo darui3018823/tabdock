@@ -16,6 +16,12 @@
     </head>
 
     <body class="h-screen bg-gray-900 text-white overflow-hidden">
+        <!-- 背景画像 -->
+        <div id="wallpaper" class="fixed inset-0 -z-30 bg-cover bg-center bg-no-repeat"></div>
+
+        <!-- ぼかしレイヤー -->
+        <div id="wallpaperBlurLayer" class="fixed inset-0 -z-20 pointer-events-none"></div>
+
         <style>
             body {
                 background-size: cover;
@@ -115,13 +121,7 @@
                 <div>
                     <label for="opacityRange" class="block text-sm mb-1">透明度</label>
                     <input id="opacityRange" type="range" min="0" max="100" step="1" class="w-full" />
-                </div>
-
-                <!-- スライダー：明るさ -->
-                <div>
-                    <label for="brightnessRange" class="block text-sm mb-1">明るさ</label>
-                    <input id="brightnessRange" type="range" min="50" max="150" step="1" class="w-full" />
-                    <div class="text-right text-xs text-white/60 mt-1">現在: <span id="brightnessValue">100%</span></div>
+                    <div class="text-right text-xs text-white/60 mt-1">現在: <span id="opacityValue">100%</span></div>
                 </div>
 
                 <!-- ボタン -->
@@ -159,161 +159,163 @@
           
         
         <!-- main contents-->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
-        
-            <!-- clock -->
-            <div class="card card-standard relative flex flex-col justify-start pt-4">
-                <div id="date" class="text-xl text-white/90 mb-1 ml-2 mt-1">YYYY/MM/DD (曜日)</div>
-                <div id="clock" class="text-5xl font-bold tracking-wide text-white mt-7 mr-4 self-end">--:--:--</div>
-                <button id="toggleFormat" class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
-                    <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
-                </button>
-            </div>
-  
-
-            <!-- status -->
-            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col relative md:col-span-2 xl:col-span-1">
-                <h2 class="text-lg font-semibold mb-2">PC Status</h2>
-                <div id="last-update" class="absolute top-2 right-3 text-xs text-white/70">Last Update: --</div>
-                <div class="grid grid-cols-2 gap-x-6 text-sm font-mono leading-relaxed">
-                    <ul class="space-y-1">
-                        <li>PC <span id="pc" class="text-green-400">--</span></li>
-                        <li>Port 21: <span id="port21" class="text-green-400">--</span></li>
-                        <li>Battery: <span id="battery" class="text-green-400">--</span></li>
-                        <li>eGPU: <span id="egpu" class="text-green-400">--</span></li>
-                        <li>WAN: <span id="wan" class="text-blue-400">--</span></li>
-                    </ul>
-                    <ul class="space-y-1">
-                        <li>GPU: <span id="gpu" class="text-green-400">--</span></li>
-                        <li>RAM: <span id="ram" class="text-green-400">--</span></li>
-                        <li>Drive E: <span id="drive-e" class="text-green-400">--</span></li>
-                        <li>VPN: <span id="vpn" class="text-yellow-400">--</span></li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- weather -->
-            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] md:min-h-[180px] flex flex-col justify-between max-w-[500px] w-full relative">
-                <h2 id="weather-title" class="text-lg font-semibold">天気予報</h2>
-                <div class="grid grid-cols-2 gap-2 text-sm font-mono">
-                    <button id="openLocationModalBtn" class="absolute top-2 right-2 bg-white/10 text-white text-xs px-2 py-1 rounded hover:bg-white/20 transition">地域選択</button>
-                    <!-- today -->
-                    <div>
-                        <div class="font-bold text-white" id="weather-today-label">今日</div>
-                        <div id="weather-today-temp">--℃ / --℃</div>
-                        <div id="weather-today-telop">--</div>
-                        <button onclick="showDetail('today')" class="text-blue-400 text-xs hover:underline mt-1" id="todayDetailBtn">詳細</button>
-                    </div>
+        <div id="widgetContainer" class="relative z-10">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
             
-                    <!-- tomorrow -->
-                    <div>
-                        <div class="font-bold text-white" id="weather-tomorrow-label">明日</div>
-                        <div id="weather-tomorrow-temp">--℃ / --℃</div>
-                        <div id="weather-tomorrow-telop">--</div>
-                        <button onclick="showDetail('tomorrow')" class="text-blue-400 text-xs hover:underline mt-1" id="tomorrowDetailBtn">詳細</button>
+                <!-- clock -->
+                <div class="card card-standard relative flex flex-col justify-start pt-4">
+                    <div id="date" class="text-xl text-white/90 mb-1 ml-2 mt-1">YYYY/MM/DD (曜日)</div>
+                    <div id="clock" class="text-5xl font-bold tracking-wide text-white mt-7 mr-4 self-end">--:--:--</div>
+                    <button id="toggleFormat" class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
+                        <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
+                    </button>
+                </div>
+    
+
+                <!-- status -->
+                <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col relative md:col-span-2 xl:col-span-1">
+                    <h2 class="text-lg font-semibold mb-2">PC Status</h2>
+                    <div id="last-update" class="absolute top-2 right-3 text-xs text-white/70">Last Update: --</div>
+                    <div class="grid grid-cols-2 gap-x-6 text-sm font-mono leading-relaxed">
+                        <ul class="space-y-1">
+                            <li>PC <span id="pc" class="text-green-400">--</span></li>
+                            <li>Port 21: <span id="port21" class="text-green-400">--</span></li>
+                            <li>Battery: <span id="battery" class="text-green-400">--</span></li>
+                            <li>eGPU: <span id="egpu" class="text-green-400">--</span></li>
+                            <li>WAN: <span id="wan" class="text-blue-400">--</span></li>
+                        </ul>
+                        <ul class="space-y-1">
+                            <li>GPU: <span id="gpu" class="text-green-400">--</span></li>
+                            <li>RAM: <span id="ram" class="text-green-400">--</span></li>
+                            <li>Drive E: <span id="drive-e" class="text-green-400">--</span></li>
+                            <li>VPN: <span id="vpn" class="text-yellow-400">--</span></li>
+                        </ul>
                     </div>
                 </div>
-            
-                <!-- 明後日はボタンだけ -->
-                <div class="flex justify-end">
-                    <button onclick="showDetail('dayafter')" class="text-xs text-gray-300 hover:text-white" id="dayafterDetailBtn">明後日はこちら</button>
-                </div>
-            </div>
 
-            <!-- カレンダー -->
-            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <button id="prevMonth" class="text-lg font-bold hover:text-gray-300">&lt;</button>
-                    <div id="currentMonth" class="text-md font-semibold">2025年6月</div>
-                    <button id="nextMonth" class="text-lg font-bold hover:text-gray-300">&gt;</button>
-                </div>
-
-                <!-- 曜日 -->
-                <div class="grid grid-cols-7 text-center text-sm font-semibold text-white/70 mb-1">
-                    <div class="text-red-400">日</div>
-                    <div>月</div>
-                    <div>火</div>
-                    <div>水</div>
-                    <div>木</div>
-                    <div>金</div>
-                    <div class="text-blue-400">土</div>
-                </div>
-
-                <div id="calendarGrid" class="grid grid-cols-7 grid-rows-5 gap-y-1 text-sm font-mono text-white/90"></div>
-            </div>
-
-
-            <!-- 予定リスト -->
-            <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col relative">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-md font-semibold">予定リスト</h2>
-                    <button id="upcomingBtn" class="text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition">直近の予定</button>
-                </div>
-                <ul id="scheduleList" class="text-sm font-mono space-y-2 text-white/90 overflow-y-auto max-h-52 pr-1">
-                    <li class="text-white/50">日付を選択してください</li>
-                </ul>
-            </div>
-
-
-            <!-- 以下はモーダル-->
-            <!-- 天気の詳細モーダル -->
-            <div id="modal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                <div class="bg-gray-800 text-white rounded-lg p-6 max-w-2xl w-full shadow-lg">
-                    <h2 id="modalTitle" class="text-xl font-bold mb-4">天気の詳細</h2>
-                    <div id="modalText" class="text-sm space-y-3">
-                        <!-- JavaScriptで内容が挿入されます -->
+                <!-- weather -->
+                <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] md:min-h-[180px] flex flex-col justify-between max-w-[500px] w-full relative">
+                    <h2 id="weather-title" class="text-lg font-semibold">天気予報</h2>
+                    <div class="grid grid-cols-2 gap-2 text-sm font-mono">
+                        <button id="openLocationModalBtn" class="absolute top-2 right-2 bg-white/10 text-white text-xs px-2 py-1 rounded hover:bg-white/20 transition">地域選択</button>
+                        <!-- today -->
+                        <div>
+                            <div class="font-bold text-white" id="weather-today-label">今日</div>
+                            <div id="weather-today-temp">--℃ / --℃</div>
+                            <div id="weather-today-telop">--</div>
+                            <button onclick="showDetail('today')" class="text-blue-400 text-xs hover:underline mt-1" id="todayDetailBtn">詳細</button>
+                        </div>
+                
+                        <!-- tomorrow -->
+                        <div>
+                            <div class="font-bold text-white" id="weather-tomorrow-label">明日</div>
+                            <div id="weather-tomorrow-temp">--℃ / --℃</div>
+                            <div id="weather-tomorrow-telop">--</div>
+                            <button onclick="showDetail('tomorrow')" class="text-blue-400 text-xs hover:underline mt-1" id="tomorrowDetailBtn">詳細</button>
+                        </div>
                     </div>
-                    <div class="flex justify-end mt-4">
-                        <button id="modalCloseBtn" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">閉じる</button>
+                
+                    <!-- 明後日はボタンだけ -->
+                    <div class="flex justify-end">
+                        <button onclick="showDetail('dayafter')" class="text-xs text-gray-300 hover:text-white" id="dayafterDetailBtn">明後日はこちら</button>
                     </div>
                 </div>
-            </div>
 
-            <!-- 地域選択モーダル -->
-            <div id="locationModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                <div class="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full shadow-lg">
-                    <h2 class="text-lg font-semibold mb-4">地域情報を入力</h2>
-                    <input id="prefInput" type="text" placeholder="例：東京都"
-                            class="mb-2 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600" />
-                    <input id="cityInput" type="text" placeholder="例：東京"
-                            class="mb-4 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600" />
-                    <div class="flex justify-end space-x-2">
-                        <button id="closeLocationModal" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">キャンセル</button>
-                        <button id="saveLocationBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500">保存</button>
+                <!-- カレンダー -->
+                <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <button id="prevMonth" class="text-lg font-bold hover:text-gray-300">&lt;</button>
+                        <div id="currentMonth" class="text-md font-semibold">2025年6月</div>
+                        <button id="nextMonth" class="text-lg font-bold hover:text-gray-300">&gt;</button>
+                    </div>
+
+                    <!-- 曜日 -->
+                    <div class="grid grid-cols-7 text-center text-sm font-semibold text-white/70 mb-1">
+                        <div class="text-red-400">日</div>
+                        <div>月</div>
+                        <div>火</div>
+                        <div>水</div>
+                        <div>木</div>
+                        <div>金</div>
+                        <div class="text-blue-400">土</div>
+                    </div>
+
+                    <div id="calendarGrid" class="grid grid-cols-7 grid-rows-5 gap-y-1 text-sm font-mono text-white/90"></div>
+                </div>
+
+
+                <!-- 予定リスト -->
+                <div class="card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col relative">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-md font-semibold">予定リスト</h2>
+                        <button id="upcomingBtn" class="text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition">直近の予定</button>
+                    </div>
+                    <ul id="scheduleList" class="text-sm font-mono space-y-2 text-white/90 overflow-y-auto max-h-52 pr-1">
+                        <li class="text-white/50">日付を選択してください</li>
+                    </ul>
+                </div>
+
+
+                <!-- 以下はモーダル-->
+                <!-- 天気の詳細モーダル -->
+                <div id="modal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                    <div class="bg-gray-800 text-white rounded-lg p-6 max-w-2xl w-full shadow-lg">
+                        <h2 id="modalTitle" class="text-xl font-bold mb-4">天気の詳細</h2>
+                        <div id="modalText" class="text-sm space-y-3">
+                            <!-- JavaScriptで内容が挿入されます -->
+                        </div>
+                        <div class="flex justify-end mt-4">
+                            <button id="modalCloseBtn" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">閉じる</button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div id="allScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
-                    <h2 class="text-xl font-bold mb-4">すべての予定</h2>
-                    <ul id="allScheduleList" class="text-sm space-y-2 font-mono text-white/90"></ul>
-                    <div class="flex justify-end mt-6">
-                        <button id="closeAllScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                <!-- 地域選択モーダル -->
+                <div id="locationModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                    <div class="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full shadow-lg">
+                        <h2 class="text-lg font-semibold mb-4">地域情報を入力</h2>
+                        <input id="prefInput" type="text" placeholder="例：東京都"
+                                class="mb-2 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600" />
+                        <input id="cityInput" type="text" placeholder="例：東京"
+                                class="mb-4 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600" />
+                        <div class="flex justify-end space-x-2">
+                            <button id="closeLocationModal" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">キャンセル</button>
+                            <button id="saveLocationBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500">保存</button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
-                    <h2 class="text-xl font-bold mb-4">予定の詳細</h2>
-                    <div id="scheduleDetailContent" class="text-sm"></div>
-                    <div class="flex justify-end mt-6">
-                        <button id="closeScheduleDetail" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                <div id="allScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+                        <h2 class="text-xl font-bold mb-4">すべての予定</h2>
+                        <ul id="allScheduleList" class="text-sm space-y-2 font-mono text-white/90"></ul>
+                        <div class="flex justify-end mt-6">
+                            <button id="closeAllScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                        </div>
                     </div>
                 </div>
+
+                <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+                        <h2 class="text-xl font-bold mb-4">予定の詳細</h2>
+                        <div id="scheduleDetailContent" class="text-sm"></div>
+                        <div class="flex justify-end mt-6">
+                            <button id="closeScheduleDetail" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
+            <footer class="omgfooter">
+                <p>Tabdock: v2.5.3</p>
+                <p>© 2025 <a href="https://daruks.com/">darui3018823</a>. All rights reserved.</p>
+            </footer>
+
+            <script src="script.js" defer></script>
+            <script src="weather.js" defer></script>
+            <script src="ui_visibility.js" defer></script>
+            <script src="calendar.js" defer></script>
         </div>
-
-        <footer class="omgfooter">
-            <p>Tabdock: v2.5.3</p>
-            <p>© 2025 <a href="https://daruks.com/">darui3018823</a>. All rights reserved.</p>
-        </footer>
-
-        <script src="script.js" defer></script>
-        <script src="weather.js" defer></script>
-        <script src="ui_visibility.js" defer></script>
-        <script src="calendar.js" defer></script>
     </body>
 </html>
