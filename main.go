@@ -22,6 +22,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// const
+const version = "2.6.0_r4"
+
 // var
 var fallbackHolidays map[string]string
 
@@ -93,7 +96,7 @@ func serve(mux http.Handler) {
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
 
-	log.Println("Tabdock Version 2.6.0_r4")
+	log.Println("Tabdock Version ", version)
 	log.Println("==== Updates ====")
 	log.Println(update1)
 	log.Println(update2)
@@ -134,6 +137,7 @@ func main() {
 	mux.Handle("/legal/privacy-policy/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/legal/privacy-policy/", http.FileServer(http.Dir("./legal/privacy-policy/")))).ServeHTTP))
 
 	// apis
+	mux.HandleFunc("/api/version", secureHandler(handleVesion))
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
@@ -425,4 +429,15 @@ func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
+}
+
+func handleVesion(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{
+		"version": version,
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Println("JSONエンコード失敗:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

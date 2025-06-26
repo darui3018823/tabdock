@@ -84,8 +84,16 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .catch(err => console.error("Status fetch error:", err));
     }
-  
-    updatePCStatus(); // 初回実行
+
+    updatePCStatus();
     setInterval(updatePCStatus, 120000); // 120秒ごとに更新
-  });
-  
+
+    fetch('/api/version')
+      .then(res => res.json())
+      .then(data => {
+        if (data.version) {
+          const vEl = document.getElementById('version-text');
+          if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
+        }
+      });
+});
