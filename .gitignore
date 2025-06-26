@@ -24,8 +24,7 @@ go.work.sum
 .env
 
 # from Visual Studio Code
-tabdock.key
-tabdock.crt
+cert/
 .gitignore
 trusted_ips.json
 Releases/
