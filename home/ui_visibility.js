@@ -7,7 +7,7 @@ function applyVisualSettings() {
     const widgetContainer = document.getElementById("widgetContainer");
 
     if (blurLayer) {
-        blurLayer.style.backdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
+        blurLayer.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
     }
     if (widgetContainer) {
         widgetContainer.style.opacity = `${opacity / 100}`;
@@ -51,6 +51,7 @@ function applyVisualSettings() {
     // 初期状態を一度反映
     applyVisualSettings();
     initWallpaperUploadHandlers();
+    initMenuToggle();
 })();
 
 // プリセット画像クリックで壁紙適用
@@ -166,4 +167,26 @@ function initWallpaperUploadHandlers() {
             }
         });
     }
+}
+
+// メニュー開閉処理
+function initMenuToggle() {
+    document.getElementById("hamburgerBtn")?.addEventListener("click", () => {
+        document.getElementById("menuModal")?.classList.remove("hidden");
+    });
+
+    document.getElementById("closeMenuModal")?.addEventListener("click", () => {
+        document.getElementById("menuModal")?.classList.add("hidden");
+    });
+
+    // 必要ならWallpaper選択モーダルへ遷移
+    document.getElementById("openWallpaperModal")?.addEventListener("click", () => {
+        document.getElementById("menuModal")?.classList.add("hidden");
+        document.getElementById("wallpaperModal")?.classList.remove("hidden");
+        loadWallpapers();
+    });
+
+    document.getElementById("closeWallpaperModal")?.addEventListener("click", () => {
+        document.getElementById("wallpaperModal")?.classList.add("hidden");
+    });
 }
