@@ -29,6 +29,12 @@ function applyVisualSettings() {
 
 // 初期化処理
 (function initVisibilitySettings() {
+    // 前回の壁紙を復元
+    const savedWallpaper = localStorage.getItem("tabdock_wallpaper");
+    if (savedWallpaper) {
+        handlePresetClick(savedWallpaper);
+    }
+
     const sliders = ["blurRange", "brightnessRange", "opacityRange"];
     sliders.forEach(id => {
         const el = document.getElementById(id);
@@ -72,7 +78,6 @@ function initializeSliders() {
     applyVisualSettings();
 }
 
-
 // プリセット画像クリックで壁紙適用
 function handlePresetClick(imgSrc) {
     const wallpaper = document.getElementById("wallpaper");
@@ -81,8 +86,12 @@ function handlePresetClick(imgSrc) {
         wallpaper.style.backgroundSize = "cover";
         wallpaper.style.backgroundPosition = "center";
         wallpaper.style.backgroundRepeat = "no-repeat";
+
+        // セッションキャッシュとして保存（DataURL or パス）
+        localStorage.setItem("tabdock_wallpaper", imgSrc);
     }
 }
+
 
 // ファイル選択→背景に反映＆プリセットへ追加
 function handleWallpaperUpload(event) {
