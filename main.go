@@ -85,16 +85,28 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 }
 
 func serve(mux http.Handler) {
+	update1 := "Reimplemented the wallpaper blur feature."
+	update2 := "The transparency slider is currently being adjusted."
+	update3 := "Wallpaper images are now cached and persist after reloads."
+
 	port := os.Getenv("DOCKER_PORT")
-	if port != "" {
-		log.Println("Dockerモードで起動：HTTP on port", port)
+	useDocker := port != ""
+
+	log.Println("Tabdock Version 2.6.0")
+	log.Println("==== Updates ====")
+	log.Println(update1)
+	log.Println(update2)
+	log.Println(update3)
+	log.Println("=================")
+
+	if useDocker {
+		log.Println("Started on Docker Mode：HTTP on port")
+		log.Println("Serving on http://127.0.1:" + port)
 		err := http.ListenAndServe(":"+port, mux)
 		if err != nil {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
-		log.Println("Tabdock Version 2.5.3")
-		log.Println("We plan to strengthen the integration of ToDo lists and calendars.")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
 		if err != nil {
