@@ -4,16 +4,19 @@ function applyVisualSettings() {
     const opacity = parseInt(document.getElementById("opacityRange")?.value || 100);
 
     const blurLayer = document.getElementById("wallpaperBlurLayer");
-    const widgetLayer = document.getElementById("widgetContainer");
+    const widgets = document.querySelectorAll('.widget-box'); 
 
     // 初期設定を反映
     if (blurLayer) {
-        blurLayer.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
+        blurLayer.style.backdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
+        blurLayer.style.webkitBackdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
     }
 
-    if (widgetLayer) {
-        widgetLayer.style.opacity = `${opacity / 100}`;
-    }
+    // 各ウィジェットの背景色を alpha で調整
+    widgets.forEach(widget => {
+        const alpha = Math.max(opacity / 100, 0.1);
+        document.documentElement.style.setProperty('--widget-bg', `rgba(30, 30, 30, ${alpha})`);
+    });
 
     // 表示の更新
     const blurValue = document.getElementById("blurValue");
