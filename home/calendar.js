@@ -180,9 +180,30 @@ window.addEventListener("DOMContentLoaded", async () => {
     const day = today.getDate();
     const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     renderSchedule(todayStr);
+
+    // 日付変更の監視
+    monitorDateChange();
 });
 
+function monitorDateChange() {
+    let lastDate = today.getDate();
 
+    setInterval(() => {
+        const now = new Date();
+        if (
+            now.getDate() !== lastDate ||
+            now.getMonth() !== today.getMonth() ||
+            now.getFullYear() !== today.getFullYear()
+        ) {
+            today = now;
+            lastDate = now.getDate();
+
+            renderCalendar();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+            renderSchedule(todayStr);
+        }
+    }, 60 * 1000);
+}
 
 // モーダル制御
 document.getElementById("openScheduleModal").addEventListener("click", () => {
