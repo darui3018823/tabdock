@@ -93,7 +93,7 @@ func serve(mux http.Handler) {
 			log.Fatal("HTTP Server error:", err)
 		}
 	} else {
-		log.Println("Tabdock Version 2.5.1")
+		log.Println("Tabdock Version 2.5.3")
 		log.Println("We plan to strengthen the integration of ToDo lists and calendars.")
 		log.Println("Serving on https://127.0.0.1:443 ...")
 		err := http.ListenAndServeTLS(":443", "tabdock.crt", "tabdock.key", mux)
