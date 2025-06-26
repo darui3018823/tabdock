@@ -93,7 +93,7 @@ func serve(mux http.Handler) {
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
 
-	log.Println("Tabdock Version 2.6.0")
+	log.Println("Tabdock Version 2.6.0_r3")
 	log.Println("==== Updates ====")
 	log.Println(update1)
 	log.Println(update2)
