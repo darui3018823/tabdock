@@ -1,16 +1,18 @@
 function applyVisualSettings() {
-    const blur = document.getElementById("blurRange")?.value || 0;
-    const brightness = document.getElementById("brightnessRange")?.value || 100;
-    const opacity = document.getElementById("opacityRange")?.value || 100;
+    const blur = parseInt(document.getElementById("blurRange")?.value || 0);
+    const brightness = parseInt(document.getElementById("brightnessRange")?.value || 100);
+    const opacity = parseInt(document.getElementById("opacityRange")?.value || 100);
 
     const blurLayer = document.getElementById("wallpaperBlurLayer");
-    const widgetContainer = document.getElementById("widgetContainer");
+    const widgetLayer = document.getElementById("widgetContainer");
 
+    // 初期設定を反映
     if (blurLayer) {
         blurLayer.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
     }
-    if (widgetContainer) {
-        widgetContainer.style.opacity = `${opacity / 100}`;
+
+    if (widgetLayer) {
+        widgetLayer.style.opacity = `${opacity / 100}`;
     }
 
     // 表示の更新
@@ -49,10 +51,24 @@ function applyVisualSettings() {
     }
 
     // 初期状態を一度反映
+    initializeSliders();
     applyVisualSettings();
     initWallpaperUploadHandlers();
     initMenuToggle();
 })();
+
+function initializeSliders() {
+    const blurSlider = document.getElementById("blurRange");
+    const brightnessSlider = document.getElementById("brightnessRange");
+    const opacitySlider = document.getElementById("opacityRange");
+
+    if (blurSlider) blurSlider.value = 0;
+    if (brightnessSlider) brightnessSlider.value = 100;
+    if (opacitySlider) opacitySlider.value = 100;
+
+    applyVisualSettings();
+}
+
 
 // プリセット画像クリックで壁紙適用
 function handlePresetClick(imgSrc) {
@@ -189,4 +205,10 @@ function initMenuToggle() {
     document.getElementById("closeWallpaperModal")?.addEventListener("click", () => {
         document.getElementById("wallpaperModal")?.classList.add("hidden");
     });
+
+    document.getElementById("openWallpaperAdvancedBtn")?.addEventListener("click", () => {
+    document.getElementById("menuModal")?.classList.add("hidden");
+    document.getElementById("wallpaperAdvancedModal")?.classList.remove("hidden");
+    });
+
 }
