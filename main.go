@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.6.0_r3
+// This code Version: 2.6.0_r4
 
 package main
 
@@ -93,7 +93,7 @@ func serve(mux http.Handler) {
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
 
-	log.Println("Tabdock Version 2.6.0_r3")
+	log.Println("Tabdock Version 2.6.0_r4")
 	log.Println("==== Updates ====")
 	log.Println(update1)
 	log.Println(update2)
@@ -301,7 +301,7 @@ func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
 
 func preloadHolidays() map[string]string {
 	// ローカルの祝日JSONを事前に読み込み
-	data, err := os.ReadFile("holidays_fallback.json")
+	data, err := os.ReadFile("./json/holidays_fallback.json")
 	if err != nil {
 		log.Fatalf("ローカル祝日データの読み込みに失敗: %v", err)
 	}

@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.6.0
+// This code Version: 2.6.0_log-r2
 
 package main
 
@@ -18,12 +18,12 @@ import (
 )
 
 var trustedCIDRs []*net.IPNet
-var scoreFile = "ip_scores.json"
+var scoreFile = "./json/ip_scores.json"
 var ipScores = map[string]int{}
 var blockedDirectIPs = []string{""}
 
 func init() {
-	err := loadTrustedIPs("trusted_ips.json")
+	err := loadTrustedIPs("./json/trusted_ips.json")
 	if err != nil {
 		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
 		os.Exit(1)
