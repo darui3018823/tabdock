@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.7.0_r1"
+const version = "2.7.1_r1"
 
 // var
 var fallbackHolidays map[string]string
@@ -220,6 +220,12 @@ func getPCStatus() (*PCStatus, error) {
 
 func handleWeather(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	// HEADリクエストならOKのみ返す
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	// クライアントからのリクエストボディを読み取る
 	reqBody, err := io.ReadAll(r.Body)
