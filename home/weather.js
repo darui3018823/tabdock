@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.6.0_js-r1
+// This code Version: 2.6.0_weather-r2
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -130,6 +130,7 @@ function closeModal() {
 
 document.addEventListener("DOMContentLoaded", () => {
     fetchWeather();
+    setInterval(fetchWeather, 60 * 60 * 1000);
 
     const locationBtn = document.getElementById("locationBtn");
     if (locationBtn) {
