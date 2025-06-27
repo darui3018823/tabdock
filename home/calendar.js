@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.6.0_js-r1
+// This code Version: 2.6.0_calendar-r2
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -206,6 +206,17 @@ function monitorDateChange() {
             renderCalendar();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
             renderSchedule(todayStr);
+
+            // SweetAlert2で右上に通知
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: '新しい日付に更新されました。',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true
+            });
         }
     }, 60 * 1000);
 }
