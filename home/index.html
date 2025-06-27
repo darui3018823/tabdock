@@ -318,17 +318,26 @@
                 </div>
 
                 <!-- ステータスモーダル -->
-                <div id="statusModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg shadow-lg">
-                        <h2 class="text-xl font-bold mb-4">Tabdock ステータス</h2>
-                        <ul id="statusList" class="space-y-2 text-sm font-mono">
-                            <li>API /api/ping: <span id="pingStatus" class="text-yellow-400">確認中...</span></li>
-                            <li>API /api/weather: <span id="weatherStatus" class="text-yellow-400">確認中...</span></li>
-                            <!-- 追加のAPIもここに表示可能 -->
-                        </ul>
-                        <div class="flex justify-end mt-6">
-                            <button id="closeStatusModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
-                        </div>
+                <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm font-mono" id="statusList">
+                    <div class="flex justify-between">
+                        <span>Tabdock Host</span>
+                        <span id="statusPing" class="text-yellow-400">確認中...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Weather Endpoint</span>
+                        <span id="statusWeather" class="text-yellow-400">確認中...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Schedule Endpoint</span>
+                        <span id="statusSchedule" class="text-yellow-400">確認中...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Status Endpoint</span>
+                        <span id="statusStatus" class="text-yellow-400">確認中...</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Holidays Endpoint</span>
+                        <span id="statusHolidays" class="text-yellow-400">確認中...</span>
                     </div>
                 </div>
 

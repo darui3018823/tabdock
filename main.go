@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.7.1_r1"
+const version = "2.7.4_r1"
 
 // var
 var fallbackHolidays map[string]string
@@ -177,7 +177,17 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 
 // APIハンドラ関数
 func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	status, err := getPCStatus()
 	if err != nil {
@@ -323,6 +333,11 @@ func preloadHolidays() map[string]string {
 }
 
 func holidaysHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	const remoteURL = "https://holidays-jp.github.io/api/v1/date.json"
 
 	client := http.Client{Timeout: 3 * time.Second}
@@ -341,6 +356,10 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSchedule(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		handleScheduleGet(w, r)
@@ -437,7 +456,11 @@ func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
 	w.Write(data)
 }
 
-func handleVesion(w http.ResponseWriter, _ *http.Request) {
+func handleVesion(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]string{
 		"version": version,
