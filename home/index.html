@@ -37,11 +37,12 @@ Packages and other third-party materials used in this repository are subject to 
                 }
         </style>
 
-        <!-- menu -->
+        <!-- hamburger Menu -->
         <div class="absolute top-4 right-4 z-50">
             <button id="hamburgerBtn" class="text-white text-3xl focus:outline-none">☰</button>
         </div>
 
+        <!-- Menu! -->
         <div id="menuModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
             <div class="bg-white/30 text-white backdrop-blur-md rounded-lg p-6 w-full max-w-md shadow-lg border border-white/20">
                 <h2 class="text-lg font-semibold mb-4">メニュー</h2>
@@ -60,6 +61,11 @@ Packages and other third-party materials used in this repository are subject to 
                         <div class="mb-2">
                             <button id="openScheduleModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
                                 予定を追加
+                            </button>
+                        </div>
+                        <div class="mb-2">
+                            <button id="openStatusModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                                ステータス
                             </button>
                         </div>
                     </li>
@@ -94,6 +100,7 @@ Packages and other third-party materials used in this repository are subject to 
             </div>
         </div>
 
+        <!-- アップロード確認モーダル -->
         <div id="uploadConfirmModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
             <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg shadow-lg">
                 <h2 class="text-lg font-bold mb-4">アップロード時の確認</h2>
@@ -312,6 +319,21 @@ Packages and other third-party materials used in this repository are subject to 
                     </div>
                 </div>
 
+                <!-- ステータスモーダル -->
+                <div id="statusModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg shadow-lg">
+                        <h2 class="text-xl font-bold mb-4">Tabdock ステータス</h2>
+                        <ul id="statusList" class="space-y-2 text-sm font-mono">
+                            <li>API /api/ping: <span id="pingStatus" class="text-yellow-400">確認中...</span></li>
+                            <li>API /api/weather: <span id="weatherStatus" class="text-yellow-400">確認中...</span></li>
+                            <!-- 追加のAPIもここに表示可能 -->
+                        </ul>
+                        <div class="flex justify-end mt-6">
+                            <button id="closeStatusModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <footer class="omgfooter">
@@ -323,6 +345,7 @@ Packages and other third-party materials used in this repository are subject to 
             <script src="weather.js" defer></script>
             <script src="ui_visibility.js" defer></script>
             <script src="calendar.js" defer></script>
+            <script src="status.js" defer></script>
         </div>
     </body>
 </html>

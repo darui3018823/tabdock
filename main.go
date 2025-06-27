@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.6.0_r6"
+const version = "2.7.0_r1"
 
 // var
 var fallbackHolidays map[string]string
@@ -136,6 +136,7 @@ func main() {
 	mux.Handle("/legal/privacy-policy/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/legal/privacy-policy/", http.FileServer(http.Dir("./legal/privacy-policy/")))).ServeHTTP))
 
 	// apis
+	mux.HandleFunc("/api/ping", secureHandler(handlePing))
 	mux.HandleFunc("/api/version", secureHandler(handleVesion))
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
@@ -434,6 +435,17 @@ func handleVesion(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]string{
 		"version": version,
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Println("JSONエンコード失敗:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func handlePing(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{
+		"status": "ok",
 	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Println("JSONエンコード失敗:", err)
