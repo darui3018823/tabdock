@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.9.0"
+const version = "2.9.1"
 
 // var
 var fallbackHolidays map[string]string
@@ -207,7 +207,6 @@ func getPCStatus() (*PCStatus, error) {
 	if runtime.GOOS == "windows" {
 		cmd = exec.Command("./get_status.exe")
 	} else {
-		// Linux/macOS 用: Pythonスクリプトを呼び出し
 		cmd = exec.Command("python3", "Python/get_status.py")
 	}
 
@@ -216,9 +215,6 @@ func getPCStatus() (*PCStatus, error) {
 		log.Println("Command execution failed:", err)
 		return nil, err
 	}
-
-	log.Println("== get_status output ==")
-	log.Println(string(output))
 
 	var status PCStatus
 	if err := json.Unmarshal(output, &status); err != nil {
