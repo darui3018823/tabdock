@@ -327,7 +327,6 @@
                     <div class="bg-gray-900 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg border border-white/10">
                         <h2 class="text-xl font-bold mb-4">Tabdock ステータス</h2>
 
-                        <!-- ステータス表示 -->
                         <div id="statusList" class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm font-mono bg-black/20 p-4 rounded-md">
                             <div class="flex justify-between">
                                 <span>Tabdock Host</span>
@@ -359,40 +358,47 @@
 
                 <!-- About Tabdock -->
                 <div id="aboutModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
-                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg border border-white/10">
+                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-3xl shadow-lg border border-white/10">
                         <h2 class="text-xl font-bold mb-6">Tabdockについて</h2>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                            <!-- 左: プロフィール -->
-                            <div class="flex flex-col items-center text-center space-y-2">
-                                <img src="https://cdn.daruks.com/profile/icon/icon.png" alt="Icon" class="w-24 h-24 rounded-full border border-white/20 shadow">
-                                <div class="text-lg font-semibold">darui3018823</div>
-                                <div class="text-sm text-white/50">Student / Developer</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <!-- 左: プロフィール -->
+                        <div class="flex flex-col items-center text-center space-y-2">
+                            <img src="https://cdn.daruks.com/profile/icon/icon.png" alt="Icon" class="w-20 h-20 rounded-full border border-white/20 shadow">
+                            <a href="https://daruks.com" class="text-lg font-semibold hover:underline">darui3018823</a>
+                            <div class="text-sm text-white/60">Student</div>
+                            <div class="text-sm text-white/60">
+                                Twitter: <a href="https://twitter.com/darui3018823" target="_blank" class="text-blue-400 hover:underline">@darui3018823</a>
                             </div>
+                            <div class="text-sm text-white/60">
+                                Mail: <a href="mailto:contact@daruks.com" class="text-blue-400 hover:underline">contact@daruks.com</a>
+                            </div>
+                            <div class="text-sm text-white/60">
+                                Tabdock: <span id="version" class="text-white">UnknownVersion</span>
+                            </div>
+                            <div class="text-sm text-white/60">
+                                GitHub Repository: <a href="https://github.com/darui3018823/tabdock" target="_blank" class="text-blue-400 hover:underline">darui3018823/tabdock</a>
+                            </div>
+                        </div>
 
-                            <!-- 右: 説明 -->
-                            <div class="text-sm space-y-3">
-                                <p class="leading-relaxed">
-                                    Tabdockは、使われなくなったタブレットを情報表示端末として再活用するためのWebベースのダッシュボードです。
-                                </p>
-                                <ul class="list-disc list-inside text-white/80">
-                                    <li>予定管理、天気、システムステータスの可視化</li>
-                                    <li>クライアント主導型UI＋軽量なローカルAPI接続</li>
-                                    <li>自由なウィジェット設計による拡張性</li>
-                                </ul>
-                                <div class="text-xs text-white/40 pt-2">
-                                    バージョン: <span id="version">v2.7.4_r1</span><br>
-                                    作者: <a href="https://daruks.com/" class="underline hover:text-white">darui3018823</a>
-                                </div>
-                            </div>
+                        <!-- 右: 説明 -->
+                        <div class="text-sm space-y-3">
+                            <p class="leading-relaxed text-white/90">
+                            Tabdockは、使われなくなったタブレットを情報表示端末として再活用するためのWebベースのダッシュボードです。
+                            </p>
+                            <ul class="list-disc list-inside text-white/80">
+                            <li>予定管理、天気、システムステータスの可視化</li>
+                            <li>クライアント主導型UI＋軽量なローカルAPI接続</li>
+                            <li>自由なウィジェット設計による拡張性</li>
+                            </ul>
+                        </div>
                         </div>
 
                         <div class="flex justify-end mt-6">
-                            <button id="closeAboutModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                        <button id="closeAboutModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
                         </div>
                     </div>
                 </div>
-
 
             </div>
 

@@ -96,13 +96,5 @@ document.addEventListener("DOMContentLoaded", () => {
           if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
         }
     });
-    
-    fetch('/api/version')
-      .then(res => res.json())
-      .then(data => {
-        if (data.version) {
-          const vEl = document.getElementById('version');
-          if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
-        }
-    });
+
 });

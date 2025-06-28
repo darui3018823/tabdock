@@ -10,3 +10,12 @@ document.getElementById("openAboutModal").addEventListener("click", () => {
 document.getElementById("closeAboutModal").addEventListener("click", () => {
     document.getElementById("aboutModal").classList.add("hidden");
 });
+
+fetch('/api/version')
+    .then(res => res.json())
+    .then(data => {
+    if (data.version) {
+        const vEl = document.getElementById('version');
+        if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
+    }
+})
