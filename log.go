@@ -185,15 +185,16 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		uaStatus := detectSuspiciousUA(ua)
-		if uaStatus == "deny" {
+		switch uaStatus {
+		case "deny":
 			incrementScore(ip, 5+internalLevelBoost)
 			logRequest(r, ip, "warn")
 			http.Redirect(w, r, "/error/403", http.StatusFound)
 			return
-		} else if uaStatus == "warn" {
+		case "warn":
 			incrementScore(ip, 3+internalLevelBoost)
 			logRequest(r, ip, "warn")
-		} else {
+		default:
 			logRequest(r, ip, getLevel(ip))
 		}
 

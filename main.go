@@ -165,10 +165,11 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 		rw := &responseWriterWithStatus{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
 
-		if rw.status == 404 {
+		switch rw.status {
+		case 404:
 			http.Redirect(w, r, "/error/404/", http.StatusFound)
 			return
-		} else if rw.status == 503 {
+		case 503:
 			http.Redirect(w, r, "/error/503/", http.StatusFound)
 			return
 		}
