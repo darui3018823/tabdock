@@ -176,17 +176,15 @@ document.getElementById("nextMonth").addEventListener("click", () => {
 
 window.addEventListener("DOMContentLoaded", async () => {
     await fetchHolidayData();
-    await loadSchedules(); // ← ここを追加
+    await loadSchedules();
     renderCalendar();
 
-    // 本日の予定を表示
     const year = today.getFullYear();
     const month = today.getMonth() + 1;
     const day = today.getDate();
     const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     renderSchedule(todayStr);
 
-    // 日付変更の監視
     monitorDateChange();
 });
 

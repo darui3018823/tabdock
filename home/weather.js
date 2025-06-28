@@ -61,7 +61,16 @@ async function fetchWeather() {
             tomorrowTelopEl.textContent = forecasts[1].telop;
         }
 
-        // 詳細ボタンイベントの追加（初回のみ）
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: '天気情報を更新しました',
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true
+        });
+
         setWeatherDetailEvents();
 
     } catch (err) {
