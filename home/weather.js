@@ -61,7 +61,7 @@ async function fetchWeather() {
 
         rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainTimeKey] || "--%"}`;
 
-        todayTempEl?.parentElement?.insertBefore(rainEl, todayTelopEl);
+        todayTelopEl?.parentElement?.insertBefore(rainEl, todayTelopEl.nextSibling);
 
         const parsed = JSON.parse(data.body.main_data);
         weatherDetailData = parsed.forecasts;
