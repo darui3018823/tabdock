@@ -3,143 +3,165 @@
   "return_type": "Completed successfully",
   "Responce_Code": "200 OK",
   "body": {
-    "detail": "Normal operation was returned from the API.",
-    "main_data": {
-      "copyright": {
-        "image": {
-          "height": 120,
-          "link": "https://weather.tsukumijima.net/",
-          "title": "天気予報 API（livedoor 天気互換）",
-          "url": "https://weather.tsukumijima.net/logo.png",
-          "width": 120
-        },
-        "link": "https://weather.tsukumijima.net/",
-        "provider": [
-          {
-            "link": "https://www.jma.go.jp/jma/",
-            "name": "気象庁 Japan Meteorological Agency",
-            "note": "気象庁 HP にて配信されている天気予報を JSON データへ編集しています。"
-          }
-        ],
-        "title": "(C) 天気予報 API（livedoor 天気互換）"
-      },
-      "description": {
-        "bodyText": "　本州は高気圧に覆われています。\n\n　東京地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れで、夜遅くは曇りとなるでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れ時々曇りで、多摩西部では、昼過ぎから夜のはじめ頃は雨や雷雨となる所があるでしょう。\n\n【関東甲信地方】\n　関東甲信地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れや曇りでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、曇りや晴れで、午後は雨や雷雨となり、激しく降る所があるでしょう。\n\n　関東地方と伊豆諸島の海上では、２８日から２９日にかけて、波がやや高いでしょう。",
-        "headlineText": "",
-        "publicTime": "2025-06-28T16:38:00+09:00",
-        "publicTimeFormatted": "2025/06/28 16:38:00",
-        "text": "　本州は高気圧に覆われています。\n\n　東京地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れで、夜遅くは曇りとなるでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れ時々曇りで、多摩西部では、昼過ぎから夜のはじめ頃は雨や雷雨となる所があるでしょう。\n\n【関東甲信地方】\n　関東甲信地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れや曇りでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、曇りや晴れで、午後は雨や雷雨となり、激しく降る所があるでしょう。\n\n　関東地方と伊豆諸島の海上では、２８日から２９日にかけて、波がやや高いでしょう。"
-      },
-      "forecasts": [
-        {
-          "chanceOfRain": {
-            "T00_06": "--%",
-            "T06_12": "--%",
-            "T12_18": "--%",
-            "T18_24": "0%"
-          },
-          "date": "2025-06-28",
-          "dateLabel": "今日",
-          "detail": {
-            "wave": "０．５メートル",
-            "weather": "晴れ　夜遅く　くもり",
-            "wind": "南東の風　後　南の風"
-          },
-          "image": {
-            "height": 60,
-            "title": "晴のち曇",
-            "url": "https://www.jma.go.jp/bosai/forecast/img/110.svg",
-            "width": 80
-          },
-          "telop": "晴のち曇",
-          "temperature": {
-            "max": {
-              "celsius": null,
-              "fahrenheit": null
-            },
-            "min": {
-              "celsius": null,
-              "fahrenheit": null
-            }
-          }
-        },
-        {
-          "chanceOfRain": {
-            "T00_06": "0%",
-            "T06_12": "0%",
-            "T12_18": "20%",
-            "T18_24": "20%"
-          },
-          "date": "2025-06-29",
-          "dateLabel": "明日",
-          "detail": {
-            "wave": "０．５メートル",
-            "weather": "晴れ　時々　くもり　多摩西部　では　昼過ぎ　から　夜のはじめ頃　雨　で　雷を伴う",
-            "wind": "北の風　後　南の風"
-          },
-          "image": {
-            "height": 60,
-            "title": "晴時々曇",
-            "url": "https://www.jma.go.jp/bosai/forecast/img/101.svg",
-            "width": 80
-          },
-          "telop": "晴時々曇",
-          "temperature": {
-            "max": {
-              "celsius": "33",
-              "fahrenheit": "91.4"
-            },
-            "min": {
-              "celsius": "24",
-              "fahrenheit": "75.2"
-            }
-          }
-        },
-        {
-          "chanceOfRain": {
-            "T00_06": "30%",
-            "T06_12": "30%",
-            "T12_18": "30%",
-            "T18_24": "30%"
-          },
-          "date": "2025-06-30",
-          "dateLabel": "明後日",
-          "detail": {
-            "wave": "０．５メートル",
-            "weather": "晴れ　時々　くもり",
-            "wind": "南の風"
-          },
-          "image": {
-            "height": 60,
-            "title": "晴時々曇",
-            "url": "https://www.jma.go.jp/bosai/forecast/img/101.svg",
-            "width": 80
-          },
-          "telop": "晴時々曇",
-          "temperature": {
-            "max": {
-              "celsius": "33",
-              "fahrenheit": "91.4"
-            },
-            "min": {
-              "celsius": "25",
-              "fahrenheit": "77"
-            }
-          }
-        }
-      ],
-      "link": "https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=130000",
-      "location": {
-        "area": "関東",
-        "city": "東京",
-        "district": "東京地方",
-        "prefecture": "東京都"
-      },
-      "publicTime": "2025-06-28T17:00:00+09:00",
-      "publicTimeFormatted": "2025/06/28 17:00:00",
-      "publishingOffice": "気象庁",
-      "title": "東京都 東京 の天気"
-    }
-  },
+		"detail": "Normal operation was returned from the API.",
+		"main_data": {
+			"copyright": {
+				"image": {
+					"height": 120,
+					"link": "https://weather.tsukumijima.net/",
+					"title": "天気予報 API（livedoor 天気互換）",
+					"url": "https://weather.tsukumijima.net/logo.png",
+					"width": 120
+				},
+
+				"link": "https://weather.tsukumijima.net/",
+
+				"provider": [
+					{
+					"link": "https://www.jma.go.jp/jma/",
+					"name": "気象庁 Japan Meteorological Agency",
+					"note": "気象庁 HP にて配信されている天気予報を JSON データへ編集しています。"
+					}
+				],
+
+				"title": "(C) 天気予報 API（livedoor 天気互換）"
+			},
+
+			"description": {
+				"bodyText": "　本州は高気圧に覆われています。\n\n　東京地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れで、夜遅くは曇りとなるでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れ時々曇りで、多摩西部では、昼過ぎから夜のはじめ頃は雨や雷雨となる所があるでしょう。\n\n【関東甲信地方】\n　関東甲信地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れや曇りでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、曇りや晴れで、午後は雨や雷雨となり、激しく降る所があるでしょう。\n\n　関東地方と伊豆諸島の海上では、２８日から２９日にかけて、波がやや高いでしょう。",
+				"headlineText": "",
+				"publicTime": "2025-06-28T16:38:00+09:00",
+				"publicTimeFormatted": "2025/06/28 16:38:00",
+				"text": "　本州は高気圧に覆われています。\n\n　東京地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れで、夜遅くは曇りとなるでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れ時々曇りで、多摩西部では、昼過ぎから夜のはじめ頃は雨や雷雨となる所があるでしょう。\n\n【関東甲信地方】\n　関東甲信地方は、晴れています。\n\n　２８日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、晴れや曇りでしょう。\n\n　２９日は、高気圧に覆われますが、湿った空気の影響を受ける見込みです。このため、曇りや晴れで、午後は雨や雷雨となり、激しく降る所があるでしょう。\n\n　関東地方と伊豆諸島の海上では、２８日から２９日にかけて、波がやや高いでしょう。"
+			},
+			
+			"forecasts": [
+					{
+						"chanceOfRain": {
+							"T00_06": "--%",
+							"T06_12": "--%",
+							"T12_18": "--%",
+							"T18_24": "0%"
+						},
+
+						"date": "2025-06-28",
+						"dateLabel": "今日",
+
+						"detail": {
+							"wave": "０．５メートル",
+							"weather": "晴れ　夜遅く　くもり",
+							"wind": "南東の風　後　南の風"
+						},
+
+						"image": {
+							"height": 60,
+							"title": "晴のち曇",
+							"url": "https://www.jma.go.jp/bosai/forecast/img/110.svg",
+							"width": 80
+						},
+
+						"telop": "晴のち曇",
+
+						"temperature": {
+							"max": {
+								"celsius": null,
+								"fahrenheit": null
+							},
+							"min": {
+								"celsius": null,
+								"fahrenheit": null
+							}
+						}
+					},
+
+					{
+						"chanceOfRain": {
+							"T00_06": "0%",
+							"T06_12": "0%",
+							"T12_18": "20%",
+							"T18_24": "20%"
+						},
+						"date": "2025-06-29",
+						"dateLabel": "明日",
+
+						"detail": {
+							"wave": "０．５メートル",
+							"weather": "晴れ　時々　くもり　多摩西部　では　昼過ぎ　から　夜のはじめ頃　雨　で　雷を伴う",
+							"wind": "北の風　後　南の風"
+						},
+
+						"image": {
+							"height": 60,
+							"title": "晴時々曇",
+							"url": "https://www.jma.go.jp/bosai/forecast/img/101.svg",
+							"width": 80
+						},
+
+						"telop": "晴時々曇",
+						"temperature": {
+							"max": {
+								"celsius": "33",
+								"fahrenheit": "91.4"
+							},
+							"min": {
+								"celsius": "24",
+								"fahrenheit": "75.2"
+							}
+						}
+					},
+
+					{
+						"chanceOfRain": {
+							"T00_06": "30%",
+							"T06_12": "30%",
+							"T12_18": "30%",
+							"T18_24": "30%"
+						},
+
+						"date": "2025-06-30",
+						"dateLabel": "明後日",
+						
+						"detail": {
+							"wave": "０．５メートル",
+							"weather": "晴れ　時々　くもり",
+							"wind": "南の風"
+						},
+
+						"image": {
+							"height": 60,
+							"title": "晴時々曇",
+							"url": "https://www.jma.go.jp/bosai/forecast/img/101.svg",
+							"width": 80
+						},
+
+						"telop": "晴時々曇",
+
+						"temperature": {
+							"max": {
+								"celsius": "33",
+								"fahrenheit": "91.4"
+							},
+							"min": {
+								"celsius": "25",
+								"fahrenheit": "77"
+							}
+						}
+					}
+				],
+				
+				"link": "https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=130000",
+				"location": {
+				"area": "関東",
+				"city": "東京",
+				"district": "東京地方",
+				"prefecture": "東京都"
+			},
+			
+			"publicTime": "2025-06-28T17:00:00+09:00",
+			"publicTimeFormatted": "2025/06/28 17:00:00",
+			"publishingOffice": "気象庁",
+			"title": "東京都 東京 の天気"
+		}
+    },
   "response": "success"
 }
