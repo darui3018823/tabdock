@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.8.7_weather-r3
+// This code Version: 2.9.2_weather-r1
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -49,19 +49,17 @@ async function fetchWeather() {
         const tomorrowTempEl = document.getElementById("weather-tomorrow-temp");
         const tomorrowTelopEl = document.getElementById("weather-tomorrow-telop");
 
-        const rainEl = document.createElement("div");
-        rainEl.className = "text-xs text-white/70 mt-1";
         const nowHour = new Date().getHours();
-
         let rainTimeKey = "";
         if (nowHour < 6) rainTimeKey = "T00_06";
         else if (nowHour < 12) rainTimeKey = "T06_12";
         else if (nowHour < 18) rainTimeKey = "T12_18";
         else rainTimeKey = "T18_24";
 
-        rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainTimeKey] || "--%"}`;
-
-        todayTelopEl?.parentElement?.insertBefore(rainEl, todayTelopEl.nextSibling);
+        const rainEl = document.getElementById("todayRain");
+        if (rainEl) {
+            rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainTimeKey] || "--%"}`;
+        }
 
         const parsed = JSON.parse(data.body.main_data);
         weatherDetailData = parsed.forecasts;
