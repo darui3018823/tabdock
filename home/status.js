@@ -28,7 +28,6 @@ document.getElementById("openStatusModal").addEventListener("click", () => {
     document.getElementById("menuModal")?.classList.add("hidden");
     document.getElementById("statusModal").classList.remove("hidden");
 
-    // 各APIの確認
     checkApi("/api/ping", "statusPing", "HEAD");
     checkApi("/api/weather", "statusWeather", "HEAD");
     checkApi("/api/schedule", "statusSchedule", "HEAD");
