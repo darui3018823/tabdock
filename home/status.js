@@ -34,6 +34,10 @@ document.getElementById("openStatusModal").addEventListener("click", () => {
     checkApi("/api/schedule", "statusSchedule", "HEAD");
     checkApi("/api/status", "statusStatus", "HEAD");
     checkApi("/api/holidays", "statusHolidays", "HEAD");
+
+    const now = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    document.getElementById("statusUpdateTimePC").textContent = `PC Status 最終更新: ${document.getElementById("last-update")?.textContent ?? "--"}`;
+    document.getElementById("statusUpdateTimeWeather").textContent = `天気予報 最終更新: ${now}`;
 });
 
 document.getElementById("closeStatusModal").addEventListener("click", () => {
