@@ -88,9 +88,9 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 }
 
 func serve(mux http.Handler) {
-	update1 := "Reimplemented the wallpaper blur feature."
-	update2 := "The transparency slider is currently being adjusted."
-	update3 := "Wallpaper images are now cached and persist after reloads."
+	update1 := "Added About and Status."
+	update2 := "The transparency slider is still being adjusted."
+	update3 := "Extended the reload process after a certain period."
 
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
