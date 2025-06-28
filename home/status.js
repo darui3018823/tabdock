@@ -35,7 +35,9 @@ document.getElementById("openStatusModal").addEventListener("click", () => {
     checkApi("/api/holidays", "statusHolidays", "HEAD");
 
     const now = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    document.getElementById("statusUpdateTimePC").textContent = `${document.getElementById("last-update")?.textContent ?? "--"}`;
+    document.getElementById("statusUpdateTimePC").textContent =
+    `${document.getElementById("last-update")?.textContent.replace("Last Update: ", "") ?? "--"}`;
+
     document.getElementById("statusUpdateTimeWeather").textContent = ` ${now}`;
 });
 

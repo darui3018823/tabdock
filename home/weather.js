@@ -106,6 +106,13 @@ async function fetchWeather() {
             timerProgressBar: true
         });
 
+        const updateTime = new Date().toLocaleTimeString("ja-JP", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+        document.getElementById("weather-last-update").textContent = updateTime;
+
         setWeatherDetailEvents();
 
     } catch (err) {
