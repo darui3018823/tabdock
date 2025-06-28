@@ -8,6 +8,12 @@ let weatherData = null;
 let weatherDetailParsedData = {};
 
 async function fetchWeather() {
+    let tempAlertShown = false;
+
+    function safeTempText(temp) {
+        return temp?.celsius ?? "--";
+    }
+
     const pref = getCookie("prefname");
     const city = getCookie("cityname");
     if (!pref || !city) return;
@@ -43,15 +49,44 @@ async function fetchWeather() {
         const tomorrowTempEl = document.getElementById("weather-tomorrow-temp");
         const tomorrowTelopEl = document.getElementById("weather-tomorrow-telop");
 
+        const rainEl = document.createElement("div");
+        rainEl.className = "text-xs text-white/70 mt-1";
+        const nowHour = new Date().getHours();
+
+        let rainTimeKey = "";
+        if (nowHour < 6) rainTimeKey = "T00_06";
+        else if (nowHour < 12) rainTimeKey = "T06_12";
+        else if (nowHour < 18) rainTimeKey = "T12_18";
+        else rainTimeKey = "T18_24";
+
+        rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainTimeKey] || "--%"}`;
+
+        todayTempEl?.parentElement?.insertBefore(rainEl, todayTelopEl);
+
         const parsed = JSON.parse(data.body.main_data);
         weatherDetailData = parsed.forecasts;
         weatherOverview = parsed.description.bodyText || "";
 
         if (todayTempEl && todayTelopEl) {
-            todayTempEl.textContent =
-                (forecasts[0].temperature.max.celsius || "--") + "℃ / " +
-                (forecasts[0].temperature.min.celsius || "--") + "℃";
+            const max = forecasts[0].temperature.max;
+            const min = forecasts[0].temperature.min;
+            const maxC = safeTempText(max);
+            const minC = safeTempText(min);
+            todayTempEl.textContent = `${maxC}℃ / ${minC}℃`;
             todayTelopEl.textContent = forecasts[0].telop;
+
+            if ((max?.celsius === null || min?.celsius === null) && !tempAlertShown) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: '本日の気温は未定です',
+                    text: '気象庁の発表時刻により、気温がまだ未定の場合があります。',
+                    timer: 6000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+                tempAlertShown = true;
+            }
         }
 
         if (tomorrowTempEl && tomorrowTelopEl) {
@@ -77,6 +112,7 @@ async function fetchWeather() {
         console.error("天気取得エラー:", err);
     }
 }
+
 
 function setWeatherDetailEvents() {
     const todayBtn = document.getElementById("todayDetailBtn");
@@ -112,20 +148,28 @@ function showDetail(key, label, detail, overview) {
         return;
     }
 
-    // タイトル更新
-    modalTitle.textContent = `${label} の天気の詳細`;
+    const index = key === "today" ? 0 : key === "tomorrow" ? 1 : 2;
+    const rain = weatherData.forecasts[index].chanceOfRain;
 
-    // モーダル内容組み立て
+    const rainHtml = Object.entries(rain)
+        .map(([time, percent]) => {
+            const label = time.replace("T", "").replace("_", "–");
+            return `<div class="inline-block mr-4">${label}時: ${percent}</div>`;
+        }).join("");
+
+    modalTitle.textContent = `${label} の天気の詳細`;
     modalText.innerHTML = `
         <p><strong>天気:</strong> ${detail.weather}</p>
         <p><strong>風:</strong> ${detail.wind}</p>
         <p><strong>波:</strong> ${detail.wave}</p>
+        <p><strong>降水確率:</strong><br>${rainHtml}</p>
         <hr class="my-2 border-gray-600" />
         <p><strong>概況:</strong><br>${overview || "情報なし"}</p>
     `;
 
     modal.classList.remove("hidden");
 }
+
 
 // モーダル閉じる処理
 document.getElementById("modalCloseBtn")?.addEventListener("click", () => {

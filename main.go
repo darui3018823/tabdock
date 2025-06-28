@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.8.0"
+const version = "2.8.4"
 
 // var
 var fallbackHolidays map[string]string
