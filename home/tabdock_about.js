@@ -16,6 +16,6 @@ fetch('/api/version')
     .then(data => {
     if (data.version) {
         const vEl = document.getElementById('version');
-        if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
+        if (vEl) vEl.textContent = 'v' + data.version;
     }
 })
