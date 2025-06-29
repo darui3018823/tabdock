@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.2_weather-r2
+// This code Version: 2.9.3_weather-r3
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -57,10 +57,26 @@ async function fetchWeather() {
         else rainTimeKey = "T18_24";
 
         const rainEl = document.getElementById("todayRain");
-        if (rainEl && forecasts[0]?.chanceOfRain && rainTimeKey in forecasts[0].chanceOfRain) {
-            const rainVal = forecasts[0].chanceOfRain[rainTimeKey];
-            if (typeof rainVal === "string" && rainVal.trim() !== "") {
-                rainEl.textContent = `降水確率: ${rainVal}`;
+        if (rainEl && forecasts[0]?.chanceOfRain) {
+            const rainObj = forecasts[0].chanceOfRain;
+            const rainTimes = ["T00_06", "T06_12", "T12_18", "T18_24"];
+            const rainLabels = {
+                T00_06: "00–06時",
+                T06_12: "06–12時",
+                T12_18: "12–18時",
+                T18_24: "18–24時"
+            };
+            let rainParts = [];
+            for (const key of rainTimes) {
+                let val = rainObj[key];
+                if (typeof val === "string" && val.trim() !== "") {
+                    rainParts.push(`${rainLabels[key]}: ${val}`);
+                }
+            }
+            if (rainParts.length > 0) {
+                rainEl.innerHTML = `<span class="font-bold">降水確率</span>　${rainParts.join('　')}`;
+            } else {
+                rainEl.textContent = "降水確率: --";
             }
         }
 
