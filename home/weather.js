@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_weather-r5
+// This code Version: 2.9.3_weather-r6
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -51,27 +51,20 @@ async function fetchWeather() {
         const tomorrowRainEl = document.getElementById("weather-tomorrow-rain");
 
         const nowHour = new Date().getHours();
-        let rainKey = "", label = "";
+        let rainKey = "";
 
         if (nowHour < 6) {
             rainKey = "T00_06";
-            label = "00–06時";
         } else if (nowHour < 12) {
             rainKey = "T06_12";
-            label = "06–12時";
         } else if (nowHour < 18) {
             rainKey = "T12_18";
-            label = "12–18時";
         } else {
             rainKey = "T18_24";
-            label = "18–24時";
         }
 
         const rainEl = document.getElementById("todayRain");
-        if (rainEl && forecasts[0]?.chanceOfRain) {
-            const val = forecasts[0].chanceOfRain[rainKey];
-            rainEl.textContent = `降水確率 ${label}: ${val && val.trim() !== "" ? val : "--%"}`;
-        }
+        rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainKey] || "--%"}`;
 
         // 明日の降水確率（平均のみ表示）
         if (tomorrowRainEl && forecasts[1]?.chanceOfRain) {
