@@ -98,21 +98,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     function setJsVersion(id, version) {
-        const parent = document.querySelector(`#statusList span:contains(${id})`)?.parentElement;
-        if (parent) {
-            parent.children[1].textContent = version;
-        }
+        const el = document.getElementById(`jsver-${id}-ver`);
+        if (el) el.textContent = version;
     }
 
-    async function fetchJsVersion(filename, label) {
+    async function fetchJsVersion(filename, id) {
         try {
             const res = await fetch(filename, {cache: "no-store"});
             const text = await res.text();
             const match = text.match(/This code Version:\s*([^\s]+)/);
-            if (match) {
-                setJsVersion(label, match[1]);
-            }
-        } catch (e) {
+            setJsVersion(id, match ? match[1] : "Unknown");
+        } catch {
+            setJsVersion(id, "Error");
         }
     }
 
