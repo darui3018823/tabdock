@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_weather-r3
+// This code Version: 2.9.3_weather-r5
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -48,35 +48,49 @@ async function fetchWeather() {
         const todayTelopEl = document.getElementById("weather-today-telop");
         const tomorrowTempEl = document.getElementById("weather-tomorrow-temp");
         const tomorrowTelopEl = document.getElementById("weather-tomorrow-telop");
+        const tomorrowRainEl = document.getElementById("weather-tomorrow-rain");
 
         const nowHour = new Date().getHours();
-        let rainTimeKey = "";
-        if (nowHour < 6) rainTimeKey = "T00_06";
-        else if (nowHour < 12) rainTimeKey = "T06_12";
-        else if (nowHour < 18) rainTimeKey = "T12_18";
-        else rainTimeKey = "T18_24";
+        let rainKey = "", label = "";
+
+        if (nowHour < 6) {
+            rainKey = "T00_06";
+            label = "00–06時";
+        } else if (nowHour < 12) {
+            rainKey = "T06_12";
+            label = "06–12時";
+        } else if (nowHour < 18) {
+            rainKey = "T12_18";
+            label = "12–18時";
+        } else {
+            rainKey = "T18_24";
+            label = "18–24時";
+        }
 
         const rainEl = document.getElementById("todayRain");
         if (rainEl && forecasts[0]?.chanceOfRain) {
-            const rainObj = forecasts[0].chanceOfRain;
+            const val = forecasts[0].chanceOfRain[rainKey];
+            rainEl.textContent = `降水確率 ${label}: ${val && val.trim() !== "" ? val : "--%"}`;
+        }
+
+        // 明日の降水確率（平均のみ表示）
+        if (tomorrowRainEl && forecasts[1]?.chanceOfRain) {
+            const rainObj = forecasts[1].chanceOfRain;
             const rainTimes = ["T00_06", "T06_12", "T12_18", "T18_24"];
-            const rainLabels = {
-                T00_06: "00–06時",
-                T06_12: "06–12時",
-                T12_18: "12–18時",
-                T18_24: "18–24時"
-            };
-            let rainParts = [];
+            let vals = [];
             for (const key of rainTimes) {
                 let val = rainObj[key];
-                if (typeof val === "string" && val.trim() !== "") {
-                    rainParts.push(`${rainLabels[key]}: ${val}`);
+                if (typeof val === "string" && val.trim().endsWith("%")) {
+                    let num = parseInt(val.trim().replace("%", ""), 10);
+                    if (!isNaN(num)) vals.push(num);
                 }
             }
-            if (rainParts.length > 0) {
-                rainEl.innerHTML = `<span class="font-bold">降水確率</span>　${rainParts.join('　')}`;
+            if (vals.length > 0) {
+                let avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                let approx = Math.round(avg / 5) * 5;
+                tomorrowRainEl.textContent = `降水確率: ${approx}%`;
             } else {
-                rainEl.textContent = "降水確率: --";
+                tomorrowRainEl.textContent = "降水確率: --";
             }
         }
 
