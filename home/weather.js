@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.2_weather-r1
+// This code Version: 2.9.2_weather-r2
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -57,21 +57,29 @@ async function fetchWeather() {
         else rainTimeKey = "T18_24";
 
         const rainEl = document.getElementById("todayRain");
-        if (rainEl) {
-            rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainTimeKey] || "--%"}`;
+        if (rainEl && forecasts[0]?.chanceOfRain && rainTimeKey in forecasts[0].chanceOfRain) {
+            const rainVal = forecasts[0].chanceOfRain[rainTimeKey];
+            if (typeof rainVal === "string" && rainVal.trim() !== "") {
+                rainEl.textContent = `降水確率: ${rainVal}`;
+            }
         }
 
         const parsed = JSON.parse(data.body.main_data);
         weatherDetailData = parsed.forecasts;
         weatherOverview = parsed.description.bodyText || "";
 
-        if (todayTempEl && todayTelopEl) {
+        if (todayTempEl && todayTelopEl && forecasts[0]?.temperature) {
             const max = forecasts[0].temperature.max;
             const min = forecasts[0].temperature.min;
-            const maxC = safeTempText(max);
-            const minC = safeTempText(min);
-            todayTempEl.textContent = `${maxC}℃ / ${minC}℃`;
-            todayTelopEl.textContent = forecasts[0].telop;
+            const maxC = (max && max.celsius != null && max.celsius !== "") ? max.celsius : null;
+            const minC = (min && min.celsius != null && min.celsius !== "") ? min.celsius : null;
+
+            if (maxC !== null && minC !== null) {
+                todayTempEl.textContent = `${maxC}℃ / ${minC}℃`;
+            }
+            if (typeof forecasts[0].telop === "string" && forecasts[0].telop.trim() !== "") {
+                todayTelopEl.textContent = forecasts[0].telop;
+            }
 
             if ((max?.celsius === null || min?.celsius === null) && !tempAlertShown) {
                 Swal.fire({
@@ -87,11 +95,18 @@ async function fetchWeather() {
             }
         }
 
-        if (tomorrowTempEl && tomorrowTelopEl) {
-            tomorrowTempEl.textContent =
-                (forecasts[1].temperature.max.celsius || "--") + "℃ / " +
-                (forecasts[1].temperature.min.celsius || "--") + "℃";
-            tomorrowTelopEl.textContent = forecasts[1].telop;
+        if (tomorrowTempEl && tomorrowTelopEl && forecasts[1]?.temperature) {
+            const max = forecasts[1].temperature.max;
+            const min = forecasts[1].temperature.min;
+            const maxC = (max && max.celsius != null && max.celsius !== "") ? max.celsius : null;
+            const minC = (min && min.celsius != null && min.celsius !== "") ? min.celsius : null;
+
+            if (maxC !== null && minC !== null) {
+                tomorrowTempEl.textContent = `${maxC}℃ / ${minC}℃`;
+            }
+            if (typeof forecasts[1].telop === "string" && forecasts[1].telop.trim() !== "") {
+                tomorrowTelopEl.textContent = forecasts[1].telop;
+            }
         }
 
         Swal.fire({
