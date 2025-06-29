@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.6.0_js-r1
+// This code Version: 2.9.2_js-r1
 
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
@@ -97,4 +97,30 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    function setJsVersion(id, version) {
+        const parent = document.querySelector(`#statusList span:contains(${id})`)?.parentElement;
+        if (parent) {
+            parent.children[1].textContent = version;
+        }
+    }
+
+    async function fetchJsVersion(filename, label) {
+        try {
+            const res = await fetch(filename, {cache: "no-store"});
+            const text = await res.text();
+            const match = text.match(/This code Version:\s*([^\s]+)/);
+            if (match) {
+                setJsVersion(label, match[1]);
+            }
+        } catch (e) {
+        }
+    }
+
+    fetchJsVersion("script.js", "scripts.js");
+    fetchJsVersion("status.js", "status.js");
+    fetchJsVersion("weather.js", "weather.js");
+    fetchJsVersion("calendar.js", "calendar.js");
+    fetchJsVersion("ui_visibility.js", "ui_visibility.js");
+    fetchJsVersion("tabdock_about.js", "tabdock_about.js");
+    
 });
