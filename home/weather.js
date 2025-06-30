@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_weather-r9
+// This code Version: 2.9.3_weather-r9.1
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -57,7 +57,6 @@ async function fetchWeather() {
 
             if (updateEl) {
                 updateEl.textContent = formatted;
-                updateEl.classList.remove("hidden");
             }
 
             if (statusTime) {
