@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_weather-r7.1
+// This code Version: 2.9.3_weather-r8
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -18,13 +18,6 @@ async function fetchWeather() {
     const city = getCookie("cityname");
     if (!pref || !city) return;
     document.getElementById("weather-title").textContent = `天気予報（地域：${pref}、${city}）`;
-
-    const now = new Date();
-    const updateTime = now.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    const updateEl = document.getElementById("weather-last-update");
-    if (updateEl) {
-        updateEl.textContent = updateTime;
-    }
 
     try {
         const response = await fetch("/api/weather", {
@@ -50,6 +43,13 @@ async function fetchWeather() {
         weatherData = JSON.parse(data.body.main_data);
         const forecasts = weatherData.forecasts;
         weatherDetailData = forecasts;
+
+        const now = new Date();
+        const updateTime = now.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const updateEl = document.getElementById("weather-last-update");
+        if (updateEl) {
+            updateEl.textContent = updateTime;
+        }
 
         const todayTempEl = document.getElementById("weather-today-temp");
         const todayTelopEl = document.getElementById("weather-today-telop");
@@ -148,13 +148,6 @@ async function fetchWeather() {
             timer: 5000,
             timerProgressBar: true
         });
-
-        const updateTime = new Date().toLocaleTimeString("ja-JP", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
-        });
-        document.getElementById("weather-last-update").textContent = updateTime;
 
         setWeatherDetailEvents();
 
