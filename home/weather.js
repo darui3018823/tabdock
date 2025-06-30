@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_weather-r9.1
+// This code Version: 2.9.3_weather-r10
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -44,25 +44,26 @@ async function fetchWeather() {
         const forecasts = weatherData.forecasts;
         weatherDetailData = forecasts;
 
-        const updateEl = document.getElementById("weather-last-update");
-        const statusTime = document.getElementById("statusUpdateTimeWeather");
-
-        if (weatherData?.publicTime) {
-            const time = new Date(weatherData.publicTime);
+        const fetchedAt = data.body.fetched_at || data.body.fetchedAt;
+        if (fetchedAt) {
+            const time = new Date(fetchedAt);
             const formatted = time.toLocaleTimeString("ja-JP", {
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit"
             });
 
+            const updateEl = document.getElementById("weather-last-update");
             if (updateEl) {
                 updateEl.textContent = formatted;
             }
 
-            if (statusTime) {
-                statusTime.textContent = formatted;
+            const statusEl = document.getElementById("statusUpdateTimeWeather");
+            if (statusEl) {
+                statusEl.textContent = formatted;
             }
         }
+
 
 
         const todayTempEl = document.getElementById("weather-today-temp");
