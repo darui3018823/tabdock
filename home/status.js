@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.8.7_status-r2
+// This code Version: 2.9.3_status-r1
 
 function checkApi(endpoint, labelId, method = "HEAD") {
     const start = performance.now();
@@ -34,11 +34,9 @@ document.getElementById("openStatusModal").addEventListener("click", () => {
     checkApi("/api/status", "statusStatus", "HEAD");
     checkApi("/api/holidays", "statusHolidays", "HEAD");
 
-    const now = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     document.getElementById("statusUpdateTimePC").textContent =
     `${document.getElementById("last-update")?.textContent.replace("Last Update: ", "") ?? "--"}`;
 
-    document.getElementById("statusUpdateTimeWeather").textContent = ` ${now}`;
 });
 
 document.getElementById("closeStatusModal").addEventListener("click", () => {
