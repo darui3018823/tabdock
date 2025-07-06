@@ -1,60 +1,55 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.5_about-r2
+// This code Version: 2.9.5_about-r3
 
-document.addEventListener('DOMContentLoaded', () => {
-    const timerBtn = document.getElementById('startTimerBtn');
-    if (!timerBtn) return;
+let timerInterval = null;
+let remainingSeconds = 0;
 
-    timerBtn.addEventListener('click', async () => {
-        const { value: minutes } = await Swal.fire({
-            title: 'タイマーをセット',
-            input: 'number',
-            inputLabel: '分数を入力してください（最大1440）',
-            inputAttributes: {
-                min: 1,
-                max: 1440,
-                step: 1
-            },
-            inputValue: 25,
-            showCancelButton: true,
-            confirmButtonText: '開始',
-            cancelButtonText: 'キャンセル'
-        });
+function startTimer(minutes) {
+    remainingSeconds = minutes * 60;
 
-        if (!minutes || minutes < 1) return;
+    const display = document.getElementById('timerDisplay');
+    const cancelBtn = document.getElementById('cancelTimerBtn');
 
-        Swal.fire({
-            title: 'タイマー開始',
-            html: `残り <b>${minutes}</b> 分です`,
-            timer: minutes * 60 * 1000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-            willClose: () => {
-                Swal.fire({
-                    title: '時間です！',
-                    text: 'タイマーが終了しました。',
-                    icon: 'success',
-                    confirmButtonText: 'OK'
-                });
+    if (timerInterval) clearInterval(timerInterval);
 
-                try {
-                    const audio = new Audio('https://cdn.daruks.com/common/notify.mp3');
-                    audio.play();
-                } catch (e) {
-                    console.warn('通知音の再生に失敗しました:', e);
-                }
+    updateTimerDisplay(); // 初期表示
+    timerInterval = setInterval(() => {
+        remainingSeconds--;
+        updateTimerDisplay();
 
-                if (Notification.permission === 'granted') {
-                    new Notification('Tabdock タイマー', {
-                        body: '設定したタイマーが終了しました。',
-                        icon: '/home/assets/icon/alarm.png'
-                    });
-                } else if (Notification.permission !== 'denied') {
-                    Notification.requestPermission();
-                }
-            }
-        });
+        if (remainingSeconds <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            showTimerCompleted();
+        }
+    }, 1000);
+
+    cancelBtn.addEventListener('click', () => {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        display.textContent = '--:--';
     });
-});
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    document.getElementById('timerDisplay').textContent =
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function showTimerCompleted() {
+    Swal.fire({
+        title: '時間です！',
+        text: 'タイマーが終了しました。',
+        icon: 'success'
+    });
+
+    try {
+        new Audio('https://cdn.daruks.com/common/notify.mp3').play();
+    } catch (e) {
+        console.warn(e);
+    }
+}

@@ -62,11 +62,6 @@
                             </button>
                         </div>
                         <div class="mb-2">
-                            <button id="startTimerBtn" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
-                                タイマーをセット
-                            </button>
-                        </div>
-                        <div class="mb-2">
                             <button id="openStatusModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
                                 ステータス
                             </button>
@@ -268,7 +263,7 @@
                 </div>
 
 
-                <!-- 予定リスト -->
+                <!-- todo -->
                 <div class="widget-box card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[220px] flex flex-col relative">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-md font-semibold">予定リスト</h2>
@@ -278,6 +273,16 @@
                         <li class="text-white/50">日付を選択してください</li>
                     </ul>
                 </div>
+
+                <!-- timer -->
+                <div class="widget-box card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white flex flex-col min-h-[140px]" id="timerWidget">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-md font-semibold">タイマー</h2>
+                        <button id="cancelTimerBtn" class="text-xs bg-red-500 px-2 py-1 rounded hover:bg-red-600 transition">停止</button>
+                    </div>
+                    <div id="timerDisplay" class="text-3xl font-mono font-bold text-center my-3">--:--</div>
+                </div>
+
 
 
                 <!-- 以下はモーダル-->
