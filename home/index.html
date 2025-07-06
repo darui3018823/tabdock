@@ -62,6 +62,11 @@
                             </button>
                         </div>
                         <div class="mb-2">
+                            <button id="startTimerBtn" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                                タイマーをセット
+                            </button>
+                        </div>
+                        <div class="mb-2">
                             <button id="openStatusModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
                                 ステータス
                             </button>
@@ -184,7 +189,7 @@
                     <div id="date" class="text-xl text-white/90 mb-1 ml-2 mt-1">YYYY/MM/DD (曜日)</div>
                     <div id="clock" class="text-5xl font-bold tracking-wide text-white mt-7 mr-4 self-end">--:--:--</div>
                     <button id="toggleFormat" class="absolute top-2 right-2 w-7 h-7 p-1 bg-white/20 hover:bg-white/30 rounded-full transition">
-                        <img src="/home/icons/refresh.png" alt="toggle" class="w-full h-full object-contain" />
+                        <img src="/home/assets/icon/refresh.png" alt="toggle" class="w-full h-full object-contain" />
                     </button>
                 </div>
     
@@ -491,6 +496,7 @@
             <script src="calendar.js" defer></script>
             <script src="status.js" defer></script>
             <script src="tabdock_about.js" defer></script>
+            <script src="timer.js" defer></script>
 
             <!-- time stamp-->
             <span id="weather-last-update" class="hidden">未取得</span>
