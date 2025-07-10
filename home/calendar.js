@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.4_calendar-r1
+// This code Version: 2.9.5_calendar-r2
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -416,4 +416,13 @@ function openAllScheduleModal() {
 
 document.getElementById("closeAllScheduleModal").addEventListener("click", () => {
     document.getElementById("allScheduleModal").classList.add("hidden");
+});
+
+document.getElementById("toggleDetail").addEventListener("click", () => {
+  const section = document.getElementById("detailSection");
+  const btn = document.getElementById("toggleDetail");
+
+  const isOpen = !section.classList.contains("hidden");
+  section.classList.toggle("hidden", isOpen);
+  btn.textContent = isOpen ? "▲ 詳細設定を隠す" : "▼ 詳細設定を表示";
 });
