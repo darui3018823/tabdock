@@ -120,7 +120,6 @@ func serve(mux http.Handler) {
 
 func main() {
 	mux := http.NewServeMux()
-	// ローカルの祝日データを事前に読み込み
 	fallbackHolidays = preloadHolidays()
 
 	// main page!
