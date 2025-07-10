@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.9.5"
+const version = "2.9.5.1"
 
 // var
 var fallbackHolidays map[string]string
@@ -398,6 +398,7 @@ func handleSchedulePost(w http.ResponseWriter, r *http.Request) {
 		defer file.Close()
 		ext := strings.ToLower(filepath.Ext(handler.Filename))
 		if forbiddenExts[ext] {
+			log.Println("アップロード拒否: 禁止拡張子", ext, "ファイル名:", handler.Filename, "リモートアドレス:", r.RemoteAddr)
 			http.Error(w, "Forbidden file type", http.StatusBadRequest)
 			return
 		}
