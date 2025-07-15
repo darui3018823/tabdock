@@ -1,13 +1,12 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.6_devtools-r1
+// This code Version: 2.9.6_devtools-r2
 
 document.getElementById("forceSyncBtn").addEventListener("click", async () => {
-    // 同期中アラート（SweetAlert2）
     await Swal.fire({
-        title: '同期中…',
-        text: 'サーバーからすべての情報を取得しています。',
+        title: '完全同期中…',
+        text: '全データをサーバーから再取得しています。',
         allowOutsideClick: false,
         didOpen: () => {
             Swal.showLoading();
@@ -15,31 +14,32 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
     });
 
     try {
-        // 1. 天気再取得
-        if (typeof fetchWeather === "function") {
-            await fetchWeather(); // 定義済み関数想定
-        }
+        // 天気
+        if (typeof fetchWeather === "function") await fetchWeather();
 
-        // 2. ステータス再取得
-        if (typeof fetchStatus === "function") {
-            await fetchStatus(); // 定義済み関数想定
-        }
+        // ステータス
+        if (typeof fetchStatus === "function") await fetchStatus();
 
-        // 3. 予定再取得
-        if (typeof loadSchedule === "function") {
-            await loadSchedule(); // 定義済み関数想定
-        }
+        // 予定一覧
+        if (typeof loadSchedule === "function") await loadSchedule();
 
-        // 4. カレンダー再表示
-        if (typeof renderCalendar === "function") {
-            renderCalendar(currentDate); // 現在の月を再描画
-        }
+        // 祝日再取得
+        if (typeof fetchHolidayData === "function") await fetchHolidayData();
+
+        // カレンダー再描画
+        if (typeof renderCalendar === "function") renderCalendar();
+
+        // 日付再描画
+        if (typeof updateDate === "function") updateDate();
+
+        // 時刻再描画
+        if (typeof updateClock === "function") updateClock();
 
         await Swal.fire({
             icon: 'success',
             title: '同期完了',
             text: 'すべての情報を最新状態に更新しました。',
-            timer: 1500,
+            timer: 1800,
             showConfirmButton: false
         });
     } catch (err) {
@@ -47,10 +47,11 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
         await Swal.fire({
             icon: 'error',
             title: '同期失敗',
-            text: 'データ取得中にエラーが発生しました。'
+            text: '一部または全体のデータ取得に失敗しました。'
         });
     }
 });
+
 
 document.getElementById("openDevMenuBtn").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
@@ -70,3 +71,7 @@ document.getElementById("showDebugLogBtn").addEventListener("click", () => {
     console.log("現在の状態:");
     console.log(localStorage);
 });
+
+window.fetchStatus = updatePCStatus;
+window.updateDate = updateDate;
+window.updateClock = updateClock;
