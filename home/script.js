@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.6_scripts-r3
+// This code Version: 2.9.6_scripts-r3.1
 
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
@@ -64,26 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("last-update").textContent = `Last Update: ${formatted}`;
     }
   
-    function updatePCStatus() {
-        fetch("/api/status")
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById("pc").textContent = " (" + data.pc + ") : Online";
-                document.getElementById("port21").textContent = data.port21;
-                document.getElementById("battery").textContent = data.battery;
-                document.getElementById("egpu").textContent = data.egpu;
-                document.getElementById("wan").textContent = data.wan;
-        
-                // 以下は右側カラム
-                document.getElementById("gpu").textContent = data.gpu;
-                document.getElementById("ram").textContent = data.ram;
-                document.getElementById("drive-e").textContent = data.driveE;
-                document.getElementById("vpn").textContent = data.vpn;
-        
-                updateLastUpdateTime();
-        })
-        .catch(err => console.error("Status fetch error:", err));
-    }
+
 
     updatePCStatus();
     setInterval(updatePCStatus, 120000); // 120秒ごとに更新
@@ -98,6 +79,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
 });
+
+function updatePCStatus() {
+    fetch("/api/status")
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("pc").textContent = " (" + data.pc + ") : Online";
+            document.getElementById("port21").textContent = data.port21;
+            document.getElementById("battery").textContent = data.battery;
+            document.getElementById("egpu").textContent = data.egpu;
+            document.getElementById("wan").textContent = data.wan;
+    
+            // 以下は右側カラム
+            document.getElementById("gpu").textContent = data.gpu;
+            document.getElementById("ram").textContent = data.ram;
+            document.getElementById("drive-e").textContent = data.driveE;
+            document.getElementById("vpn").textContent = data.vpn;
+   
+            updateLastUpdateTime();
+    })
+    .catch(err => console.error("Status fetch error:", err));
+}
 
 window.fetchStatus = updatePCStatus;
 window.updateDate = updateDate;
