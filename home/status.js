@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_status-r2
+// This code Version: 2.9.6_status-r1
 
 function checkApi(endpoint, labelId, method = "HEAD") {
     const start = performance.now();
@@ -49,3 +49,27 @@ document.getElementById("openStatusModal").addEventListener("click", () => {
 document.getElementById("closeStatusModal").addEventListener("click", () => {
     document.getElementById("statusModal").classList.add("hidden");
 });
+
+function setJsVersion(id, version) {
+    const el = document.getElementById(`jsver-${id}-ver`);
+    if (el) el.textContent = version;
+}
+
+async function fetchJsVersion(filename, id) {
+    try {
+        const res = await fetch(filename, {cache: "no-store"});
+        const text = await res.text();
+        const match = text.match(/This code Version:\s*([^\s]+)/);
+        setJsVersion(id, match ? match[1] : "Unknown");
+    } catch {
+        setJsVersion(id, "Error");
+    }
+}
+
+fetchJsVersion("script.js", "scripts.js");
+fetchJsVersion("status.js", "status.js");
+fetchJsVersion("weather.js", "weather.js");
+fetchJsVersion("calendar.js", "calendar.js");
+fetchJsVersion("ui_visibility.js", "ui_visibility.js");
+fetchJsVersion("tabdock_about.js", "tabdock_about.js");
+fetchJsVersion("devtools.js", "devtools.js");

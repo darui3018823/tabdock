@@ -1,3 +1,8 @@
+// 2025 TabDock: darui3018823 All rights reserved.
+// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
+// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
+// This code Version: 2.9.6_devtools-r1
+
 document.getElementById("forceSyncBtn").addEventListener("click", async () => {
     // 同期中アラート（SweetAlert2）
     await Swal.fire({
@@ -48,6 +53,7 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("openDevMenuBtn").addEventListener("click", () => {
+    document.getElementById("menuModal").classList.add("hidden");
     document.getElementById("devMenuModal").classList.remove("hidden");
 });
 document.getElementById("closeDevMenuModal").addEventListener("click", () => {
