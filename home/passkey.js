@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.3_scripts-r1
+// This code Version: 3.0.3_scripts-r2
 
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
@@ -132,12 +132,24 @@ async function startLogin() {
         body: JSON.stringify({ username })
     });
 
+    const contentType = res.headers.get("content-type") || "";
+    const rawText = await res.text();
+
     if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`サーバーエラー (${res.status}): ${msg}`);
+        throw new Error(`サーバーエラー (${res.status}):\n${rawText}`);
     }
 
-    const options = await res.json();
+    if (!contentType.includes("application/json")) {
+        throw new Error(`JSONレスポンスではありません (${res.status}):\n${rawText}`);
+    }
+
+    // JSONとして解釈してみる
+    let options;
+    try {
+        options = JSON.parse(rawText);
+    } catch (e) {
+        throw new Error(`JSONパース失敗:\n${rawText}`);
+    }
 
     options.publicKey.challenge = Uint8Array.from(atob(options.publicKey.challenge), c => c.charCodeAt(0));
     options.publicKey.allowCredentials = options.publicKey.allowCredentials.map(cred => ({
