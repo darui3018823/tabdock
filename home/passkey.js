@@ -108,27 +108,32 @@ async function startRegistration(options, username) {
     options.publicKey.challenge = Uint8Array.from(atob(options.publicKey.challenge), c => c.charCodeAt(0));
     options.publicKey.user.id = Uint8Array.from(atob(options.publicKey.user.id), c => c.charCodeAt(0));
 
-    const cred = await navigator.credentials.create({ publicKey: options.publicKey });
+    // 認証情報を作成
+    const credential = await navigator.credentials.create({ publicKey: options.publicKey });
 
-    const attestation = {
-        id: cred.id,
-        rawId: bufferToBase64url(cred.rawId),
-        type: cred.type,
-        response: {
-            clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
-            attestationObject: bufferToBase64url(cred.response.attestationObject)
-        }
+    // サーバーに送信するリクエストボディを作成
+    const body = {
+        username: username,
+        credential: {
+            id: credential.id,
+            rawId: bufferToBase64url(credential.rawId),
+            type: credential.type,
+            response: {
+                clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+                attestationObject: bufferToBase64url(credential.response.attestationObject),
+            },
+        },
     };
 
     // /finish へ送信
     await fetch("/api/webauthn/register/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, credential: attestation })
+        body: JSON.stringify(body)
     });
 
     Swal.fire("登録完了", "パスキーが登録されました。", "success");
-    return attestation;
+    return credential;
 }
 
 async function startLogin() {
