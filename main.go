@@ -38,7 +38,6 @@ var (
 )
 
 // type
-
 type responseWriterWithStatus struct {
 	http.ResponseWriter
 	status int
