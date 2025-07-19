@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.3_log-r1
+// This code Version: 3.0.3_log-r2
 
 package main
 
@@ -164,6 +164,11 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		ip := getIPAddress(r)
 		ua := r.UserAgent()
 		loadScores()
+
+		if ip == "127.0.0.1" {
+			next(w, r)
+			return
+		}
 
 		internalLevelBoost := 0
 		if !isFromCloudflare(r) {
