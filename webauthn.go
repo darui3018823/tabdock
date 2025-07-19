@@ -78,14 +78,14 @@ func initDB() error {
 
 	// 初回のみ実行（CREATE TABLE IF NOT EXISTS）
 	query := `
-    CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE,
-        display_name TEXT,
-        credential_id TEXT,
-        credential_public_key TEXT,
-        sign_count INTEGER
-    );`
+	CREATE TABLE IF NOT EXISTS users (
+		id TEXT PRIMARY KEY,
+		username TEXT UNIQUE,
+		display_name TEXT,
+		credential_id TEXT,
+		credential_public_key TEXT,
+		sign_count INTEGER
+	);`
 	_, err = db.Exec(query)
 	return err
 }
@@ -177,11 +177,18 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	fmt.Println("[DEBUG] body:", string(bodyBytes))
+
 	var req struct {
 		Username   string                                `json:"username"`
 		Credential protocol.ParsedCredentialCreationData `json:"credential"`
 	}
-	if err := json.Unmarshal(bodyBytes, &req); err != nil || req.Username == "" {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		fmt.Println("[ERROR] Unmarshal失敗:", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	if req.Username == "" {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}

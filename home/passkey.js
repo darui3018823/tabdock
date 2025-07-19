@@ -1,15 +1,20 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5_scripts-r1
+// This code Version: 3.0.5_scripts-r2
 
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
     document.getElementById("accountModal").classList.remove("hidden");
 });
-// Uint8ArrayやArrayBufferをbase64urlエンコードする関数
+// Uint8ArrayやArrayBufferをbase64urlエンコードする関数（forループ方式で安全に変換）
 function bufferToBase64url(buffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/, "");
