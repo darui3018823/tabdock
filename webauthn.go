@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.2-webauthn-r1
+// This code Version: 3.0.4-webauthn-r1
 
 package main
 
@@ -154,6 +154,51 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
+}
+
+func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
+	initWebAuthn()
+
+	var req struct {
+		Username   string                                `json:"username"`
+		Credential protocol.ParsedCredentialCreationData `json:"credential"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	user, err := FindWebAuthnUserByUsername(req.Username)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	sessionData := challengeStore[req.Username]
+	credential, err := webAuthnInstance.FinishRegistration(user, *sessionData, r)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to finish registration: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// ★ ここで credential 情報をDBに保存！！
+	err = saveCredentialToDB(user.WebAuthnName(), credential)
+	if err != nil {
+		http.Error(w, "保存失敗", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success":true}`))
+}
+
+func saveCredentialToDB(username string, cred *webauthn.Credential) error {
+	_, err := db.Exec(`UPDATE users SET credential_id=?, credential_public_key=?, sign_count=? WHERE username=?`,
+		string(cred.ID),
+		string(cred.PublicKey),
+		int(cred.Authenticator.SignCount),
+		username)
+	return err
 }
 
 func HandleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
