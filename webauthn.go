@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.4-webauthn-r1
+// This code Version: 3.0.5-webauthn-r1
 
 package main
 
@@ -159,29 +159,33 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
 
-	var req struct {
-		Username   string                                `json:"username"`
-		Credential protocol.ParsedCredentialCreationData `json:"credential"`
+	var body struct {
+		Username string `json:"username"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Username == "" {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	user, err := FindWebAuthnUserByUsername(req.Username)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	user, err := FindWebAuthnUserByUsername(body.Username)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	sessionData := challengeStore[req.Username]
+	sessionData, ok := challengeStore[body.Username]
+	if !ok {
+		http.Error(w, "Session data not found", http.StatusBadRequest)
+		return
+	}
+
 	credential, err := webAuthnInstance.FinishRegistration(user, *sessionData, r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to finish registration: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// ★ ここで credential 情報をDBに保存！！
 	err = saveCredentialToDB(user.WebAuthnName(), credential)
 	if err != nil {
 		http.Error(w, "保存失敗", http.StatusInternalServerError)
