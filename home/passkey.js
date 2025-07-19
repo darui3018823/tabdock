@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.0_scripts-r2-alpha
+// This code Version: 3.0.0_scripts-r3
 
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
@@ -34,7 +34,7 @@ function handleRegister() {
         cancelButtonText: "後で"
     }).then(result => {
         if (result.isConfirmed) {
-            startRegistration();
+            handlePasskeyRegistration();
         }
     });
 }
@@ -71,10 +71,11 @@ async function handlePasskeyRegistration() {
             const msg = await res.text();
             throw new Error(`サーバーエラー: ${msg}`);
         }
-        return res.json(); // optionsが返る
+        return res.json();
     })
     .then(options => {
-        return startRegistration(options, username); // optionsとusernameを渡す
+        if (!options || !options.publicKey) throw new Error("無効な応答: publicKey がありません");
+        return startRegistration(options, username);
     })
     .then(attestation => {
         console.log("登録完了:", attestation);

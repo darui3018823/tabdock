@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.0_alpha-r2
+// This code Version: 3.0.0_alpha-r3
 
 package main
 
@@ -66,6 +66,9 @@ func initDB() error {
 func insertUser(id, username, displayName string) error {
 	_, err := db.Exec("INSERT INTO users (id, username, display_name) VALUES (?, ?, ?)",
 		id, username, displayName)
+	if err != nil {
+		log.Printf("ユーザー登録失敗: %v", err)
+	}
 	return err
 }
 
@@ -98,7 +101,6 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 	userID := uuid.New().String()
 	displayName := req.Username
 
-	// 👇 先に構造体を作成
 	user := &User{
 		ID:          []byte(userID),
 		Name:        req.Username,
