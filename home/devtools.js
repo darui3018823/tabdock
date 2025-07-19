@@ -1,8 +1,9 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.6_devtools-r3
+// This code Version: 2.9.6_devtools-r4
 
+// 「完全同期」ボタン押下時の処理
 document.getElementById("forceSyncBtn").addEventListener("click", async () => {
     await Swal.fire({
         title: '完全同期中…',
@@ -14,25 +15,12 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
     });
 
     try {
-        // 天気
         if (typeof fetchWeather === "function") await fetchWeather();
-
-        // ステータス
         if (typeof fetchStatus === "function") await fetchStatus();
-
-        // 予定一覧
         if (typeof loadSchedule === "function") await loadSchedule();
-
-        // 祝日再取得
         if (typeof fetchHolidayData === "function") await fetchHolidayData();
-
-        // カレンダー再描画
         if (typeof renderCalendar === "function") renderCalendar();
-
-        // 日付再描画
         if (typeof updateDate === "function") updateDate();
-
-        // 時刻再描画
         if (typeof updateClock === "function") updateClock();
 
         await Swal.fire({
@@ -52,21 +40,24 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
     }
 });
 
-
 document.getElementById("openDevMenuBtn").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
     document.getElementById("devMenuModal").classList.remove("hidden");
 });
+
 document.getElementById("closeDevMenuModal").addEventListener("click", () => {
     document.getElementById("devMenuModal").classList.add("hidden");
 });
+
 document.getElementById("reloadScriptsBtn").addEventListener("click", () => {
     location.reload();
 });
+
 document.getElementById("clearLocalStorageBtn").addEventListener("click", () => {
     localStorage.clear();
     alert("ローカルストレージを初期化しました。");
 });
+
 document.getElementById("showDebugLogBtn").addEventListener("click", () => {
     console.log("現在の状態:");
     console.log(localStorage);

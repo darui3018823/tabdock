@@ -49,10 +49,8 @@ document.addEventListener("DOMContentLoaded", () => {
     updateClock();
     updateDate();
   
-    // 毎秒時刻更新（秒のため）
     setInterval(updateClock, 1000);
   
-    // 日付（曜日）は10秒ごとに更新（そんなに変化しないので）
     setInterval(updateDate, 10000);
   
     function updateLastUpdateTime() {
