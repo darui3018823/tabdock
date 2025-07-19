@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5-webauthn-r3
+// This code Version: 3.0.5-webauthn-r4
 
 package main
 
@@ -178,7 +178,8 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var req struct {
-		Username string `json:"username"`
+		Username   string                                `json:"username"`
+		Credential protocol.ParsedCredentialCreationData `json:"credential"`
 	}
 	if err := json.Unmarshal(bodyBytes, &req); err != nil || req.Username == "" {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -197,7 +198,7 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// r.Body を復元して FinishRegistration に渡す
+	// r.Body を credential 情報ごと復元
 	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	credential, err := webAuthnInstance.FinishRegistration(user, *sessionData, r)
