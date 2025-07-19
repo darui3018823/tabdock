@@ -23,7 +23,7 @@ import (
 )
 
 // const
-const version = "3.0.1"
+const version = "3.0.2"
 
 // var
 var fallbackHolidays map[string]string
@@ -150,6 +150,8 @@ func main() {
 
 	// WebAuthn
 	mux.HandleFunc("/api/webauthn/register/start", secureHandler(HandleWebAuthnRegisterStart))
+
+	mux.HandleFunc("/api/webauthn/login/start", secureHandler(HandleWebAuthnLoginStart))
 
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
