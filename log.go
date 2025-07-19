@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.6.0_log-r2
+// This code Version: 3.0.3_log-r1
 
 package main
 
@@ -152,6 +152,9 @@ func logRequest(r *http.Request, ip, level string) {
 		f.WriteString(msg)
 	}
 	if level == "warn" || level == "attack" {
+		if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
+			return
+		}
 		go sendDiscordWebhook(ip, level, r.Method, r.URL.Path, r.UserAgent())
 	}
 }
