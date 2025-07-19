@@ -73,9 +73,9 @@ func initWebAuthn() {
 	once.Do(func() {
 		var err error
 		webAuthnInstance, err = webauthn.New(&webauthn.Config{
-			RPDisplayName: "Tabdock",              // 表示名
-			RPID:          "localhost",            // 通常はFQDN
-			RPOrigin:      "https://192.168.3.57", // フロントのオリジン（HTTPS）
+			RPDisplayName: "Tabdock",           // 表示名
+			RPID:          "localhost",         // 通常はFQDN
+			RPOrigin:      "https://127.0.0.1", // フロントのオリジン（HTTPS）
 		})
 		if err != nil {
 			log.Fatalf("WebAuthn init failed: %v", err)

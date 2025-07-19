@@ -4,6 +4,7 @@ Write-Host "Removing old build files..."
 Remove-Item ./dist/tabdock_win_amd64.exe -Force
 
 Write-Host "Setting environment variables for GOOS and GOARCH..."
+$env:CGO_ENABLED="1"
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 
@@ -11,6 +12,7 @@ Write-Host "Building the application..."
 go build -o ./dist/tabdock_win_amd64.exe
 
 Write-Host "Build complete. Cleaning up environment variables..."
+Remove-Item Env:CGO_ENABLED
 Remove-Item Env:GOOS
 Remove-Item Env:GOARCH
 

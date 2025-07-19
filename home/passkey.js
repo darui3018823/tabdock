@@ -1,3 +1,8 @@
+// 2025 TabDock: darui3018823 All rights reserved.
+// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
+// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
+// This code Version: 3.0.0_scripts-r2-alpha
+
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
     document.getElementById("accountModal").classList.remove("hidden");
@@ -56,7 +61,7 @@ async function startRegistration() {
         return;
     }
 
-    const res = await fetch("/webauthn/register/start", {
+    const res = await fetch("/api/webauthn/register/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username })
@@ -78,7 +83,7 @@ async function startRegistration() {
         }
     };
 
-    await fetch("/webauthn/register/finish", {
+    await fetch("/api/webauthn/register/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, credential: attestation })
@@ -94,7 +99,7 @@ async function startLogin() {
         return;
     }
 
-    const res = await fetch("/webauthn/login/start", {
+    const res = await fetch("/api/webauthn/login/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username })
@@ -121,7 +126,7 @@ async function startLogin() {
         }
     };
 
-    const verify = await fetch("/webauthn/login/finish", {
+    const verify = await fetch("/api/webauthn/login/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, credential: response })
