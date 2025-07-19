@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.0_alpha-r3
+// This code Version: 3.0.0_alpha-r4
 
 package main
 
@@ -84,7 +84,7 @@ func initWebAuthn() {
 		var err error
 		webAuthnInstance, err = webauthn.New(&webauthn.Config{
 			RPDisplayName: "Tabdock",
-			RPID:          "localhost",
+			RPID:          "127.0.0.1",
 			RPOrigin:      "https://127.0.0.1",
 		})
 		if err != nil {
