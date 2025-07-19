@@ -23,7 +23,7 @@ import (
 )
 
 // const
-const version = "v3.0.0_alpha4"
+const version = "v3.0.1"
 
 // var
 var fallbackHolidays map[string]string
@@ -90,7 +90,7 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 func serve(mux http.Handler) {
 	update1 := "WebAuthn support added."
 	update2 := "Passkey feature requires iOS 16 or later."
-	update3 := "Partial compatibility between V2 and V3."
+	update3 := "This service requires local DNS configuration in order to use 'tabdock.daruks.com'."
 
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
