@@ -165,7 +165,13 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		ua := r.UserAgent()
 		loadScores()
 
-		if ip == "127.0.0.1" {
+		if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+			next(w, r)
+			return
+		}
+
+		// /api/webauthn/ へのアクセスは完全スルー
+		if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
 			next(w, r)
 			return
 		}
