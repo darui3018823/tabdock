@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5-webauthn-r2
+// This code Version: 3.0.5-webauthn-r3
 
 package main
 
@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path/filepath"
 	"sync"
 
 	"github.com/duo-labs/webauthn/protocol"
@@ -59,6 +60,14 @@ func (u WebAuthnUser) WebAuthnName() string                       { return u.Nam
 func (u WebAuthnUser) WebAuthnDisplayName() string                { return u.DisplayName }
 func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential { return u.Credentials }
 func (u WebAuthnUser) WebAuthnIcon() string                       { return "" }
+
+func DBUserToUser(dbUser DBUser) *User {
+	return &User{
+		ID:          []byte(dbUser.ID),
+		Name:        dbUser.Username,
+		DisplayName: dbUser.DisplayName,
+	}
+}
 
 func initDB() error {
 	var err error
@@ -246,39 +255,40 @@ func SaveSessionData(username string, data *webauthn.SessionData) {
 	loginSessionStore[username] = data
 }
 
-func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
-	row := db.QueryRow(`SELECT id, username, display_name, credential_id, credential_public_key, sign_count FROM users WHERE username = ?`, username)
+func FindWebAuthnUserByUsername(username string) (*User, error) {
+	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
 
-	var id, uname, displayName, credID, pubKey string
-	var signCount int
+	dbPath, _ := filepath.Abs("database/acc.db")
+	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
 
-	err := row.Scan(&id, &uname, &displayName, &credID, &pubKey, &signCount)
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+		fmt.Println("[ERROR] DB接続失敗:", err)
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT id, username FROM users")
+	if err == nil {
+		fmt.Println("[DEBUG] 現在登録されているユーザー:")
+		for rows.Next() {
+			var id, uname string
+			rows.Scan(&id, &uname)
+			fmt.Printf(" - id: %s / username: %q\n", id, uname)
 		}
+		rows.Close()
+	}
+
+	var dbUser DBUser
+	row := db.QueryRow("SELECT id, username, display_name FROM users WHERE username = ?", username)
+	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName)
+	if err != nil {
+		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
 		return nil, err
 	}
 
-	// WebAuthnライブラリのCredential構造体に変換
-	credential := webauthn.Credential{
-		ID:              []byte(credID),
-		PublicKey:       []byte(pubKey),
-		AttestationType: "none",
-		Authenticator: webauthn.Authenticator{
-			AAGUID:       []byte{},
-			SignCount:    uint32(signCount),
-			CloneWarning: false,
-		},
-	}
-
-	user := &WebAuthnUser{
-		ID:          []byte(id),
-		Name:        uname,
-		DisplayName: displayName,
-		Credentials: []webauthn.Credential{credential},
-	}
-	return user, nil
+	fmt.Println("[DEBUG] ユーザー見つかりました:", dbUser.Username)
+	return DBUserToUser(dbUser), nil
 }
 
 func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
