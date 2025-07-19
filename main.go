@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "2.9.6"
+const version = "v3.0.0_alpha"
 
 // var
 var fallbackHolidays map[string]string
@@ -143,6 +143,9 @@ func main() {
 	mux.HandleFunc("/api/schedule", secureHandler(handleSchedule))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
+
+	// WebAuthn
+	mux.HandleFunc("/api/webauthn/register/start", secureHandler(handleWebAuthnRegisterStart))
 
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
