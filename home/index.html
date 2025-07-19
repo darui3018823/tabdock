@@ -76,6 +76,11 @@
                                 開発者向け
                             </button>
                         </div>
+                        <div class="mb-2">
+                            <button id="openAccManage" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                                アカウント管理
+                            </button>
+                        </div>
                     </li>
                 </ul>
                 <div class="mt-4 text-right">
@@ -541,6 +546,26 @@
                     </div>
                 </div>
 
+                <!-- アカウント管理 -->
+                <div id="accountModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+                    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                        <h2 class="text-xl font-bold mb-4">アカウント管理</h2>
+
+                        <label for="username" class="block mb-2">ユーザー名:</label>
+                        <input id="username" class="w-full border px-3 py-2 rounded mb-4" placeholder="例: daru" />
+
+                        <div class="flex justify-between space-x-2">
+                            <button onclick="startRegistration()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                パスキー登録
+                            </button>
+                            <button onclick="startLogin()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                ログイン
+                            </button>
+                        </div>
+
+                        <button onclick="closeAccountModal()" class="mt-4 text-sm text-gray-500 hover:underline">閉じる</button>
+                    </div>
+                </div>
 
             </div>
 
@@ -557,6 +582,7 @@
             <script src="tabdock_about.js" defer></script>
             <script src="timer.js" defer></script>
             <script src="devtools.js" defer></script>
+            <script src="passkey.js" defer></script>
 
             <!-- time stamp-->
             <span id="weather-last-update" class="hidden">未取得</span>

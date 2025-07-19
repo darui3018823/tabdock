@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.6_scripts-r3.1
+// This code Version: 3.0.0_scripts-r1-alpha
 
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
@@ -53,17 +53,6 @@ document.addEventListener("DOMContentLoaded", () => {
   
     setInterval(updateDate, 10000);
   
-    function updateLastUpdateTime() {
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        const ss = String(now.getSeconds()).padStart(2, '0');
-        const formatted = `${hh}:${mm}:${ss}`;
-        document.getElementById("last-update").textContent = `Last Update: ${formatted}`;
-    }
-  
-
-
     updatePCStatus();
     setInterval(updatePCStatus, 120000); // 120秒ごとに更新
 
@@ -99,6 +88,13 @@ function updatePCStatus() {
     .catch(err => console.error("Status fetch error:", err));
 }
 
+function updateLastUpdateTime() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const formatted = `${hh}:${mm}:${ss}`;
+    document.getElementById("last-update").textContent = `Last Update: ${formatted}`;
+}
+
 window.fetchStatus = updatePCStatus;
-window.updateDate = updateDate;
-window.updateClock = updateClock;
