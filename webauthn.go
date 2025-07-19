@@ -1,14 +1,16 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5-webauthn-r1
+// This code Version: 3.0.5-webauthn-r2
 
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -159,26 +161,35 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
 
-	var body struct {
+	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var req struct {
 		Username string `json:"username"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Username == "" {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil || req.Username == "" {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	user, err := FindWebAuthnUserByUsername(body.Username)
+	user, err := FindWebAuthnUserByUsername(req.Username)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	sessionData, ok := challengeStore[body.Username]
+	sessionData, ok := challengeStore[req.Username]
 	if !ok {
 		http.Error(w, "Session data not found", http.StatusBadRequest)
 		return
 	}
+
+	// r.Body を復元して FinishRegistration に渡す
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	credential, err := webAuthnInstance.FinishRegistration(user, *sessionData, r)
 	if err != nil {
@@ -186,8 +197,7 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = saveCredentialToDB(user.WebAuthnName(), credential)
-	if err != nil {
+	if err := saveCredentialToDB(user.WebAuthnName(), credential); err != nil {
 		http.Error(w, "保存失敗", http.StatusInternalServerError)
 		return
 	}
