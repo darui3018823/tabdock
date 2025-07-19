@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.0_alpha-r1
+// This code Version: 3.0.0_alpha-r2
 
 package main
 
@@ -73,9 +73,9 @@ func initWebAuthn() {
 	once.Do(func() {
 		var err error
 		webAuthnInstance, err = webauthn.New(&webauthn.Config{
-			RPDisplayName: "Tabdock",           // 表示名
-			RPID:          "localhost",         // 通常はFQDN
-			RPOrigin:      "https://127.0.0.1", // フロントのオリジン（HTTPS）
+			RPDisplayName: "Tabdock",
+			RPID:          "localhost",
+			RPOrigin:      "https://127.0.0.1",
 		})
 		if err != nil {
 			log.Fatalf("WebAuthn init failed: %v", err)
@@ -94,22 +94,26 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// DBに仮ユーザーを登録（存在チェック）
+	// 仮ユーザー作成
 	userID := uuid.New().String()
-	displayName := req.Username // シンプルに
+	displayName := req.Username
 
-	if err := insertUser(userID, req.Username, displayName); err != nil {
-		http.Error(w, "ユーザー登録失敗", http.StatusInternalServerError)
-		return
-	}
-
-	// WebAuthnユーザー作成
+	// 👇 先に構造体を作成
 	user := &User{
 		ID:          []byte(userID),
 		Name:        req.Username,
 		DisplayName: displayName,
 	}
 
+	// DBに保存
+	if err := insertUser(userID, req.Username, displayName); err != nil {
+		log.Println("リクエストボディ:", req.Username)
+		log.Println("WebAuthnユーザー構造体:", user)
+		http.Error(w, "ユーザー登録失敗", http.StatusInternalServerError)
+		return
+	}
+
+	// WebAuthn開始
 	options, sessionData, err := webAuthnInstance.BeginRegistration(user)
 	if err != nil {
 		http.Error(w, "Failed to begin registration", http.StatusInternalServerError)

@@ -54,20 +54,39 @@ function handleLogin() {
     Swal.fire("ログインしました", "（仮）通常ログイン成功", "success");
 }
 
-async function startRegistration() {
+async function handlePasskeyRegistration() {
     const username = document.getElementById("username").value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
         return;
     }
 
-    const res = await fetch("/api/webauthn/register/start", {
+    fetch("/api/webauthn/register/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username })
+    })
+    .then(async res => {
+        if (!res.ok) {
+            const msg = await res.text();
+            throw new Error(`サーバーエラー: ${msg}`);
+        }
+        return res.json(); // optionsが返る
+    })
+    .then(options => {
+        return startRegistration(options, username); // optionsとusernameを渡す
+    })
+    .then(attestation => {
+        console.log("登録完了:", attestation);
+        // ここで /finish へ送信など
+    })
+    .catch(err => {
+        Swal.fire("エラー", err.message, "error");
     });
-    const options = await res.json();
+}
 
+async function startRegistration(options, username) {
+    // challenge, user.id をUint8Arrayに変換
     options.publicKey.challenge = Uint8Array.from(atob(options.publicKey.challenge), c => c.charCodeAt(0));
     options.publicKey.user.id = Uint8Array.from(atob(options.publicKey.user.id), c => c.charCodeAt(0));
 
@@ -83,6 +102,7 @@ async function startRegistration() {
         }
     };
 
+    // /finish へ送信
     await fetch("/api/webauthn/register/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,6 +110,7 @@ async function startRegistration() {
     });
 
     Swal.fire("登録完了", "パスキーが登録されました。", "success");
+    return attestation;
 }
 
 async function startLogin() {
