@@ -547,23 +547,62 @@
                 </div>
 
                 <!-- アカウント管理 -->
-                <div id="accountModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-                    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-                        <h2 class="text-xl font-bold mb-4">アカウント管理</h2>
+                <!-- アカウント管理モーダル -->
+                <div id="accountModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
+                    <div class="bg-gray-800 text-white rounded-lg p-8 w-full max-w-2xl shadow-lg border border-white/10">
+                        <h2 class="text-2xl font-bold mb-6">アカウント管理</h2>
 
-                        <label for="username" class="block mb-2">ユーザー名:</label>
-                        <input id="username" class="w-full border px-3 py-2 rounded mb-4" placeholder="例: daru" />
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <!-- 左：フォーム -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="username" class="block text-sm font-medium mb-1">ユーザー名</label>
+                                    <input id="username" type="text"
+                                        class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 placeholder-gray-400"
+                                        placeholder="例: daru" />
+                                </div>
+                                <div>
+                                    <label for="email" class="block text-sm font-medium mb-1">メールアドレス</label>
+                                    <input id="email" type="email"
+                                        class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 placeholder-gray-400"
+                                        placeholder="example@example.com" />
+                                </div>
+                                <div>
+                                    <label for="password" class="block text-sm font-medium mb-1">パスワード</label>
+                                    <input id="password" type="password"
+                                        class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+                                        placeholder="********" />
+                                </div>
 
-                        <div class="flex justify-between space-x-2">
-                            <button onclick="startRegistration()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                                パスキー登録
-                            </button>
-                            <button onclick="startLogin()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                                ログイン
-                            </button>
+                                <div class="flex flex-col space-y-2">
+                                    <button onclick="handleRegister()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-white font-semibold">アカウント作成</button>
+                                    <button onclick="handleLogin()" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded text-white font-semibold">ログイン</button>
+                                </div>
+
+                                <hr class="border-gray-600" />
+
+                                <div class="space-y-2">
+                                    <p class="text-xs text-white/60">ログイン状態を保存する場合はPasskeyを使うことをおすすめします。</p>
+                                    <button onclick="startRegistration()" class="bg-cyan-700 hover:bg-cyan-600 px-4 py-2 rounded text-white font-semibold w-full">パスキーを登録する</button>
+                                    <button onclick="startLogin()" class="bg-cyan-900 hover:bg-cyan-800 px-4 py-2 rounded text-white font-semibold w-full">パスキーでログイン</button>
+                                </div>
+                            </div>
+
+                            <!-- 右：解説 -->
+                            <div class="text-sm text-white/80 leading-relaxed space-y-2">
+                                <p>このアカウント管理では、一般的な認証方法と、パスキーの両方をサポートしています。</p>
+                                <ul class="list-disc list-inside text-white/70 space-y-1">
+                                    <li>パスキーは対応しているOSが必要です</li>
+                                    <li>パスワードが不要になります</li>
+                                    <li>Chrome, Edge, Safari などの対応ブラウザが必要です</li>
+                                </ul>
+                                <p class="text-xs text-white/50 mt-3">※ パスキーはアカウント作成後でも登録できます。</p>
+                            </div>
                         </div>
 
-                        <button onclick="closeAccountModal()" class="mt-4 text-sm text-gray-500 hover:underline">閉じる</button>
+                        <div class="flex justify-end mt-8">
+                            <button onclick="closeAccountModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm">閉じる</button>
+                        </div>
                     </div>
                 </div>
 

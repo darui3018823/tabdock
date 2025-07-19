@@ -19,10 +19,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // const
-const version = "v3.0.0_alpha"
+const version = "v3.0.0_alpha2"
 
 // var
 var fallbackHolidays map[string]string
@@ -120,6 +121,10 @@ func serve(mux http.Handler) {
 func main() {
 	mux := http.NewServeMux()
 	fallbackHolidays = preloadHolidays()
+
+	if err := initDB(); err != nil {
+		log.Fatal("DB初期化失敗:", err)
+	}
 
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
