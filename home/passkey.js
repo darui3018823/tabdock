@@ -1,12 +1,19 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.3_scripts-r2
+// This code Version: 3.0.5_scripts-r1
 
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
     document.getElementById("accountModal").classList.remove("hidden");
 });
+// Uint8ArrayやArrayBufferをbase64urlエンコードする関数
+function bufferToBase64url(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+}
 
 function closeAccountModal() {
     document.getElementById("accountModal").classList.add("hidden");
@@ -100,11 +107,11 @@ async function startRegistration(options, username) {
 
     const attestation = {
         id: cred.id,
-        rawId: btoa(String.fromCharCode(...new Uint8Array(cred.rawId))),
+        rawId: bufferToBase64url(cred.rawId),
         type: cred.type,
         response: {
-            clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(cred.response.clientDataJSON))),
-            attestationObject: btoa(String.fromCharCode(...new Uint8Array(cred.response.attestationObject)))
+            clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
+            attestationObject: bufferToBase64url(cred.response.attestationObject)
         }
     };
 
