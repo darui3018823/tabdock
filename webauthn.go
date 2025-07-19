@@ -72,6 +72,13 @@ func insertUser(id, username, displayName string) error {
 	return err
 }
 
+// ユーザーが既に存在するか確認
+func userExists(username string) bool {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", username).Scan(&count)
+	return err == nil && count > 0
+}
+
 func initWebAuthn() {
 	once.Do(func() {
 		var err error
@@ -105,6 +112,11 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 		ID:          []byte(userID),
 		Name:        req.Username,
 		DisplayName: displayName,
+	}
+
+	if userExists(req.Username) {
+		http.Error(w, "既に存在するユーザー名です", http.StatusConflict) // ← 409 Conflict
+		return
 	}
 
 	// DBに保存

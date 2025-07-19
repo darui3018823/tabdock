@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.0_scripts-r3
+// This code Version: 3.0.0_scripts-r4
 
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
@@ -67,6 +67,11 @@ async function handlePasskeyRegistration() {
         body: JSON.stringify({ username })
     })
     .then(async res => {
+        if (res.status === 409) {
+            const msg = await res.text();
+            Swal.fire("エラー", msg, "warning");
+            throw new Error(msg);
+        }
         if (!res.ok) {
             const msg = await res.text();
             throw new Error(`サーバーエラー: ${msg}`);
