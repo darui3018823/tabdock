@@ -84,8 +84,8 @@ func initWebAuthn() {
 		var err error
 		webAuthnInstance, err = webauthn.New(&webauthn.Config{
 			RPDisplayName: "Tabdock",
-			RPID:          "127.0.0.1",
-			RPOrigin:      "https://127.0.0.1",
+			RPID:          "tabdock.daruks.com",
+			RPOrigin:      "https://tabdock.daruks.com",
 		})
 		if err != nil {
 			log.Fatalf("WebAuthn init failed: %v", err)
