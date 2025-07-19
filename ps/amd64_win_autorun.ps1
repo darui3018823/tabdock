@@ -8,7 +8,7 @@ $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 
 Write-Host "Building the application..."
-go build -o ./dist/tabdock_win_amd64.exe main.go log.go
+go build -o ./dist/tabdock_win_amd64.exe
 
 Write-Host "Build complete. Cleaning up environment variables..."
 Remove-Item Env:GOOS

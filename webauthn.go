@@ -47,7 +47,7 @@ func initWebAuthn() {
 	})
 }
 
-func handleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
+func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
 
 	// 仮のユーザー

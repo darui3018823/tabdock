@@ -87,9 +87,9 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 }
 
 func serve(mux http.Handler) {
-	update1 := "Added About and Status."
-	update2 := "The transparency slider is still being adjusted."
-	update3 := "Extended the reload process after a certain period."
+	update1 := "WebAuthn support added."
+	update2 := "Passkey feature requires iOS 16 or later."
+	update3 := "Partial compatibility between V2 and V3."
 
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
@@ -144,7 +144,7 @@ func main() {
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
 	// WebAuthn
-	mux.HandleFunc("/api/webauthn/register/start", secureHandler(handleWebAuthnRegisterStart))
+	mux.HandleFunc("/api/webauthn/register/start", secureHandler(HandleWebAuthnRegisterStart))
 
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
