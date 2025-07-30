@@ -1,19 +1,21 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5-webauthn-r4
+// This code Version: 3.0.5-webauthn-r5
 
 package main
 
 import (
 	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/duo-labs/webauthn/protocol"
@@ -29,6 +31,21 @@ var (
 var challengeStore = map[string]*webauthn.SessionData{}
 var db *sql.DB
 var loginSessionStore = map[string]*webauthn.SessionData{}
+
+// base64urlデコード用ヘルパー関数
+func base64URLDecode(s string) ([]byte, error) {
+	// base64url → base64 変換
+	s = strings.ReplaceAll(s, "-", "+")
+	s = strings.ReplaceAll(s, "_", "/")
+	// パディング追加
+	switch len(s) % 4 {
+	case 2:
+		s += "=="
+	case 3:
+		s += "="
+	}
+	return base64.StdEncoding.DecodeString(s)
+}
 
 type User struct {
 	ID          []byte
@@ -71,7 +88,7 @@ func DBUserToUser(dbUser DBUser) *User {
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite3", "./database/acc.db")
+	db, err = sql.Open("sqlite", "./database/acc.db")
 	if err != nil {
 		return err
 	}
@@ -131,27 +148,36 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 仮ユーザー作成
-	userID := uuid.New().String()
-	displayName := req.Username
-
-	user := &User{
-		ID:          []byte(userID),
-		Name:        req.Username,
-		DisplayName: displayName,
-	}
-
+	// ユーザーが既に存在するかチェック
+	var user *User
 	if userExists(req.Username) {
-		http.Error(w, "既に存在するユーザー名です", http.StatusConflict) // ← 409 Conflict
-		return
-	}
+		// 既存ユーザーを取得
+		existingUser, err := FindUserByUsername(req.Username)
+		if err != nil {
+			http.Error(w, "Failed to find existing user", http.StatusInternalServerError)
+			return
+		}
+		user = existingUser
+		fmt.Println("[DEBUG] 既存ユーザーに新しいパスキー追加:", req.Username)
+	} else {
+		// 新規ユーザー作成
+		userID := uuid.New().String()
+		displayName := req.Username
 
-	// DBに保存
-	if err := insertUser(userID, req.Username, displayName); err != nil {
-		log.Println("リクエストボディ:", req.Username)
-		log.Println("WebAuthnユーザー構造体:", user)
-		http.Error(w, "ユーザー登録失敗", http.StatusInternalServerError)
-		return
+		user = &User{
+			ID:          []byte(userID),
+			Name:        req.Username,
+			DisplayName: displayName,
+		}
+
+		// DBに保存
+		if err := insertUser(userID, req.Username, displayName); err != nil {
+			log.Println("リクエストボディ:", req.Username)
+			log.Println("WebAuthnユーザー構造体:", user)
+			http.Error(w, "ユーザー登録失敗", http.StatusInternalServerError)
+			return
+		}
+		fmt.Println("[DEBUG] 新規ユーザー作成:", req.Username)
 	}
 
 	// WebAuthn開始
@@ -179,37 +205,121 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("[DEBUG] body:", string(bodyBytes))
 
-	var req struct {
-		Username   string                                `json:"username"`
-		Credential protocol.ParsedCredentialCreationData `json:"credential"`
+	// カスタム構造体でbase64urlデータを受信
+	var rawReq struct {
+		Username   string `json:"username"`
+		Credential struct {
+			ID       string `json:"id"`
+			RawID    string `json:"rawId"`
+			Type     string `json:"type"`
+			Response struct {
+				ClientDataJSON    string `json:"clientDataJSON"`
+				AttestationObject string `json:"attestationObject"`
+			} `json:"response"`
+		} `json:"credential"`
 	}
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+
+	if err := json.Unmarshal(bodyBytes, &rawReq); err != nil {
 		fmt.Println("[ERROR] Unmarshal失敗:", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if req.Username == "" {
+	if rawReq.Username == "" {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	user, err := FindWebAuthnUserByUsername(req.Username)
+	// base64urlデコード
+	rawID, err := base64URLDecode(rawReq.Credential.RawID)
+	if err != nil {
+		fmt.Println("[ERROR] RawID decode失敗:", err)
+		http.Error(w, "Invalid rawId", http.StatusBadRequest)
+		return
+	}
+
+	clientDataJSON, err := base64URLDecode(rawReq.Credential.Response.ClientDataJSON)
+	if err != nil {
+		fmt.Println("[ERROR] ClientDataJSON decode失敗:", err)
+		http.Error(w, "Invalid clientDataJSON", http.StatusBadRequest)
+		return
+	}
+
+	attestationObject, err := base64URLDecode(rawReq.Credential.Response.AttestationObject)
+	if err != nil {
+		fmt.Println("[ERROR] AttestationObject decode失敗:", err)
+		http.Error(w, "Invalid attestationObject", http.StatusBadRequest)
+		return
+	}
+
+	// 標準的なWebAuthnフォーマットに変換してからJSONに戻す
+	// WebAuthn仕様に従った正確な形式で構築
+	standardReq := map[string]interface{}{
+		"id":    rawReq.Credential.ID,
+		"rawId": base64.StdEncoding.EncodeToString(rawID),
+		"type":  rawReq.Credential.Type,
+		"response": map[string]interface{}{
+			"clientDataJSON":    base64.StdEncoding.EncodeToString(clientDataJSON),
+			"attestationObject": base64.StdEncoding.EncodeToString(attestationObject),
+		},
+	}
+
+	standardReqBytes, err := json.Marshal(standardReq)
+	if err != nil {
+		fmt.Println("[ERROR] 標準形式への変換失敗:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println("[DEBUG] 変換後のリクエスト:", string(standardReqBytes))
+
+	// WebAuthnライブラリ用にHTTPリクエストを再構築
+	// Content-Typeも設定
+	newRequest, err := http.NewRequest("POST", r.URL.String(), bytes.NewReader(standardReqBytes))
+	if err != nil {
+		fmt.Println("[ERROR] リクエスト再構築失敗:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	newRequest.Header.Set("Content-Type", "application/json")
+
+	// 元のリクエストのヘッダーをコピー
+	for key, values := range r.Header {
+		if key != "Content-Length" { // Content-Lengthは自動で設定される
+			for _, value := range values {
+				newRequest.Header.Add(key, value)
+			}
+		}
+	}
+
+	user, err := FindUserByUsername(rawReq.Username)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	sessionData, ok := challengeStore[req.Username]
+	sessionData, ok := challengeStore[rawReq.Username]
 	if !ok {
 		http.Error(w, "Session data not found", http.StatusBadRequest)
 		return
 	}
 
-	// r.Body を credential 情報ごと復元
-	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	fmt.Printf("[DEBUG] セッションデータ: %+v\n", sessionData)
+	fmt.Printf("[DEBUG] ユーザー情報: %+v\n", user)
 
-	credential, err := webAuthnInstance.FinishRegistration(user, *sessionData, r)
+	// まずprotocolレベルでパースを試行してエラー詳細を取得
+	parsedCred, parseErr := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(standardReqBytes))
+	if parseErr != nil {
+		fmt.Printf("[ERROR] プロトコルパース失敗: %v\n", parseErr)
+		// パースエラーの詳細を表示
+		fmt.Printf("[ERROR] パースしようとしたデータ: %s\n", string(standardReqBytes))
+	} else {
+		fmt.Printf("[DEBUG] プロトコルパース成功: %+v\n", parsedCred)
+	}
+
+	// FinishRegistrationを実行（newRequestを使用）
+	credential, err := webAuthnInstance.FinishRegistration(user, *sessionData, newRequest)
 	if err != nil {
+		fmt.Printf("[ERROR] FinishRegistration失敗: %v\n", err)
 		http.Error(w, fmt.Sprintf("Failed to finish registration: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -263,13 +373,14 @@ func SaveSessionData(username string, data *webauthn.SessionData) {
 	loginSessionStore[username] = data
 }
 
-func FindWebAuthnUserByUsername(username string) (*User, error) {
+// WebAuthnユーザーを取得（credentialも含む）
+func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
 
 	dbPath, _ := filepath.Abs("database/acc.db")
 	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		fmt.Println("[ERROR] DB接続失敗:", err)
 		return nil, err
@@ -287,6 +398,62 @@ func FindWebAuthnUserByUsername(username string) (*User, error) {
 		rows.Close()
 	}
 
+	var dbUser struct {
+		ID               string
+		Username         string
+		DisplayName      string
+		CredentialID     sql.NullString
+		CredentialPubKey sql.NullString
+		SignCount        sql.NullInt64
+	}
+
+	row := db.QueryRow("SELECT id, username, display_name, credential_id, credential_public_key, sign_count FROM users WHERE username = ?", username)
+	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName, &dbUser.CredentialID, &dbUser.CredentialPubKey, &dbUser.SignCount)
+	if err != nil {
+		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
+		return nil, err
+	}
+
+	fmt.Println("[DEBUG] ユーザー見つかりました:", dbUser.Username)
+
+	// WebAuthnUserを構築
+	user := &WebAuthnUser{
+		ID:          []byte(dbUser.ID),
+		Name:        dbUser.Username,
+		DisplayName: dbUser.DisplayName,
+		Credentials: []webauthn.Credential{},
+	}
+
+	// 既存のcredentialがあれば追加
+	if dbUser.CredentialID.Valid && dbUser.CredentialPubKey.Valid {
+		cred := webauthn.Credential{
+			ID:        []byte(dbUser.CredentialID.String),
+			PublicKey: []byte(dbUser.CredentialPubKey.String),
+		}
+		if dbUser.SignCount.Valid {
+			cred.Authenticator.SignCount = uint32(dbUser.SignCount.Int64)
+		}
+		user.Credentials = append(user.Credentials, cred)
+		fmt.Printf("[DEBUG] 既存credential追加: ID=%s\n", dbUser.CredentialID.String)
+	}
+
+	return user, nil
+}
+
+// 元のUser型取得関数（登録時用）
+func FindUserByUsername(username string) (*User, error) {
+	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
+
+	dbPath, _ := filepath.Abs("database/acc.db")
+	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		fmt.Println("[ERROR] DB接続失敗:", err)
+		return nil, err
+	}
+	defer db.Close()
+
 	var dbUser DBUser
 	row := db.QueryRow("SELECT id, username, display_name FROM users WHERE username = ?", username)
 	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName)
@@ -302,23 +469,109 @@ func FindWebAuthnUserByUsername(username string) (*User, error) {
 func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
 
-	var req struct {
-		Username   string                                 `json:"username"`
-		Credential protocol.ParsedCredentialAssertionData `json:"credential"`
+	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	fmt.Println("[DEBUG] login body:", string(bodyBytes))
+
+	// カスタム構造体でbase64urlデータを受信
+	var rawReq struct {
+		Username   string `json:"username"`
+		Credential struct {
+			ID       string `json:"id"`
+			RawID    string `json:"rawId"`
+			Type     string `json:"type"`
+			Response struct {
+				AuthenticatorData string  `json:"authenticatorData"`
+				ClientDataJSON    string  `json:"clientDataJSON"`
+				Signature         string  `json:"signature"`
+				UserHandle        *string `json:"userHandle"`
+			} `json:"response"`
+		} `json:"credential"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &rawReq); err != nil {
+		fmt.Println("[ERROR] Login Unmarshal失敗:", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	user, err := FindWebAuthnUserByUsername(req.Username)
+	// base64urlデコード
+	rawID, err := base64URLDecode(rawReq.Credential.RawID)
+	if err != nil {
+		fmt.Println("[ERROR] Login RawID decode失敗:", err)
+		http.Error(w, "Invalid rawId", http.StatusBadRequest)
+		return
+	}
+
+	clientDataJSON, err := base64URLDecode(rawReq.Credential.Response.ClientDataJSON)
+	if err != nil {
+		fmt.Println("[ERROR] Login ClientDataJSON decode失敗:", err)
+		http.Error(w, "Invalid clientDataJSON", http.StatusBadRequest)
+		return
+	}
+
+	authenticatorData, err := base64URLDecode(rawReq.Credential.Response.AuthenticatorData)
+	if err != nil {
+		fmt.Println("[ERROR] Login AuthenticatorData decode失敗:", err)
+		http.Error(w, "Invalid authenticatorData", http.StatusBadRequest)
+		return
+	}
+
+	signature, err := base64URLDecode(rawReq.Credential.Response.Signature)
+	if err != nil {
+		fmt.Println("[ERROR] Login Signature decode失敗:", err)
+		http.Error(w, "Invalid signature", http.StatusBadRequest)
+		return
+	}
+
+	var userHandle []byte
+	if rawReq.Credential.Response.UserHandle != nil {
+		userHandle, err = base64URLDecode(*rawReq.Credential.Response.UserHandle)
+		if err != nil {
+			fmt.Println("[ERROR] Login UserHandle decode失敗:", err)
+			http.Error(w, "Invalid userHandle", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// 標準的なWebAuthnフォーマットに変換
+	standardReq := map[string]interface{}{
+		"id":    rawReq.Credential.ID,
+		"rawId": base64.StdEncoding.EncodeToString(rawID),
+		"type":  rawReq.Credential.Type,
+		"response": map[string]interface{}{
+			"authenticatorData": base64.StdEncoding.EncodeToString(authenticatorData),
+			"clientDataJSON":    base64.StdEncoding.EncodeToString(clientDataJSON),
+			"signature":         base64.StdEncoding.EncodeToString(signature),
+		},
+	}
+
+	if userHandle != nil {
+		standardReq["response"].(map[string]interface{})["userHandle"] = base64.StdEncoding.EncodeToString(userHandle)
+	}
+
+	standardReqBytes, err := json.Marshal(standardReq)
+	if err != nil {
+		fmt.Println("[ERROR] Login 標準形式への変換失敗:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	// 新しいリクエストボディでHTTPリクエストを再構成
+	r.Body = io.NopCloser(bytes.NewReader(standardReqBytes))
+
+	user, err := FindWebAuthnUserByUsername(rawReq.Username)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	sessionData, ok := loginSessionStore[req.Username]
+	sessionData, ok := loginSessionStore[rawReq.Username]
 	if !ok {
 		http.Error(w, "Session data not found", http.StatusBadRequest)
 		return

@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5_scripts-r2
+// This code Version: 3.0.5_scripts-r3
 
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
@@ -178,13 +178,13 @@ async function startLogin() {
 
     const response = {
         id: assertion.id,
-        rawId: btoa(String.fromCharCode(...new Uint8Array(assertion.rawId))),
+        rawId: bufferToBase64url(assertion.rawId),
         type: assertion.type,
         response: {
-            authenticatorData: btoa(String.fromCharCode(...new Uint8Array(assertion.response.authenticatorData))),
-            clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(assertion.response.clientDataJSON))),
-            signature: btoa(String.fromCharCode(...new Uint8Array(assertion.response.signature))),
-            userHandle: assertion.response.userHandle ? btoa(String.fromCharCode(...new Uint8Array(assertion.response.userHandle))) : null
+            authenticatorData: bufferToBase64url(assertion.response.authenticatorData),
+            clientDataJSON: bufferToBase64url(assertion.response.clientDataJSON),
+            signature: bufferToBase64url(assertion.response.signature),
+            userHandle: assertion.response.userHandle ? bufferToBase64url(assertion.response.userHandle) : null
         }
     };
 
