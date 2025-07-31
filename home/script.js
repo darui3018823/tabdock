@@ -71,17 +71,23 @@ function updatePCStatus() {
     fetch("/api/status")
         .then(res => res.json())
         .then(data => {
+            // 左列
             document.getElementById("pc").textContent = " (" + data.pc + ") : Online";
-            document.getElementById("port21").textContent = data.port21;
             document.getElementById("battery").textContent = data.battery;
-            document.getElementById("egpu").textContent = data.egpu;
             document.getElementById("wan").textContent = data.wan;
+            document.getElementById("uptime").textContent = data.uptime;
     
-            // 以下は右側カラム
-            document.getElementById("gpu").textContent = data.gpu;
-            document.getElementById("ram").textContent = data.ram;
-            document.getElementById("drive-e").textContent = data.driveE;
-            document.getElementById("vpn").textContent = data.vpn;
+            // 中央列
+            document.getElementById("cpu").textContent = data.cpu;
+            document.getElementById("mem").textContent = data.mem;
+            document.getElementById("gpu0").textContent = data.gpu0;
+            document.getElementById("gpu1").textContent = data.gpu1;
+            document.getElementById("vram").textContent = data.vram;
+    
+            // 右列
+            document.getElementById("drive-c").textContent = data.driveC;
+            document.getElementById("drive-d").textContent = data.driveD;
+            document.getElementById("main-window").textContent = data.mainWindow;
    
             updateLastUpdateTime();
     })

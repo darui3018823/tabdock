@@ -5,6 +5,9 @@ import psutil
 import subprocess
 import os
 import GPUtil
+import time
+import win32api
+import win32gui
 
 
 def check_port_21():
@@ -34,59 +37,116 @@ def get_battery():
         return "Error"
 
 
-def get_ram_usage():
+def get_uptime():
     try:
-        return f"{int(psutil.virtual_memory().percent)}%"
+        uptime_seconds = time.time() - psutil.boot_time()
+        days, remainder = divmod(uptime_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, _ = divmod(remainder, 60)
+        return f"{int(days)}d {int(hours)}h {int(minutes)}m"
     except Exception:
-        return "Error"
+        return "Unavailable"
 
 
-def get_drive_e_status():
-    return "All Ready!" if os.path.exists("E:\\") else "Not Found"
+def get_cpu_usage():
+    try:
+        cpu_percent = psutil.cpu_percent(interval=1)
+        return f"{cpu_percent}%"
+    except Exception:
+        return "Unavailable"
 
 
-def get_gpu_load():
+def get_memory_usage():
+    try:
+        memory = psutil.virtual_memory()
+        used_gb = memory.used / (1024 ** 3)
+        total_gb = memory.total / (1024 ** 3)
+        percent = memory.percent
+        return f"{percent}% ({used_gb:.1f}GB/{total_gb:.1f}GB)"
+    except Exception:
+        return "Unavailable"
+
+
+def get_gpu_usage():
+    try:
+        gpus = GPUtil.getGPUs()
+        gpu0 = f"{gpus[0].load * 100:.0f}%" if len(gpus) > 0 else "N/A"
+        gpu1 = f"{gpus[1].load * 100:.0f}%" if len(gpus) > 1 else "N/A"
+        return gpu0, gpu1
+    except Exception:
+        return "Unavailable", "N/A"
+
+
+def get_vram_usage():
     try:
         gpus = GPUtil.getGPUs()
         if not gpus:
-            return "N/A"
-        gpu = gpus[0]
-        return f"{gpu.load * 100:.1f}%"
-    except Exception:
-        return "Error"
-    
-def get_gpu_info():
-    try:
-        gpus = GPUtil.getGPUs()
-        if not gpus:
-            return "N/A"
-        return gpus[0].name  # 最初のGPU名を返す
-    except Exception:
-        return "N/A"
-
-def check_egpu():
-    try:
-        gpu = get_gpu_info()
-        if gpu == "N/A":
-            return "Disconnected"
-        else:
-            return "Active!"
+            return "Unavailable"
         
+        total_vram = 0
+        used_vram = 0
+        for gpu in gpus:
+            total_vram += gpu.memoryTotal
+            used_vram += gpu.memoryUsed
+        
+        used_gb = used_vram / 1024
+        total_gb = total_vram / 1024
+        percent = (used_vram / total_vram) * 100 if total_vram > 0 else 0
+        return f"{percent:.0f}% ({used_gb:.1f}GB/{total_gb:.1f}GB)"
     except Exception:
-        print("Error checking eGPU")
-        return "Error"
+        return "Unavailable"
+
+
+def get_drive_usage(drive_letter):
+    try:
+        if os.path.exists(f"{drive_letter}:\\"):
+            usage = psutil.disk_usage(f"{drive_letter}:\\")
+            used_gb = usage.used / (1024 ** 3)
+            total_gb = usage.total / (1024 ** 3)
+            percent = (usage.used / usage.total) * 100
+            return f"{percent:.0f}% ({used_gb:.0f}GB/{total_gb:.0f}GB)"
+        else:
+            return "N/A"
+    except Exception:
+        return "Unavailable"
+
+
+def get_main_window():
+    try:
+        hwnd = win32gui.GetForegroundWindow()
+        if hwnd:
+            window_text = win32gui.GetWindowText(hwnd)
+            if not window_text:
+                return "Unknown"
+            
+            # 2行に収まる程度の長さに調整（約35-40文字程度）
+            max_length = 35
+            if len(window_text) > max_length:
+                return window_text[:max_length] + "..."
+            else:
+                return window_text
+        else:
+            return "None"
+    except Exception:
+        return "Unavailable"
+
 
 def get_status():
+    gpu0, gpu1 = get_gpu_usage()
+    
     return {
         "pc": socket.gethostname(),
         "battery": get_battery(),
         "wan": check_wan(),
-        "vpn": "Disconnected",  # 仮の値
-        "port21": check_port_21(),
-        "ram": get_ram_usage(),
-        "egpu": check_egpu(),
-        "gpu": get_gpu_info(),
-        "driveE": get_drive_e_status()
+        "uptime": get_uptime(),
+        "cpu": get_cpu_usage(),
+        "mem": get_memory_usage(),
+        "gpu0": gpu0,
+        "gpu1": gpu1,
+        "vram": get_vram_usage(),
+        "driveC": get_drive_usage("C"),
+        "driveD": get_drive_usage("D"),
+        "mainWindow": get_main_window()
     }
 
 

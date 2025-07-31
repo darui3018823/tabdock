@@ -224,19 +224,27 @@
                 <div class="widget-box card rounded-2xl p-4 shadow-md bg-black/70 backdrop-blur-md text-white min-h-[140px] flex flex-col relative md:col-span-2 xl:col-span-1">
                     <h2 class="text-lg font-semibold mb-2">PC Status</h2>
                     <div id="last-update" class="absolute top-2 right-3 text-xs text-white/70">Last Update: --</div>
-                    <div class="grid grid-cols-2 gap-x-6 text-sm font-mono leading-relaxed">
+                    <div class="grid grid-cols-3 gap-x-4 text-sm font-mono leading-relaxed">
+                        <!-- 左列 -->
                         <ul class="space-y-1">
                             <li>PC <span id="pc" class="text-green-400">--</span></li>
-                            <li>Port 21: <span id="port21" class="text-green-400">--</span></li>
                             <li>Battery: <span id="battery" class="text-green-400">--</span></li>
-                            <li>eGPU: <span id="egpu" class="text-green-400">--</span></li>
                             <li>WAN: <span id="wan" class="text-blue-400">--</span></li>
+                            <li>Uptime: <span id="uptime" class="text-green-400">--</span></li>
                         </ul>
+                        <!-- 中央列 -->
                         <ul class="space-y-1">
-                            <li>GPU: <span id="gpu" class="text-green-400">--</span></li>
-                            <li>RAM: <span id="ram" class="text-green-400">--</span></li>
-                            <li>Drive E: <span id="drive-e" class="text-green-400">--</span></li>
-                            <li>VPN: <span id="vpn" class="text-yellow-400">--</span></li>
+                            <li>CPU: <span id="cpu" class="text-green-400">--</span></li>
+                            <li>MEM: <span id="mem" class="text-green-400">--</span></li>
+                            <li>GPU0: <span id="gpu0" class="text-green-400">--</span></li>
+                            <li>GPU1: <span id="gpu1" class="text-green-400">--</span></li>
+                            <li>VRAM: <span id="vram" class="text-green-400">--</span></li>
+                        </ul>
+                        <!-- 右列 -->
+                        <ul class="space-y-1">
+                            <li>Drive C: <span id="drive-c" class="text-green-400">--</span></li>
+                            <li>Drive D: <span id="drive-d" class="text-green-400">--</span></li>
+                            <li>Main Window: <span id="main-window" class="text-green-400">--</span></li>
                         </ul>
                     </div>
                 </div>

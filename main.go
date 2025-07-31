@@ -23,7 +23,7 @@ import (
 )
 
 // const
-const version = "3.0.5"
+const version = "3.1.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -45,15 +45,18 @@ type responseWriterWithStatus struct {
 }
 
 type PCStatus struct {
-	PC      string `json:"pc"`
-	Battery string `json:"battery"`
-	WAN     string `json:"wan"`
-	VPN     string `json:"vpn"`
-	Port21  string `json:"port21"`
-	RAM     string `json:"ram"`
-	EGPU    string `json:"egpu"`
-	GPU     string `json:"gpu"`
-	DriveE  string `json:"driveE"`
+	PC         string `json:"pc"`
+	Battery    string `json:"battery"`
+	WAN        string `json:"wan"`
+	Uptime     string `json:"uptime"`
+	CPU        string `json:"cpu"`
+	Mem        string `json:"mem"`
+	GPU0       string `json:"gpu0"`
+	GPU1       string `json:"gpu1"`
+	VRAM       string `json:"vram"`
+	DriveC     string `json:"driveC"`
+	DriveD     string `json:"driveD"`
+	MainWindow string `json:"mainWindow"`
 }
 
 type Forecast struct {

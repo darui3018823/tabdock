@@ -23,9 +23,17 @@ go.work.sum
 # env file
 .env
 
-# from Visual Studio Code
+# PyInstaller
+# The directory where PyInstaller stores its temporary files
+# This directory is created by PyInstaller when you run it
+# and is used to store intermediate files during the build process.
+get_status.spec
+build/
+
+# Self-signed certificates
 cert/
-.gitignore
+
+# from Visual Studio Code(Custom Adds)
 trusted_ips.json
 Releases/
 home/wallpapers/
