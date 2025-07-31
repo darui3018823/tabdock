@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.1.0_devtools-r9
+// This code Version: 3.2.0_devtools-r10
 
 // グローバル変数: デバッグログを保存するためのキューと診断情報
 let debugLog = [];
@@ -693,82 +693,114 @@ document.getElementById("showDebugLogBtn").addEventListener("click", async () =>
 
 // パフォーマンステスト実行
 document.getElementById("runPerfTestBtn").addEventListener("click", async () => {
-    await Swal.fire({
+    console.log('=== パフォーマンステストボタンが押されました ===');
+    
+    // ローディングダイアログを非同期で表示（awaitしない）
+    Swal.fire({
         title: 'パフォーマンステスト実行中...',
         text: 'ブラウザとシステムの性能を測定しています',
         allowOutsideClick: false,
         showConfirmButton: false,
         didOpen: () => {
+            console.log('パフォーマンステストのローディングダイアログが表示されました');
             Swal.showLoading();
         }
     });
+    console.log('パフォーマンステストのローディングダイアログを開始しました（非同期）');
     
-    const results = await runPerformanceTest();
-    
-    let resultHtml = `<div class="text-left text-sm">`;
-    resultHtml += `<h4 class="font-bold mb-3 text-blue-600">📊 パフォーマンステスト結果</h4>`;
-    
-    results.forEach(test => {
-        resultHtml += `<div class="mb-3 p-2 border border-gray-200 rounded">`;
-        resultHtml += `<div class="font-semibold text-gray-800">${test.name}</div>`;
+    try {
+        console.log('パフォーマンステスト実行開始');
+        const results = await runPerformanceTest();
+        console.log('パフォーマンステスト実行完了:', results);
         
-        if (test.description) {
-            resultHtml += `<div class="text-xs text-gray-500 mb-1">${test.description}</div>`;
-        }
+        let resultHtml = `<div class="text-left text-sm">`;
+        resultHtml += `<h4 class="font-bold mb-3 text-blue-600">📊 パフォーマンステスト結果</h4>`;
         
-        if (test.error) {
-            resultHtml += `<div class="text-red-600 font-mono text-xs">❌ エラー: ${test.error}</div>`;
-        } else if (test.time !== undefined) {
-            const timeClass = test.time < 50 ? 'text-green-600' : test.time < 200 ? 'text-yellow-600' : 'text-red-600';
-            let performanceLevel = '';
-            if (test.time < 50) performanceLevel = '(高速 🚀)';
-            else if (test.time < 200) performanceLevel = '(標準 ✅)';
-            else performanceLevel = '(低速 ⚠️)';
+        results.forEach(test => {
+            resultHtml += `<div class="mb-3 p-2 border border-gray-200 rounded">`;
+            resultHtml += `<div class="font-semibold text-gray-800">${test.name}</div>`;
             
-            resultHtml += `<div class="${timeClass} font-bold">⏱️ ${test.time}ms ${performanceLevel}</div>`;
+            if (test.description) {
+                resultHtml += `<div class="text-xs text-gray-500 mb-1">${test.description}</div>`;
+            }
             
-            if (test.status) {
-                resultHtml += `<div class="text-xs text-gray-600">HTTP Status: ${test.status}</div>`;
+            if (test.error) {
+                resultHtml += `<div class="text-red-600 font-mono text-xs">❌ エラー: ${test.error}</div>`;
+            } else if (test.time !== undefined) {
+                const timeClass = test.time < 50 ? 'text-green-600' : test.time < 200 ? 'text-yellow-600' : 'text-red-600';
+                let performanceLevel = '';
+                if (test.time < 50) performanceLevel = '(高速 🚀)';
+                else if (test.time < 200) performanceLevel = '(標準 ✅)';
+                else performanceLevel = '(低速 ⚠️)';
+                
+                resultHtml += `<div class="${timeClass} font-bold">⏱️ ${test.time}ms ${performanceLevel}</div>`;
+                
+                if (test.status) {
+                    resultHtml += `<div class="text-xs text-gray-600">HTTP Status: ${test.status}</div>`;
+                }
+                if (test.dataSize) {
+                    resultHtml += `<div class="text-xs text-gray-600">データサイズ: ${test.dataSize}</div>`;
+                }
+                if (test.result) {
+                    resultHtml += `<div class="text-xs text-gray-600">${test.result}</div>`;
+                }
+            } else if (test.used) {
+                // メモリ情報の表示
+                resultHtml += `<div class="text-blue-600">`;
+                resultHtml += `<div>使用中: ${test.used}</div>`;
+                resultHtml += `<div>総容量: ${test.total}</div>`;
+                resultHtml += `<div>上限: ${test.limit}</div>`;
+                resultHtml += `</div>`;
             }
-            if (test.dataSize) {
-                resultHtml += `<div class="text-xs text-gray-600">データサイズ: ${test.dataSize}</div>`;
-            }
-            if (test.result) {
-                resultHtml += `<div class="text-xs text-gray-600">${test.result}</div>`;
-            }
-        } else if (test.used) {
-            // メモリ情報の表示
-            resultHtml += `<div class="text-blue-600">`;
-            resultHtml += `<div>使用中: ${test.used}</div>`;
-            resultHtml += `<div>総容量: ${test.total}</div>`;
-            resultHtml += `<div>上限: ${test.limit}</div>`;
+            
             resultHtml += `</div>`;
-        }
+        });
+        
+        resultHtml += `<div class="mt-4 p-2 bg-blue-50 rounded text-xs">`;
+        resultHtml += `<h5 class="font-bold text-blue-800 mb-1">📝 テスト内容説明:</h5>`;
+        resultHtml += `<ul class="text-blue-700 space-y-1">`;
+        resultHtml += `<li>• DOM操作: ブラウザの画面描画処理速度</li>`;
+        resultHtml += `<li>• ネットワーク: サーバーとの通信速度</li>`;
+        resultHtml += `<li>• ストレージ: データ保存・読み込み速度</li>`;
+        resultHtml += `<li>• 計算処理: JavaScript実行速度</li>`;
+        resultHtml += `<li>• メモリ: 現在のメモリ使用状況</li>`;
+        resultHtml += `</ul>`;
+        resultHtml += `</div>`;
         
         resultHtml += `</div>`;
-    });
-    
-    resultHtml += `<div class="mt-4 p-2 bg-blue-50 rounded text-xs">`;
-    resultHtml += `<h5 class="font-bold text-blue-800 mb-1">📝 テスト内容説明:</h5>`;
-    resultHtml += `<ul class="text-blue-700 space-y-1">`;
-    resultHtml += `<li>• DOM操作: ブラウザの画面描画処理速度</li>`;
-    resultHtml += `<li>• ネットワーク: サーバーとの通信速度</li>`;
-    resultHtml += `<li>• ストレージ: データ保存・読み込み速度</li>`;
-    resultHtml += `<li>• 計算処理: JavaScript実行速度</li>`;
-    resultHtml += `<li>• メモリ: 現在のメモリ使用状況</li>`;
-    resultHtml += `</ul>`;
-    resultHtml += `</div>`;
-    
-    resultHtml += `</div>`;
-    
-    await Swal.fire({
-        title: '🔍 パフォーマンステスト結果',
-        html: resultHtml,
-        icon: 'info',
-        confirmButtonText: 'OK',
-        width: '600px',
-        footer: '数値が小さいほど高速です。ブラウザの性能や負荷状況により結果は変動します。'
-    });
+        
+        console.log('パフォーマンステスト結果ダイアログを表示します');
+        await Swal.fire({
+            title: '🔍 パフォーマンステスト結果',
+            html: resultHtml,
+            icon: 'info',
+            confirmButtonText: 'OK',
+            width: '600px',
+            footer: '数値が小さいほど高速です。ブラウザの性能や負荷状況により結果は変動します。'
+        });
+        
+    } catch (error) {
+        console.error('パフォーマンステスト中にエラーが発生:', error);
+        
+        try {
+            await Swal.fire({
+                icon: 'error',
+                title: 'パフォーマンステスト失敗',
+                html: `
+                    <div class="text-left">
+                        <p>パフォーマンステスト中にエラーが発生しました。</p>
+                        <div class="mt-2 text-sm text-red-600">
+                            エラー: ${error.message || error}
+                        </div>
+                    </div>
+                `,
+                footer: 'F12を押してコンソールを確認してください。'
+            });
+        } catch (swalErr) {
+            console.error('エラーダイアログの表示でもエラー:', swalErr);
+            alert('パフォーマンステストでエラーが発生しました: ' + (error.message || error));
+        }
+    }
 });
 
 // ページ再読み込み
