@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.1.0_devtools-r8
+// This code Version: 3.1.0_devtools-r9
 
 // グローバル変数: デバッグログを保存するためのキューと診断情報
 let debugLog = [];
@@ -69,7 +69,11 @@ function checkJavaScriptLoadStatus() {
 
 // 完全同期処理
 async function performFullSync() {
+    console.log('performFullSync関数の最初の行が実行されました！');
+    console.log('try-catch外での実行確認:', new Date().toISOString());
+    
     try {
+        console.log('performFullSync関数のtry-catch内に入りました');
         console.log('performFullSync関数が開始されました');
         const startTime = performance.now();
         console.log('=== 完全同期処理開始 ===');
@@ -275,53 +279,157 @@ async function runPerformanceTest() {
     addDebugLog('info', 'パフォーマンステスト開始');
     const tests = [];
     
-    // DOM操作テスト
+    console.log('=== パフォーマンステスト実行開始 ===');
+    
+    // 1. DOM操作テスト - ブラウザのDOM処理速度を測定
+    console.log('DOM操作テストを実行中...');
     const domStart = performance.now();
     const testDiv = document.createElement('div');
     for (let i = 0; i < 1000; i++) {
         testDiv.innerHTML = `<span>Test ${i}</span>`;
     }
     const domTime = performance.now() - domStart;
-    tests.push({ name: 'DOM操作 (1000回)', time: Math.round(domTime) });
+    const domResult = { 
+        name: 'DOM操作速度 (1000回のinnerHTML更新)', 
+        time: Math.round(domTime),
+        description: 'ブラウザのDOM要素更新処理の速度を測定'
+    };
+    tests.push(domResult);
+    console.log(`DOM操作テスト完了: ${domResult.time}ms`);
     
-    // API ping テスト
+    // 2. ネットワーク速度テスト - サーバーとの通信速度を測定
+    console.log('ネットワーク速度テストを実行中...');
     try {
         const pingStart = performance.now();
-        await fetch('/api/ping', { method: 'HEAD' });
+        const response = await fetch('/api/ping', { method: 'HEAD' });
         const pingTime = performance.now() - pingStart;
-        tests.push({ name: 'API Ping', time: Math.round(pingTime) });
+        const networkResult = { 
+            name: 'ネットワーク応答速度 (Ping)', 
+            time: Math.round(pingTime),
+            description: `サーバーとの通信速度を測定 (ステータス: ${response.status})`,
+            status: response.status
+        };
+        tests.push(networkResult);
+        console.log(`ネットワークテスト完了: ${networkResult.time}ms (ステータス: ${response.status})`);
     } catch (error) {
-        tests.push({ name: 'API Ping', error: error.message });
+        const networkError = { 
+            name: 'ネットワーク応答速度 (Ping)', 
+            error: error.message,
+            description: 'サーバーとの通信でエラーが発生'
+        };
+        tests.push(networkError);
+        console.log(`ネットワークテストエラー: ${error.message}`);
     }
     
-    // ローカルストレージテスト
+    // 3. ローカルストレージ速度テスト - ブラウザのデータ保存処理速度を測定
+    console.log('ローカルストレージ速度テストを実行中...');
     const storageStart = performance.now();
-    localStorage.setItem('perfTest', 'test'.repeat(1000));
-    localStorage.getItem('perfTest');
+    const testData = 'test'.repeat(1000); // 4000文字のテストデータ
+    localStorage.setItem('perfTest', testData);
+    const readData = localStorage.getItem('perfTest');
     localStorage.removeItem('perfTest');
     const storageTime = performance.now() - storageStart;
-    tests.push({ name: 'ローカルストレージ', time: Math.round(storageTime) });
+    const storageResult = { 
+        name: 'ローカルストレージ処理速度', 
+        time: Math.round(storageTime),
+        description: `4KB のデータ保存・読み込み・削除処理の速度を測定`,
+        dataSize: `${testData.length} 文字 (約 ${Math.round(testData.length / 1024)}KB)`
+    };
+    tests.push(storageResult);
+    console.log(`ローカルストレージテスト完了: ${storageResult.time}ms`);
     
+    // 4. JavaScript計算処理テスト - CPU処理速度を測定
+    console.log('JavaScript計算処理テストを実行中...');
+    const calcStart = performance.now();
+    let sum = 0;
+    for (let i = 0; i < 100000; i++) {
+        sum += Math.sqrt(i) * Math.random();
+    }
+    const calcTime = performance.now() - calcStart;
+    const calcResult = { 
+        name: 'JavaScript計算処理速度', 
+        time: Math.round(calcTime),
+        description: '10万回の数学計算処理でCPU性能を測定',
+        result: `計算結果: ${Math.round(sum)}`
+    };
+    tests.push(calcResult);
+    console.log(`JavaScript計算テスト完了: ${calcResult.time}ms`);
+    
+    // 5. メモリ使用量チェック
+    if (performance.memory) {
+        const memoryInfo = {
+            name: 'メモリ使用状況',
+            description: 'ブラウザのメモリ使用量を確認',
+            used: formatBytes(performance.memory.usedJSHeapSize),
+            total: formatBytes(performance.memory.totalJSHeapSize),
+            limit: formatBytes(performance.memory.jsHeapSizeLimit)
+        };
+        tests.push(memoryInfo);
+        console.log(`メモリ使用量: ${memoryInfo.used} / ${memoryInfo.total}`);
+    }
+    
+    console.log('=== パフォーマンステスト完了 ===');
     addDebugLog('info', 'パフォーマンステスト完了', tests);
     return tests;
 }
 
 // 「完全同期」ボタン押下時の処理
-document.getElementById("forceSyncBtn").addEventListener("click", async () => {
+console.log('=== イベントリスナー登録開始 ===');
+const forceSyncButton = document.getElementById("forceSyncBtn");
+console.log('forceSyncBtn要素:', forceSyncButton);
+
+if (!forceSyncButton) {
+    console.error('forceSyncBtn要素が見つかりません！');
+} else {
+    console.log('forceSyncBtn要素が見つかりました、イベントリスナーを登録します');
+}
+
+// 実行中フラグを追加
+let isFullSyncRunning = false;
+
+// デバッグ用：フラグの変更を監視
+function setFullSyncRunning(value, reason = '') {
+    console.log(`実行中フラグを ${isFullSyncRunning} から ${value} に変更 ${reason ? `(理由: ${reason})` : ''}`);
+    isFullSyncRunning = value;
+}
+
+forceSyncButton?.addEventListener("click", async (event) => {
     console.log('=== 完全同期ボタンが押されました ===');
+    console.log('イベントオブジェクト:', event);
+    console.log('現在時刻:', new Date().toISOString());
+    console.log('実行中フラグ:', isFullSyncRunning);
     
-    // SweetAlert2が利用可能かチェック
-    if (typeof Swal === 'undefined') {
-        console.error('SweetAlert2が利用できません');
-        alert('SweetAlert2が読み込まれていません。ページを再読み込みしてください。');
+    // 既に実行中の場合は処理をスキップ
+    if (isFullSyncRunning) {
+        console.log('⚠️ 既に完全同期が実行中です。処理をスキップします。');
         return;
     }
     
-    console.log('SweetAlert2は利用可能です');
+    // 実行中フラグを設定
+    setFullSyncRunning(true, 'ボタンクリック開始');
+    
+    // ボタンを無効化
+    forceSyncButton.disabled = true;
+    forceSyncButton.textContent = '同期中...';
+    console.log('ボタンを無効化しました');
     
     try {
+        // SweetAlert2が利用可能かチェック
+        console.log('Swalチェック開始...');
+        if (typeof Swal === 'undefined') {
+            console.error('SweetAlert2が利用できません');
+            alert('SweetAlert2が読み込まれていません。ページを再読み込みしてください。');
+            return;
+        }
+        
+        console.log('SweetAlert2は利用可能です');
+        
+        // SweetAlertダイアログを表示（await しない）
         console.log('SweetAlertダイアログを表示中...');
-        const swalInstance = await Swal.fire({
+        console.log('Swal.fire呼び出し前の状態確認完了');
+        
+        // ローディングダイアログを非同期で表示
+        Swal.fire({
             title: '完全同期中…',
             text: '全データをサーバーから再取得しています。',
             allowOutsideClick: false,
@@ -331,18 +439,15 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
                 Swal.showLoading();
             }
         });
-        console.log('SweetAlertダイアログが作成されました');
-    } catch (swalError) {
-        console.error('SweetAlertダイアログの作成でエラー:', swalError);
-        alert('ダイアログの表示に失敗しました: ' + swalError.message);
-        return;
-    }
-
-    try {
+        console.log('SweetAlertダイアログを開始しました（非同期）');
+        
+        // performFullSync実行
         console.log('performFullSync関数の存在確認:', typeof performFullSync);
         console.log('performFullSync関数を呼び出し中...');
+        console.log('performFullSync呼び出し直前の時刻:', new Date().toISOString());
         
         const result = await performFullSync();
+        console.log('performFullSync呼び出し完了の時刻:', new Date().toISOString());
         console.log('完全同期結果:', result);
         
         const successCount = result.results.filter(r => r.status === 'success').length;
@@ -374,10 +479,11 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
             timer: 5000,
             showConfirmButton: true
         });
-    } catch (err) {
-        console.error('同期処理中にエラーが発生:', err);
-        console.error('エラーの詳細:', err.stack);
-        addDebugLog('error', '同期処理中にエラー', err);
+        
+    } catch (error) {
+        console.error('同期処理中にエラーが発生:', error);
+        console.error('エラーの詳細:', error.stack);
+        addDebugLog('error', '同期処理中にエラー', error);
         
         try {
             await Swal.fire({
@@ -387,7 +493,7 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
                     <div class="text-left">
                         <p>同期処理中に予期しないエラーが発生しました。</p>
                         <div class="mt-2 text-sm text-red-600">
-                            エラー: ${err.message || err}
+                            エラー: ${error.message || error}
                         </div>
                         <div class="mt-2 text-xs text-gray-600">
                             詳細はブラウザのコンソールを確認してください
@@ -398,7 +504,19 @@ document.getElementById("forceSyncBtn").addEventListener("click", async () => {
             });
         } catch (swalErr) {
             console.error('エラーダイアログの表示でもエラー:', swalErr);
-            alert('エラーが発生しました: ' + (err.message || err));
+            alert('エラーが発生しました: ' + (error.message || error));
+        }
+    } finally {
+        // 実行完了後にフラグとボタンを復元
+        setFullSyncRunning(false, '処理完了');
+        forceSyncButton.disabled = false;
+        forceSyncButton.textContent = '完全同期';
+        console.log('ボタンを復元しました');
+        
+        // SweetAlertダイアログを閉じる
+        if (typeof Swal !== 'undefined') {
+            console.log('SweetAlertダイアログを閉じます');
+            Swal.close();
         }
     }
 });
@@ -577,7 +695,9 @@ document.getElementById("showDebugLogBtn").addEventListener("click", async () =>
 document.getElementById("runPerfTestBtn").addEventListener("click", async () => {
     await Swal.fire({
         title: 'パフォーマンステスト実行中...',
+        text: 'ブラウザとシステムの性能を測定しています',
         allowOutsideClick: false,
+        showConfirmButton: false,
         didOpen: () => {
             Swal.showLoading();
         }
@@ -586,27 +706,68 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
     const results = await runPerformanceTest();
     
     let resultHtml = `<div class="text-left text-sm">`;
+    resultHtml += `<h4 class="font-bold mb-3 text-blue-600">📊 パフォーマンステスト結果</h4>`;
+    
     results.forEach(test => {
+        resultHtml += `<div class="mb-3 p-2 border border-gray-200 rounded">`;
+        resultHtml += `<div class="font-semibold text-gray-800">${test.name}</div>`;
+        
+        if (test.description) {
+            resultHtml += `<div class="text-xs text-gray-500 mb-1">${test.description}</div>`;
+        }
+        
         if (test.error) {
-            resultHtml += `<div class="mb-2 flex justify-between">`;
-            resultHtml += `<span>${test.name}</span>`;
-            resultHtml += `<span class="text-red-600">エラー</span>`;
-            resultHtml += `</div>`;
-        } else {
-            const timeClass = test.time < 100 ? 'text-green-600' : test.time < 500 ? 'text-yellow-600' : 'text-red-600';
-            resultHtml += `<div class="mb-2 flex justify-between">`;
-            resultHtml += `<span>${test.name}</span>`;
-            resultHtml += `<span class="${timeClass}">${test.time}ms</span>`;
+            resultHtml += `<div class="text-red-600 font-mono text-xs">❌ エラー: ${test.error}</div>`;
+        } else if (test.time !== undefined) {
+            const timeClass = test.time < 50 ? 'text-green-600' : test.time < 200 ? 'text-yellow-600' : 'text-red-600';
+            let performanceLevel = '';
+            if (test.time < 50) performanceLevel = '(高速 🚀)';
+            else if (test.time < 200) performanceLevel = '(標準 ✅)';
+            else performanceLevel = '(低速 ⚠️)';
+            
+            resultHtml += `<div class="${timeClass} font-bold">⏱️ ${test.time}ms ${performanceLevel}</div>`;
+            
+            if (test.status) {
+                resultHtml += `<div class="text-xs text-gray-600">HTTP Status: ${test.status}</div>`;
+            }
+            if (test.dataSize) {
+                resultHtml += `<div class="text-xs text-gray-600">データサイズ: ${test.dataSize}</div>`;
+            }
+            if (test.result) {
+                resultHtml += `<div class="text-xs text-gray-600">${test.result}</div>`;
+            }
+        } else if (test.used) {
+            // メモリ情報の表示
+            resultHtml += `<div class="text-blue-600">`;
+            resultHtml += `<div>使用中: ${test.used}</div>`;
+            resultHtml += `<div>総容量: ${test.total}</div>`;
+            resultHtml += `<div>上限: ${test.limit}</div>`;
             resultHtml += `</div>`;
         }
+        
+        resultHtml += `</div>`;
     });
+    
+    resultHtml += `<div class="mt-4 p-2 bg-blue-50 rounded text-xs">`;
+    resultHtml += `<h5 class="font-bold text-blue-800 mb-1">📝 テスト内容説明:</h5>`;
+    resultHtml += `<ul class="text-blue-700 space-y-1">`;
+    resultHtml += `<li>• DOM操作: ブラウザの画面描画処理速度</li>`;
+    resultHtml += `<li>• ネットワーク: サーバーとの通信速度</li>`;
+    resultHtml += `<li>• ストレージ: データ保存・読み込み速度</li>`;
+    resultHtml += `<li>• 計算処理: JavaScript実行速度</li>`;
+    resultHtml += `<li>• メモリ: 現在のメモリ使用状況</li>`;
+    resultHtml += `</ul>`;
+    resultHtml += `</div>`;
+    
     resultHtml += `</div>`;
     
     await Swal.fire({
-        title: 'パフォーマンステスト結果',
+        title: '🔍 パフォーマンステスト結果',
         html: resultHtml,
         icon: 'info',
-        confirmButtonText: 'OK'
+        confirmButtonText: 'OK',
+        width: '600px',
+        footer: '数値が小さいほど高速です。ブラウザの性能や負荷状況により結果は変動します。'
     });
 });
 
@@ -628,7 +789,27 @@ document.getElementById("reloadPageBtn").addEventListener("click", async () => {
 });
 
 // 初期化時にデバッグログを開始
+console.log('=== DevTools JavaScript読み込み開始 ===');
+console.log('現在時刻:', new Date().toISOString());
+console.log('document.readyState:', document.readyState);
 addDebugLog('info', 'DevTools初期化完了', { version: '3.1.0_devtools-r8' });
+
+// 即座に基本確認を実行
+console.log('=== 即座実行: 基本確認 ===');
+console.log('Swal:', typeof Swal);
+console.log('performFullSync:', typeof performFullSync);
+console.log('addDebugLog:', typeof addDebugLog);
+
+// DOM読み込み完了後の確認
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('=== DOMContentLoaded時の確認 ===');
+        console.log('forceSyncBtn要素:', document.getElementById("forceSyncBtn"));
+    });
+} else {
+    console.log('=== DOM既に読み込み済み ===');
+    console.log('forceSyncBtn要素:', document.getElementById("forceSyncBtn"));
+}
 
 // 開発者向け：簡易診断機能を追加
 function performQuickDiagnostics() {
@@ -662,6 +843,100 @@ function performQuickDiagnostics() {
 }
 
 // ページ読み込み時に自動診断を実行
+console.log('=== DevTools自動診断開始 ===');
 setTimeout(() => {
+    console.log('=== 1秒後の自動診断実行 ===');
+    
+    // DOM要素の存在確認
+    const forceSyncBtn = document.getElementById("forceSyncBtn");
+    console.log('forceSyncBtn要素の確認:', forceSyncBtn);
+    console.log('forceSyncBtn要素のイベントリスナー数:', forceSyncBtn?.getEventListeners ? forceSyncBtn.getEventListeners() : 'getEventListeners不利用可能');
+    
+    // 重要な関数の存在確認
+    console.log('performFullSync関数:', typeof performFullSync);
+    console.log('Swal:', typeof Swal);
+    console.log('SweetAlert2のバージョン:', typeof Swal !== 'undefined' ? Swal.version : '未定義');
+    
+    // 実際の診断実行
     performQuickDiagnostics();
+    
+    console.log('=== DevTools初期化完了 ===');
 }, 1000);
+
+// デバッグ用：手動テスト関数
+window.manualTestPerformFullSync = async function() {
+    console.log('=== 手動テスト: performFullSync ===');
+    console.log('実行中フラグ確認:', isFullSyncRunning);
+    
+    if (isFullSyncRunning) {
+        console.log('⚠️ 既に実行中のため手動テストをスキップします');
+        return { skipped: true, reason: '既に実行中' };
+    }
+    
+    try {
+        const result = await performFullSync();
+        console.log('手動テスト結果:', result);
+        return result;
+    } catch (error) {
+        console.error('手動テストでエラー:', error);
+        throw error;
+    }
+};
+
+window.manualTestButtonClick = function() {
+    console.log('=== 手動テスト: ボタンクリック ===');
+    console.log('実行中フラグ確認:', isFullSyncRunning);
+    const btn = document.getElementById("forceSyncBtn");
+    console.log('ボタン要素:', btn);
+    console.log('ボタン状態 - disabled:', btn?.disabled, 'textContent:', btn?.textContent);
+    
+    if (btn) {
+        btn.click();
+        console.log('ボタンクリック実行完了');
+    } else {
+        console.error('ボタン要素が見つかりません');
+    }
+};
+
+// 実行中フラグの状態確認関数も追加
+window.checkSyncStatus = function() {
+    console.log('=== 現在の同期状態 ===');
+    console.log('実行中フラグ:', isFullSyncRunning);
+    const btn = document.getElementById("forceSyncBtn");
+    console.log('ボタン状態:', {
+        disabled: btn?.disabled,
+        textContent: btn?.textContent,
+        exists: !!btn
+    });
+    return {
+        isRunning: isFullSyncRunning,
+        buttonState: {
+            disabled: btn?.disabled,
+            textContent: btn?.textContent,
+            exists: !!btn
+        }
+    };
+};
+
+// フラグリセット用関数
+window.resetSyncFlag = function() {
+    console.log('=== 手動でフラグをリセット ===');
+    const oldValue = isFullSyncRunning;
+    setFullSyncRunning(false, '手動リセット');
+    const btn = document.getElementById("forceSyncBtn");
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = '完全同期';
+        console.log('ボタンも復元しました');
+    }
+    return { old: oldValue, new: isFullSyncRunning };
+};
+
+console.log('=== DevTools読み込み完了 ===');
+console.log('手動テスト関数が利用可能です:');
+console.log('- window.manualTestPerformFullSync()');
+console.log('- window.manualTestButtonClick()');
+console.log('- window.checkSyncStatus()');
+console.log('- window.resetSyncFlag()');
+console.log('重複実行防止機能が追加されました（SweetAlert非同期対応版）');
+console.log('devtools.js読み込み完了時刻:', new Date().toISOString());
