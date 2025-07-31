@@ -22,6 +22,7 @@ function bufferToBase64url(buffer) {
 
 function closeAccountModal() {
     document.getElementById("accountModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
 }
 
 function handleRegister() {

@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.3_status-r1
+// This code Version: 3.2.1_status-r1
 
 function checkApi(endpoint, labelId, method = "HEAD") {
     const start = performance.now();
@@ -48,6 +48,7 @@ document.getElementById("openStatusModal").addEventListener("click", () => {
 
 document.getElementById("closeStatusModal").addEventListener("click", () => {
     document.getElementById("statusModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
 });
 
 function setJsVersion(id, version) {

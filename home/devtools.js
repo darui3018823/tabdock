@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.2.0_devtools-r10
+// This code Version: 3.2.0_devtools-r11
 
 // グローバル変数: デバッグログを保存するためのキューと診断情報
 let debugLog = [];
@@ -528,6 +528,7 @@ document.getElementById("openDevMenuBtn").addEventListener("click", () => {
 
 document.getElementById("closeDevMenuModal").addEventListener("click", () => {
     document.getElementById("devMenuModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
 });
 
 // JavaScriptロード状態確認
