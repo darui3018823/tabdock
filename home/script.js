@@ -86,7 +86,6 @@ function updatePCStatus() {
     
             // 右列
             document.getElementById("drive-c").textContent = data.driveC;
-            document.getElementById("drive-d").textContent = data.driveD;
             document.getElementById("main-window").textContent = data.mainWindow;
    
             updateLastUpdateTime();

@@ -55,7 +55,6 @@ type PCStatus struct {
 	GPU1       string `json:"gpu1"`
 	VRAM       string `json:"vram"`
 	DriveC     string `json:"driveC"`
-	DriveD     string `json:"driveD"`
 	MainWindow string `json:"mainWindow"`
 }
 

@@ -119,8 +119,9 @@ def get_main_window():
             if not window_text:
                 return "Unknown"
             
-            # 2行に収まる程度の長さに調整（約35-40文字程度）
-            max_length = 35
+            # iPad用：文字数制限を大幅に緩和し、改行を含む形式で返す
+            # 3行目に行かないよう、適度な長さで区切る（約80文字程度）
+            max_length = 80
             if len(window_text) > max_length:
                 return window_text[:max_length] + "..."
             else:
@@ -145,7 +146,6 @@ def get_status():
         "gpu1": gpu1,
         "vram": get_vram_usage(),
         "driveC": get_drive_usage("C"),
-        "driveD": get_drive_usage("D"),
         "mainWindow": get_main_window()
     }
 
