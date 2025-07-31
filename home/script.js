@@ -81,7 +81,6 @@ function updatePCStatus() {
             document.getElementById("cpu").textContent = data.cpu;
             document.getElementById("mem").textContent = data.mem;
             document.getElementById("gpu0").textContent = data.gpu0;
-            document.getElementById("gpu1").textContent = data.gpu1;
             document.getElementById("vram").textContent = data.vram;
     
             // 右列

@@ -71,8 +71,7 @@ def get_gpu_usage():
     try:
         gpus = GPUtil.getGPUs()
         gpu0 = f"{gpus[0].load * 100:.0f}%" if len(gpus) > 0 else "N/A"
-        gpu1 = f"{gpus[1].load * 100:.0f}%" if len(gpus) > 1 else "N/A"
-        return gpu0, gpu1
+        return gpu0
     except Exception:
         return "Unavailable", "N/A"
 
@@ -133,7 +132,7 @@ def get_main_window():
 
 
 def get_status():
-    gpu0, gpu1 = get_gpu_usage()
+    gpu0 = get_gpu_usage()
     
     return {
         "pc": socket.gethostname(),
@@ -143,7 +142,6 @@ def get_status():
         "cpu": get_cpu_usage(),
         "mem": get_memory_usage(),
         "gpu0": gpu0,
-        "gpu1": gpu1,
         "vram": get_vram_usage(),
         "driveC": get_drive_usage("C"),
         "mainWindow": get_main_window()
