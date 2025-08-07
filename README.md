@@ -57,3 +57,13 @@ The host machine must meet the following requirements:
 ### Notes on Linux
 On Linux systems, it is strongly recommended to use `systemd` instead of PowerShell, as it is generally more practical and powerful for this context.<br>
 We assume that most users familiar with Linux will already understand how to configure and use `systemd`, so detailed instructions are omitted.
+
+## Third-Party Licenses
+
+This project uses third-party materials under the following licenses:
+
+### Material Symbols
+- **Copyright**: 2020 Google Inc.
+- **License**: Apache License 2.0
+- **Source**: https://fonts.google.com/icons
+- **Usage**: UI icons and symbols throughout the interface
