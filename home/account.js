@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.3.1_acc-r1
+// This code Version: 3.3.2_acc-r1
 
 // ページ読み込み時にログイン状態をチェック
 document.addEventListener("DOMContentLoaded", () => {
@@ -86,7 +86,7 @@ function setupLoggedInModal(modal) {
                                     }
                                 </div>
                                 <button id="uploadIcon" class="absolute -bottom-2 -right-2 w-8 h-8 bg-green-600 hover:bg-green-500 rounded-full flex items-center justify-center text-white text-sm transition-colors">
-                                    📷
+                                    <img src="/home/assets/icon/upload_file.png" alt="Upload" class="w-4 h-4 object-contain">
                                 </button>
                             </div>
                             <div class="text-center">
@@ -283,10 +283,6 @@ function handleProfileImageUpload() {
     input.onchange = function(event) {
         const file = event.target.files[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) { // 5MB制限
-                Swal.fire("エラー", "ファイルサイズは5MB以下にしてください。", "error");
-                return;
-            }
             showImageResizeModal(file);
         }
     };
@@ -339,8 +335,10 @@ function showImageResizeModal(file) {
             }).then((result) => {
                 if (result.isConfirmed) {
                     const canvas = document.getElementById("imageCanvas");
-                    const imageData = canvas.toDataURL("image/jpeg", 0.8);
-                    saveProfileImage(imageData);
+                    // Canvasから高品質なBlobを取得
+                    canvas.toBlob((blob) => {
+                        uploadProfileImageToServer(blob);
+                    }, 'image/jpeg', 0.8);
                 }
             });
         };
@@ -387,10 +385,44 @@ function setupImageEditor(img) {
     drawImage();
 }
 
-// プロフィール画像を保存
-function saveProfileImage(imageData) {
+// サーバーにプロフィール画像をアップロード
+function uploadProfileImageToServer(blob) {
+    const formData = new FormData();
+    formData.append('profileImage', blob, 'profile.jpg');
+
+    Swal.fire({
+        title: 'アップロード中...',
+        text: 'プロフィール画像を保存しています',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    fetch('/api/upload-profile-image', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        Swal.close();
+        if (data.status === 'success') {
+            saveProfileImagePath(data.path);
+        } else {
+            Swal.fire('エラー', 'アップロードに失敗しました', 'error');
+        }
+    })
+    .catch(error => {
+        Swal.close();
+        console.error('Upload error:', error);
+        Swal.fire('エラー', 'アップロード処理中にエラーが発生しました', 'error');
+    });
+}
+
+// プロフィール画像のパスを保存
+function saveProfileImagePath(imagePath) {
     const user = getLoggedInUser();
-    user.profileImage = imageData;
+    user.profileImage = imagePath;
     saveLoginState(user);
     
     // UIを更新

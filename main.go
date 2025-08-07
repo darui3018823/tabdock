@@ -148,6 +148,7 @@ func main() {
 	mux.HandleFunc("/api/schedule", secureHandler(handleSchedule))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
+	mux.HandleFunc("/api/upload-profile-image", secureHandler(handleProfileImageUpload))
 
 	// Authentication APIs
 	mux.HandleFunc("/api/auth/login", secureHandler(handleAuthLogin))
@@ -325,6 +326,57 @@ func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
 		"images": files,
+	})
+}
+
+func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(10 << 20) // 最大10MB
+
+	file, handler, err := r.FormFile("profileImage")
+	if err != nil {
+		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// ファイル拡張子チェック
+	ext := strings.ToLower(filepath.Ext(handler.Filename))
+	allowedExts := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+	}
+	if !allowedExts[ext] {
+		http.Error(w, "対応していないファイル形式です", http.StatusBadRequest)
+		return
+	}
+
+	// ユニークなファイル名を生成
+	uniqueID := uuid.New().String()
+	filename := uniqueID + ext
+	filepath := "home/assets/acc_icon/" + filename
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
+		return
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, file)
+	if err != nil {
+		http.Error(w, "ファイル書き込みに失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "success",
+		"filename": filename,
+		"path":     "/home/assets/acc_icon/" + filename,
 	})
 }
 
