@@ -1,7 +1,25 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.2.1_acc-r1
+// This code Version: 3.3.1_acc-r1
+
+// ページ読み込み時にログイン状態をチェック
+document.addEventListener("DOMContentLoaded", () => {
+    // パスキーログイン成功時のコールバック関数を設定
+    window.onPasskeyLoginSuccess = function(user) {
+        const userInfo = {
+            username: user.username,
+            email: user.email || '',
+            loginAt: Math.floor(Date.now() / 1000),
+            loginMethod: "パスキー",
+            profileImage: null
+        };
+        saveLoginState(userInfo);
+        
+        Swal.fire("成功", "パスキーでログインしました。", "success");
+        setupAccountModal();
+    };
+});
 
 // アカウント管理モーダルを開く
 document.getElementById("openAccManage").addEventListener("click", () => {
@@ -52,24 +70,32 @@ function setupLoggedInModal(modal) {
     const user = getLoggedInUser();
     
     modal.innerHTML = `
-        <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20">
-            <h2 class="text-xl font-bold mb-6">アカウント管理</h2>
+        <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20 mx-auto">
+            <h2 class="text-xl font-bold mb-6 text-center">アカウント管理</h2>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- 左側：ユーザー情報 -->
                 <div class="space-y-6">
                     <div class="bg-black/20 rounded-lg p-6">
-                        <div class="flex items-center space-x-4 mb-4">
-                            <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-2xl font-bold">
-                                ${user.username.charAt(0).toUpperCase()}
+                        <div class="flex flex-col items-center space-y-4 mb-4">
+                            <div class="relative">
+                                <div id="profileIcon" class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold cursor-pointer hover:bg-blue-500 transition-colors">
+                                    ${user.profileImage ? 
+                                        `<img src="${user.profileImage}" alt="Profile" class="w-full h-full rounded-full object-cover">` : 
+                                        user.username.charAt(0).toUpperCase()
+                                    }
+                                </div>
+                                <button id="uploadIcon" class="absolute -bottom-2 -right-2 w-8 h-8 bg-green-600 hover:bg-green-500 rounded-full flex items-center justify-center text-white text-sm transition-colors">
+                                    📷
+                                </button>
                             </div>
-                            <div>
+                            <div class="text-center">
                                 <h3 class="text-lg font-semibold">${user.username}</h3>
                                 <p class="text-white/70 text-sm">${user.email || 'メールアドレス未設定'}</p>
                             </div>
                         </div>
                         
-                        <div class="space-y-3">
+                        <div class="space-y-3 text-center">
                             <div class="flex justify-between">
                                 <span class="text-white/70">ログイン方式:</span>
                                 <span class="text-green-400">${user.loginMethod || 'パスワード'}</span>
@@ -101,14 +127,14 @@ function setupLoggedInModal(modal) {
                         <div class="space-y-3">
                             <div class="flex items-center justify-between">
                                 <span class="text-sm text-white/80">パスキー認証</span>
-                                <span class="text-xs px-2 py-1 rounded-full bg-green-600/20 text-green-400">
-                                    対応
+                                <span class="text-xs px-2 py-1 rounded-full bg-yellow-600/20 text-yellow-400">
+                                    試験的
                                 </span>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-sm text-white/80">二段階認証</span>
-                                <span class="text-xs px-2 py-1 rounded-full bg-gray-600/20 text-gray-400">
-                                    未設定
+                                <span class="text-xs px-2 py-1 rounded-full bg-yellow-600/20 text-yellow-400">
+                                    計画中
                                 </span>
                             </div>
                         </div>
@@ -140,7 +166,7 @@ function setupLoggedInModal(modal) {
                 </div>
             </div>
             
-            <div class="flex justify-end mt-6">
+            <div class="flex justify-center mt-6">
                 <button id="closeAccountModal" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors">
                     閉じる
                 </button>
@@ -157,8 +183,8 @@ function setupLoginModal(modal) {
     
     // モーダル内容を構築
     modal.innerHTML = `
-        <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20">
-            <h2 class="text-xl font-bold mb-6">アカウント管理</h2>
+        <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20 mx-auto">
+            <h2 class="text-xl font-bold mb-6 text-center">アカウント管理</h2>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- 左側：フォーム -->
@@ -237,7 +263,7 @@ function setupLoginModal(modal) {
                 </div>
             </div>
             
-            <div class="flex justify-end mt-6">
+            <div class="flex justify-center mt-6">
                 <button id="closeAccountModal" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors">
                     閉じる
                 </button>
@@ -249,8 +275,147 @@ function setupLoginModal(modal) {
     setupAccountEventListeners();
 }
 
+// プロフィール画像のアップロード処理
+function handleProfileImageUpload() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB制限
+                Swal.fire("エラー", "ファイルサイズは5MB以下にしてください。", "error");
+                return;
+            }
+            showImageResizeModal(file);
+        }
+    };
+    input.click();
+}
+
+// 画像リサイズモーダルを表示
+function showImageResizeModal(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            Swal.fire({
+                title: "プロフィール画像を調整",
+                html: `
+                    <div class="space-y-4">
+                        <div class="flex justify-center">
+                            <canvas id="imageCanvas" width="300" height="300" style="border: 2px solid #ccc; border-radius: 50%;"></canvas>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">サイズ調整:</label>
+                            <input type="range" id="scaleSlider" min="0.5" max="2" step="0.1" value="1" class="w-full">
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>縮小</span>
+                                <span>拡大</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">位置調整:</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500">X座標:</label>
+                                    <input type="range" id="xSlider" min="-150" max="150" value="0" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500">Y座標:</label>
+                                    <input type="range" id="ySlider" min="-150" max="150" value="0" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: "設定",
+                cancelButtonText: "キャンセル",
+                width: 400,
+                didOpen: () => {
+                    setupImageEditor(img);
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const canvas = document.getElementById("imageCanvas");
+                    const imageData = canvas.toDataURL("image/jpeg", 0.8);
+                    saveProfileImage(imageData);
+                }
+            });
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+// 画像エディターのセットアップ
+function setupImageEditor(img) {
+    const canvas = document.getElementById("imageCanvas");
+    const ctx = canvas.getContext("2d");
+    const scaleSlider = document.getElementById("scaleSlider");
+    const xSlider = document.getElementById("xSlider");
+    const ySlider = document.getElementById("ySlider");
+    
+    function drawImage() {
+        const scale = parseFloat(scaleSlider.value);
+        const offsetX = parseInt(xSlider.value);
+        const offsetY = parseInt(ySlider.value);
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 円形クリッピング
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(150, 150, 150, 0, Math.PI * 2);
+        ctx.clip();
+        
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        const x = (canvas.width - drawWidth) / 2 + offsetX;
+        const y = (canvas.height - drawHeight) / 2 + offsetY;
+        
+        ctx.drawImage(img, x, y, drawWidth, drawHeight);
+        ctx.restore();
+    }
+    
+    scaleSlider.addEventListener("input", drawImage);
+    xSlider.addEventListener("input", drawImage);
+    ySlider.addEventListener("input", drawImage);
+    
+    // 初期描画
+    drawImage();
+}
+
+// プロフィール画像を保存
+function saveProfileImage(imageData) {
+    const user = getLoggedInUser();
+    user.profileImage = imageData;
+    saveLoginState(user);
+    
+    // UIを更新
+    setupAccountModal();
+    
+    Swal.fire("完了", "プロフィール画像を更新しました。", "success");
+}
+
+// アカウントモーダルを閉じる
+function closeAccountModal() {
+    document.getElementById("accountModal").classList.add("hidden");
+}
+
 // ログイン済みユーザー用のイベントリスナー
 function setupLoggedInEventListeners() {
+    // プロフィール画像アップロード
+    document.getElementById("uploadIcon").addEventListener("click", () => {
+        handleProfileImageUpload();
+    });
+    
+    // プロフィール画像をクリックしてもアップロード
+    document.getElementById("profileIcon").addEventListener("click", () => {
+        handleProfileImageUpload();
+    });
+    
     // パスキー追加
     document.getElementById("addPasskeyBtn").addEventListener("click", () => {
         const user = getLoggedInUser();
@@ -353,9 +518,13 @@ function handleNormalLogin() {
                 username: data.user.username,
                 email: data.user.email,
                 loginAt: data.user.loginAt,
-                loginMethod: "パスワード"
+                loginMethod: "パスワード",
+                profileImage: null // 初期状態ではプロフィール画像なし
             };
             saveLoginState(userInfo);
+            
+            Swal.fire("成功", "ログインしました。", "success");
+            setupAccountModal(); // モーダル内容を更新
             
             Swal.fire("ログイン成功", "正常にログインしました。", "success");
             closeAccountModal();
@@ -476,8 +645,8 @@ function updateUIForLoggedInUser(user) {
     const accManageBtn = document.getElementById("openAccManage");
     if (accManageBtn) {
         accManageBtn.innerHTML = `
-            <div class="flex items-center justify-between">
-                <span>アカウント管理</span>
+            <div class="flex items-center justify-center">
+                <span class="mr-2">アカウント管理</span>
                 <span class="text-xs text-green-400">●</span>
             </div>
         `;
