@@ -10,9 +10,150 @@ document.getElementById("openAccManage").addEventListener("click", () => {
     setupAccountModal();
 });
 
+// ログイン状態をチェック
+function isLoggedIn() {
+    return localStorage.getItem("tabdock_user") !== null;
+}
+
+// ログインユーザー情報を取得
+function getLoggedInUser() {
+    const userStr = localStorage.getItem("tabdock_user");
+    return userStr ? JSON.parse(userStr) : null;
+}
+
+// ログイン状態を保存
+function saveLoginState(user) {
+    localStorage.setItem("tabdock_user", JSON.stringify(user));
+}
+
+// ログアウト
+function logout() {
+    localStorage.removeItem("tabdock_user");
+    Swal.fire("ログアウト", "正常にログアウトしました。", "success");
+    setupAccountModal(); // モーダルを再構築
+}
+
 // アカウントモーダルのセットアップ
 function setupAccountModal() {
     const modal = document.getElementById("accountModal");
+    
+    // ログイン状態をチェック
+    if (isLoggedIn()) {
+        // ログイン済みの場合のモーダル
+        setupLoggedInModal(modal);
+    } else {
+        // 未ログインの場合のモーダル
+        setupLoginModal(modal);
+    }
+}
+
+// ログイン済みユーザー用のモーダル
+function setupLoggedInModal(modal) {
+    const user = getLoggedInUser();
+    
+    modal.innerHTML = `
+        <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20">
+            <h2 class="text-xl font-bold mb-6">アカウント管理</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- 左側：ユーザー情報 -->
+                <div class="space-y-6">
+                    <div class="bg-black/20 rounded-lg p-6">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-2xl font-bold">
+                                ${user.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold">${user.username}</h3>
+                                <p class="text-white/70 text-sm">${user.email || 'メールアドレス未設定'}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-white/70">ログイン方式:</span>
+                                <span class="text-green-400">${user.loginMethod || 'パスワード'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-white/70">最終ログイン:</span>
+                                <span class="text-white/90">${new Date(user.loginAt * 1000).toLocaleDateString('ja-JP')}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <button id="addPasskeyBtn" class="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded-lg transition-colors font-medium">
+                            パスキーを追加
+                        </button>
+                        <button id="changePasswordBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg transition-colors font-medium">
+                            パスワード変更
+                        </button>
+                        <button id="logoutBtn" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg transition-colors font-medium">
+                            ログアウト
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 右側：アカウント設定 -->
+                <div class="space-y-6">
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">アカウント設定</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-white/80">パスキー認証</span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-green-600/20 text-green-400">
+                                    対応
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-white/80">二段階認証</span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-gray-600/20 text-gray-400">
+                                    未設定
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">セキュリティ情報</h3>
+                        <div class="space-y-2">
+                            <p class="text-xs text-white/70">
+                                アカウントのセキュリティを向上させるため、パスキーの利用をお勧めします。
+                            </p>
+                            <p class="text-xs text-white/70">
+                                定期的なパスワード変更も推奨されます。
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">アカウントデータ</h3>
+                        <div class="space-y-2">
+                            <button class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
+                                データエクスポート
+                            </button>
+                            <button class="w-full text-left text-xs text-red-400 hover:text-red-300 py-2 px-3 rounded hover:bg-red-600/10 transition-colors">
+                                アカウント削除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end mt-6">
+                <button id="closeAccountModal" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // ログイン済みユーザー用のイベントリスナーを設定
+    setupLoggedInEventListeners();
+}
+
+// 未ログインユーザー用のモーダル
+function setupLoginModal(modal) {
     
     // モーダル内容を構築
     modal.innerHTML = `
@@ -108,7 +249,48 @@ function setupAccountModal() {
     setupAccountEventListeners();
 }
 
-// イベントリスナーの設定
+// ログイン済みユーザー用のイベントリスナー
+function setupLoggedInEventListeners() {
+    // パスキー追加
+    document.getElementById("addPasskeyBtn").addEventListener("click", () => {
+        const user = getLoggedInUser();
+        if (typeof handlePasskeyRegistration === 'function') {
+            handlePasskeyRegistration(user.username);
+        } else {
+            Swal.fire("エラー", "パスキー機能が利用できません。", "error");
+        }
+    });
+    
+    // パスワード変更
+    document.getElementById("changePasswordBtn").addEventListener("click", () => {
+        Swal.fire({
+            title: "パスワード変更",
+            text: "この機能は近日実装予定です。",
+            icon: "info"
+        });
+    });
+    
+    // ログアウト
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+        Swal.fire({
+            title: "ログアウトしますか？",
+            text: "現在のセッションが終了します。",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "ログアウト",
+            cancelButtonText: "キャンセル"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                logout();
+            }
+        });
+    });
+    
+    // モーダル閉じる
+    document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
+}
+
+// イベントリスナーの設定（未ログインユーザー用）
 function setupAccountEventListeners() {
     // タブ切り替え
     document.getElementById("loginTab").addEventListener("click", () => switchToLogin());
@@ -157,7 +339,7 @@ function handleNormalLogin() {
         return;
     }
 
-    // APIにリクエストを送信（将来の実装用）
+    // APIにリクエストを送信
     fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -166,26 +348,54 @@ function handleNormalLogin() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // ログイン情報をLocalStorageに保存
+            const userInfo = {
+                username: data.user.username,
+                email: data.user.email,
+                loginAt: data.user.loginAt,
+                loginMethod: "パスワード"
+            };
+            saveLoginState(userInfo);
+            
             Swal.fire("ログイン成功", "正常にログインしました。", "success");
             closeAccountModal();
-            // ログイン状態をUIに反映する処理をここに追加
-            updateUIForLoggedInUser(data.user);
+            
+            // UIを更新
+            updateUIForLoggedInUser(userInfo);
         } else {
             Swal.fire("ログイン失敗", data.message || "ログインに失敗しました。", "error");
         }
     })
     .catch(error => {
-        // 仮実装：サーバーサイドが未実装の場合の処理
-        console.log("[仮] ログイン試行：", { username, password });
-        Swal.fire("ログインしました", "（仮実装）通常ログイン成功", "success");
-        closeAccountModal();
+        console.error("ログインエラー:", error);
+        Swal.fire("エラー", "ログイン処理中にエラーが発生しました。", "error");
     });
 }
 
 // パスキーログイン処理（passkey.jsの関数を呼び出し）
 function handlePasskeyLogin() {
     const username = document.getElementById("loginUsername").value.trim();
+    if (!username) {
+        Swal.fire("エラー", "ユーザー名を入力してください。", "error");
+        return;
+    }
+    
     if (typeof startLogin === 'function') {
+        // パスキーログイン成功時のコールバックを設定
+        window.onPasskeyLoginSuccess = function(user) {
+            const userInfo = {
+                username: user.username || username,
+                email: user.email || "",
+                loginAt: Math.floor(Date.now() / 1000),
+                loginMethod: "パスキー"
+            };
+            saveLoginState(userInfo);
+            
+            Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
+            closeAccountModal();
+            updateUIForLoggedInUser(userInfo);
+        };
+        
         startLogin(username);
     } else {
         Swal.fire("エラー", "パスキー機能が利用できません。", "error");
@@ -215,7 +425,7 @@ function handleRegister() {
         return;
     }
 
-    // APIにリクエストを送信（将来の実装用）
+    // APIにリクエストを送信
     fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,6 +434,15 @@ function handleRegister() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // 登録成功時に自動的にログイン状態にする
+            const userInfo = {
+                username: data.user.username,
+                email: data.user.email,
+                loginAt: data.user.registerId,
+                loginMethod: "パスワード"
+            };
+            saveLoginState(userInfo);
+            
             Swal.fire({
                 title: "アカウント作成完了",
                 text: "アカウントが作成されました。パスキーも登録しますか？",
@@ -236,6 +455,7 @@ function handleRegister() {
                     handlePasskeyRegistration(username);
                 } else {
                     closeAccountModal();
+                    updateUIForLoggedInUser(userInfo);
                 }
             });
         } else {
@@ -243,33 +463,37 @@ function handleRegister() {
         }
     })
     .catch(error => {
-        // 仮実装：サーバーサイドが未実装の場合の処理
-        console.log("[仮] 登録ユーザー：", { username, email, password });
-        
-        Swal.fire({
-            title: "アカウント作成完了",
-            text: "（仮実装）アカウントが作成されました。パスキーも登録しますか？",
-            icon: "success",
-            showCancelButton: true,
-            confirmButtonText: "パスキーを登録",
-            cancelButtonText: "後で"
-        }).then(result => {
-            if (result.isConfirmed && typeof handlePasskeyRegistration === 'function') {
-                // passkeyの登録処理を呼び出す
-                handlePasskeyRegistration(username);
-            } else {
-                closeAccountModal();
-            }
-        });
+        console.error("登録エラー:", error);
+        Swal.fire("エラー", "登録処理中にエラーが発生しました。", "error");
     });
 }
 
 // ログイン状態をUIに反映
 function updateUIForLoggedInUser(user) {
-    // ここでログイン状態に応じたUI更新を行う
     console.log("ログインユーザー:", user);
-    // 例：ユーザー名表示、ログアウトボタン表示など
+    
+    // メニューのアカウント管理ボタンのテキストを変更
+    const accManageBtn = document.getElementById("openAccManage");
+    if (accManageBtn) {
+        accManageBtn.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span>アカウント管理</span>
+                <span class="text-xs text-green-400">●</span>
+            </div>
+        `;
+        accManageBtn.title = `${user.username} としてログイン中`;
+    }
+    
+    // 他のUI要素もここで更新可能
 }
+
+// ページ読み込み時にログイン状態をチェック
+document.addEventListener("DOMContentLoaded", () => {
+    if (isLoggedIn()) {
+        const user = getLoggedInUser();
+        updateUIForLoggedInUser(user);
+    }
+});
 
 // アカウントモーダルを閉じる
 function closeAccountModal() {

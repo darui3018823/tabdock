@@ -148,8 +148,20 @@ async function startLogin(usernameParam = null) {
 
     const result = await verify.json();
     if (result.success) {
-        Swal.fire("ログイン成功", "パスキーで認証されました。", "success");
-        closeAccountModal();
+        // パスキーログイン成功時のコールバックを呼び出し
+        if (typeof window.onPasskeyLoginSuccess === 'function') {
+            window.onPasskeyLoginSuccess({
+                username: username,
+                email: "",
+                loginMethod: "パスキー"
+            });
+        } else {
+            // 従来の処理（コールバックが設定されていない場合）
+            Swal.fire("ログイン成功", "パスキーで認証されました。", "success");
+            if (typeof closeAccountModal === 'function') {
+                closeAccountModal();
+            }
+        }
     } else {
         Swal.fire("失敗", result.error || "認証に失敗しました。", "error");
     }

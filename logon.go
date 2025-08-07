@@ -13,7 +13,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +20,12 @@ import (
 	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/google/uuid"
+	_ "modernc.org/sqlite"
+)
+
+var (
+	db     *sql.DB
+	dbPath = "./database/acc.db"
 )
 
 // WebAuthn関連の変数
@@ -98,8 +103,17 @@ func DBUserToUser(dbUser DBUser) *User {
 
 func initDB() error {
 	var err error
+
+	// データベース接続を開く
 	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
+		log.Printf("データベース接続エラー: %v", err)
+		return err
+	}
+
+	// 接続確認
+	if err = db.Ping(); err != nil {
+		log.Printf("データベース接続確認エラー: %v", err)
 		return err
 	}
 
@@ -117,11 +131,61 @@ func initDB() error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
+
 	_, err = db.Exec(query)
-	if err == nil {
-		log.Println("データベース初期化完了")
+	if err != nil {
+		log.Printf("テーブル作成エラー: %v", err)
+		return err
 	}
-	return err
+
+	// 既存のテーブルに不足している列があれば追加
+	err = addMissingColumns()
+	if err != nil {
+		log.Printf("カラム追加エラー: %v", err)
+		return err
+	}
+
+	log.Println("Database initialized successfully.")
+	return nil
+}
+
+// 不足している列を追加する関数
+func addMissingColumns() error {
+	// 必要な列のリスト
+	requiredColumns := []string{
+		"email TEXT",
+		"password TEXT",
+		"created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+		"updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+	}
+
+	for _, column := range requiredColumns {
+		columnName := strings.Split(column, " ")[0]
+
+		// 列が存在するかチェック
+		var count int
+		err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('users') WHERE name = ?", columnName).Scan(&count)
+		if err != nil {
+			continue // エラーは無視して次に進む
+		}
+
+		if count == 0 {
+			// 列が存在しない場合は追加
+			alterQuery := fmt.Sprintf("ALTER TABLE users ADD COLUMN %s", column)
+			_, err = db.Exec(alterQuery)
+			if err != nil {
+				log.Printf("列追加エラー (%s): %v", columnName, err)
+			} else {
+				log.Printf("列を追加しました: %s", columnName)
+			}
+		}
+	}
+
+	// NULL値のタイムスタンプを更新
+	db.Exec("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+	db.Exec("UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
+
+	return nil
 }
 
 func insertUser(id, username, displayName string) error {
@@ -140,51 +204,114 @@ func hashPassword(password string) string {
 	return password // 仮実装
 }
 
+// SQLiteの日時文字列をtime.Timeに変換
+func parseSQLiteTime(timeStr string) (time.Time, error) {
+	// SQLiteの日時フォーマットのパターンを試行
+	formats := []string{
+		"2006-01-02 15:04:05",      // DATETIME
+		"2006-01-02T15:04:05Z",     // ISO 8601
+		"2006-01-02T15:04:05.000Z", // ISO 8601 with milliseconds
+		"2006-01-02 15:04:05.000",  // DATETIME with milliseconds
+		time.RFC3339,               // RFC3339
+		time.RFC3339Nano,           // RFC3339 with nanoseconds
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, timeStr); err == nil {
+			return t, nil
+		}
+	}
+
+	// 全てのフォーマットで失敗した場合
+	return time.Time{}, fmt.Errorf("unsupported time format: %s", timeStr)
+}
+
 // 通常認証用ユーザー作成
 func createAuthUser(username, email, password string) (*AuthUser, error) {
+	if db == nil {
+		log.Printf("[ERROR] データベース接続がありません")
+		return nil, fmt.Errorf("データベース接続がありません")
+	}
+
 	hashedPassword := hashPassword(password)
 	userID := uuid.New().String()
+	now := time.Now()
 
-	query := `INSERT INTO users (id, username, display_name, email, password) VALUES (?, ?, ?, ?, ?)`
-	_, err := db.Exec(query, userID, username, username, email, hashedPassword)
+	query := `INSERT INTO users (id, username, display_name, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	_, err := db.Exec(query, userID, username, username, email, hashedPassword, now.Format("2006-01-02 15:04:05"), now.Format("2006-01-02 15:04:05"))
 	if err != nil {
+		log.Printf("[ERROR] ユーザー作成エラー: %v", err)
 		return nil, err
 	}
 
+	log.Printf("[DEBUG] ユーザー作成成功: %s", username)
 	return &AuthUser{
 		ID:        0, // SQLiteでは自動採番ではないため
 		Username:  username,
 		Email:     email,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil
 }
 
 // 通常認証
 func authenticateAuthUser(username, password string) (*AuthUser, error) {
+	if db == nil {
+		log.Printf("[ERROR] データベース接続がありません")
+		return nil, fmt.Errorf("データベース接続がありません")
+	}
+
 	hashedPassword := hashPassword(password)
 
-	query := `SELECT username, email, created_at, updated_at FROM users WHERE username = ? AND password = ?`
+	query := `SELECT username, COALESCE(email, ''), 
+			COALESCE(created_at, CURRENT_TIMESTAMP), 
+			COALESCE(updated_at, CURRENT_TIMESTAMP) 
+			FROM users WHERE username = ? AND password = ?`
 	row := db.QueryRow(query, username, hashedPassword)
 
 	var user AuthUser
-	err := row.Scan(&user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	var createdAtStr, updatedAtStr string
+	err := row.Scan(&user.Username, &user.Email, &createdAtStr, &updatedAtStr)
 	if err != nil {
+		log.Printf("[ERROR] 認証エラー: %v", err)
 		return nil, err
 	}
 
+	// 文字列をtime.Timeに変換
+	user.CreatedAt, err = parseSQLiteTime(createdAtStr)
+	if err != nil {
+		// パースに失敗した場合は現在時刻を使用
+		user.CreatedAt = time.Now()
+		log.Printf("[WARN] created_at パース失敗、現在時刻を使用: %v", err)
+	}
+
+	user.UpdatedAt, err = parseSQLiteTime(updatedAtStr)
+	if err != nil {
+		// パースに失敗した場合は現在時刻を使用
+		user.UpdatedAt = time.Now()
+		log.Printf("[WARN] updated_at パース失敗、現在時刻を使用: %v", err)
+	}
+
+	log.Printf("[DEBUG] 認証成功: %s", username)
 	return &user, nil
 }
 
 // ユーザー存在チェック（通常認証用）
 func authUserExists(username, email string) (bool, error) {
+	if db == nil {
+		log.Printf("[ERROR] データベース接続がありません")
+		return false, fmt.Errorf("データベース接続がありません")
+	}
+
 	query := `SELECT COUNT(*) FROM users WHERE username = ? OR email = ?`
 	var count int
 	err := db.QueryRow(query, username, email).Scan(&count)
 	if err != nil {
+		log.Printf("[ERROR] ユーザー存在チェックエラー: %v", err)
 		return false, err
 	}
 
+	log.Printf("[DEBUG] ユーザー存在チェック: %s/%s -> count: %d", username, email, count)
 	return count > 0, nil
 }
 
@@ -243,16 +370,11 @@ func SaveSessionData(username string, data *webauthn.SessionData) {
 func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
 
-	dbPath, _ := filepath.Abs("database/acc.db")
-	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
-
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		fmt.Println("[ERROR] DB接続失敗:", err)
-		return nil, err
+	if db == nil {
+		return nil, fmt.Errorf("データベース接続がありません")
 	}
-	defer db.Close()
 
+	// デバッグ用：現在登録されているユーザー一覧を表示
 	rows, err := db.Query("SELECT id, username FROM users")
 	if err == nil {
 		fmt.Println("[DEBUG] 現在登録されているユーザー:")
@@ -276,7 +398,7 @@ func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 	row := db.QueryRow("SELECT id, username, display_name, credential_id, credential_public_key, sign_count FROM users WHERE username = ?", username)
 	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName, &dbUser.CredentialID, &dbUser.CredentialPubKey, &dbUser.SignCount)
 	if err != nil {
-		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
+		fmt.Printf("[WARN] 該当ユーザーが見つかりませんでした: %v\n", err)
 		return nil, err
 	}
 
@@ -310,21 +432,15 @@ func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 func FindUserByUsername(username string) (*User, error) {
 	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
 
-	dbPath, _ := filepath.Abs("database/acc.db")
-	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
-
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		fmt.Println("[ERROR] DB接続失敗:", err)
-		return nil, err
+	if db == nil {
+		return nil, fmt.Errorf("データベース接続がありません")
 	}
-	defer db.Close()
 
 	var dbUser DBUser
 	row := db.QueryRow("SELECT id, username, display_name FROM users WHERE username = ?", username)
-	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName)
+	err := row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName)
 	if err != nil {
-		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
+		fmt.Printf("[WARN] 該当ユーザーが見つかりませんでした: %v\n", err)
 		return nil, err
 	}
 
@@ -422,6 +538,7 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	// ユーザー存在チェック
 	exists, err := authUserExists(req.Username, req.Email)
 	if err != nil {
+		log.Printf("[ERROR] ユーザー存在チェック失敗: %v", err)
 		response := AuthResponse{
 			Success: false,
 			Message: "データベースエラーが発生しました",

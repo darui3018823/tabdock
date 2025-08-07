@@ -6,7 +6,6 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"io"
 	"log"
@@ -20,20 +19,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite"
 )
 
 // const
-const version = "3.2.1"
+const version = "3.3.0"
 
 // var
 var fallbackHolidays map[string]string
-var db *sql.DB
 
 var (
 	schedulePath  = "./json/schedule.json"
 	calendarDir   = "./home/assets/calendar"
-	dbPath        = "./database/acc.db"
 	forbiddenExts = map[string]bool{
 		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
 		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
