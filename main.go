@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"log"
@@ -27,10 +28,12 @@ const version = "3.2.1"
 
 // var
 var fallbackHolidays map[string]string
+var db *sql.DB
 
 var (
 	schedulePath  = "./json/schedule.json"
 	calendarDir   = "./home/assets/calendar"
+	dbPath        = "./database/acc.db"
 	forbiddenExts = map[string]bool{
 		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
 		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
@@ -150,11 +153,15 @@ func main() {
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 
+	// Authentication APIs
+	mux.HandleFunc("/api/auth/login", secureHandler(handleAuthLogin))
+	mux.HandleFunc("/api/auth/register", secureHandler(handleAuthRegister))
+
 	// WebAuthn
 	mux.HandleFunc("/api/webauthn/register/start", secureHandler(HandleWebAuthnRegisterStart))
 	mux.HandleFunc("/api/webauthn/register/finish", secureHandler(HandleWebAuthnRegisterFinish))
 	mux.HandleFunc("/api/webauthn/login/start", secureHandler(HandleWebAuthnLoginStart))
-	// mux.HandleFunc("/api/webauthn/login/finish", secureHandler(HandleWebAuthnLoginFinish))
+	mux.HandleFunc("/api/webauthn/login/finish", secureHandler(HandleWebAuthnLoginFinish))
 
 	// ルートアクセス時
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -162,9 +169,7 @@ func main() {
 	})
 
 	serve(mux)
-}
-
-// ミドルウェア：スラッシュ補完＆エラーハンドラ
+} // ミドルウェア：スラッシュ補完＆エラーハンドラ
 func withSlashAndErrorHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// スラッシュが必要なのにない場合はリダイレクト

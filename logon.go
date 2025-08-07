@@ -1,7 +1,6 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.0.5-webauthn-r5
 
 package main
 
@@ -17,36 +16,45 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/google/uuid"
 )
 
+// WebAuthn関連の変数
 var (
 	webAuthnInstance *webauthn.WebAuthn
 	once             sync.Once
 )
 
 var challengeStore = map[string]*webauthn.SessionData{}
-var db *sql.DB
 var loginSessionStore = map[string]*webauthn.SessionData{}
 
-// base64urlデコード用ヘルパー関数
-func base64URLDecode(s string) ([]byte, error) {
-	// base64url → base64 変換
-	s = strings.ReplaceAll(s, "-", "+")
-	s = strings.ReplaceAll(s, "_", "/")
-	// パディング追加
-	switch len(s) % 4 {
-	case 2:
-		s += "=="
-	case 3:
-		s += "="
-	}
-	return base64.StdEncoding.DecodeString(s)
+// 構造体定義
+type AuthRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email,omitempty"`
+	Password string `json:"password"`
 }
 
+type AuthResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
+	User    interface{} `json:"user,omitempty"`
+}
+
+type AuthUser struct {
+	ID        int       `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Password  string    `json:"-"` // JSONには含めない
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// WebAuthn用のUser構造体
 type User struct {
 	ID          []byte
 	Name        string
@@ -86,24 +94,33 @@ func DBUserToUser(dbUser DBUser) *User {
 	}
 }
 
+// ===== データベース初期化・操作関数 =====
+
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "./database/acc.db")
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
 	}
 
-	// 初回のみ実行（CREATE TABLE IF NOT EXISTS）
+	// テーブル作成（通常認証とパスキー認証の両方をサポート）
 	query := `
 	CREATE TABLE IF NOT EXISTS users (
 		id TEXT PRIMARY KEY,
 		username TEXT UNIQUE,
 		display_name TEXT,
+		email TEXT,
+		password TEXT,
 		credential_id TEXT,
 		credential_public_key TEXT,
-		sign_count INTEGER
+		sign_count INTEGER,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 	_, err = db.Exec(query)
+	if err == nil {
+		log.Println("データベース初期化完了")
+	}
 	return err
 }
 
@@ -116,11 +133,83 @@ func insertUser(id, username, displayName string) error {
 	return err
 }
 
-// ユーザーが既に存在するか確認
+// ===== 通常認証用のヘルパー関数 =====
+
+func hashPassword(password string) string {
+	// 簡単なハッシュ化（本番では更に強力なハッシュを使用）
+	return password // 仮実装
+}
+
+// 通常認証用ユーザー作成
+func createAuthUser(username, email, password string) (*AuthUser, error) {
+	hashedPassword := hashPassword(password)
+	userID := uuid.New().String()
+
+	query := `INSERT INTO users (id, username, display_name, email, password) VALUES (?, ?, ?, ?, ?)`
+	_, err := db.Exec(query, userID, username, username, email, hashedPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthUser{
+		ID:        0, // SQLiteでは自動採番ではないため
+		Username:  username,
+		Email:     email,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}, nil
+}
+
+// 通常認証
+func authenticateAuthUser(username, password string) (*AuthUser, error) {
+	hashedPassword := hashPassword(password)
+
+	query := `SELECT username, email, created_at, updated_at FROM users WHERE username = ? AND password = ?`
+	row := db.QueryRow(query, username, hashedPassword)
+
+	var user AuthUser
+	err := row.Scan(&user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// ユーザー存在チェック（通常認証用）
+func authUserExists(username, email string) (bool, error) {
+	query := `SELECT COUNT(*) FROM users WHERE username = ? OR email = ?`
+	var count int
+	err := db.QueryRow(query, username, email).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// ユーザーが既に存在するか確認（WebAuthn用）
 func userExists(username string) bool {
 	var count int
 	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", username).Scan(&count)
 	return err == nil && count > 0
+}
+
+// ===== WebAuthn関連のヘルパー関数 =====
+
+// base64urlデコード用ヘルパー関数
+func base64URLDecode(s string) ([]byte, error) {
+	// base64url → base64 変換
+	s = strings.ReplaceAll(s, "-", "+")
+	s = strings.ReplaceAll(s, "_", "/")
+	// パディング追加
+	switch len(s) % 4 {
+	case 2:
+		s += "=="
+	case 3:
+		s += "="
+	}
+	return base64.StdEncoding.DecodeString(s)
 }
 
 func initWebAuthn() {
@@ -136,6 +225,253 @@ func initWebAuthn() {
 		}
 	})
 }
+
+func saveCredentialToDB(username string, cred *webauthn.Credential) error {
+	_, err := db.Exec(`UPDATE users SET credential_id=?, credential_public_key=?, sign_count=? WHERE username=?`,
+		string(cred.ID),
+		string(cred.PublicKey),
+		int(cred.Authenticator.SignCount),
+		username)
+	return err
+}
+
+func SaveSessionData(username string, data *webauthn.SessionData) {
+	loginSessionStore[username] = data
+}
+
+// WebAuthnユーザーを取得（credentialも含む）
+func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
+	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
+
+	dbPath, _ := filepath.Abs("database/acc.db")
+	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		fmt.Println("[ERROR] DB接続失敗:", err)
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT id, username FROM users")
+	if err == nil {
+		fmt.Println("[DEBUG] 現在登録されているユーザー:")
+		for rows.Next() {
+			var id, uname string
+			rows.Scan(&id, &uname)
+			fmt.Printf(" - id: %s / username: %q\n", id, uname)
+		}
+		rows.Close()
+	}
+
+	var dbUser struct {
+		ID               string
+		Username         string
+		DisplayName      string
+		CredentialID     sql.NullString
+		CredentialPubKey sql.NullString
+		SignCount        sql.NullInt64
+	}
+
+	row := db.QueryRow("SELECT id, username, display_name, credential_id, credential_public_key, sign_count FROM users WHERE username = ?", username)
+	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName, &dbUser.CredentialID, &dbUser.CredentialPubKey, &dbUser.SignCount)
+	if err != nil {
+		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
+		return nil, err
+	}
+
+	fmt.Println("[DEBUG] ユーザー見つかりました:", dbUser.Username)
+
+	// WebAuthnUserを構築
+	user := &WebAuthnUser{
+		ID:          []byte(dbUser.ID),
+		Name:        dbUser.Username,
+		DisplayName: dbUser.DisplayName,
+		Credentials: []webauthn.Credential{},
+	}
+
+	// 既存のcredentialがあれば追加
+	if dbUser.CredentialID.Valid && dbUser.CredentialPubKey.Valid {
+		cred := webauthn.Credential{
+			ID:        []byte(dbUser.CredentialID.String),
+			PublicKey: []byte(dbUser.CredentialPubKey.String),
+		}
+		if dbUser.SignCount.Valid {
+			cred.Authenticator.SignCount = uint32(dbUser.SignCount.Int64)
+		}
+		user.Credentials = append(user.Credentials, cred)
+		fmt.Printf("[DEBUG] 既存credential追加: ID=%s\n", dbUser.CredentialID.String)
+	}
+
+	return user, nil
+}
+
+// 元のUser型取得関数（登録時用）
+func FindUserByUsername(username string) (*User, error) {
+	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
+
+	dbPath, _ := filepath.Abs("database/acc.db")
+	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		fmt.Println("[ERROR] DB接続失敗:", err)
+		return nil, err
+	}
+	defer db.Close()
+
+	var dbUser DBUser
+	row := db.QueryRow("SELECT id, username, display_name FROM users WHERE username = ?", username)
+	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName)
+	if err != nil {
+		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
+		return nil, err
+	}
+
+	fmt.Println("[DEBUG] ユーザー見つかりました:", dbUser.Username)
+	return DBUserToUser(dbUser), nil
+}
+
+// ===== 通常認証APIハンドラ =====
+
+// 通常ログインハンドラ
+func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req AuthRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// 入力検証
+	if req.Username == "" || req.Password == "" {
+		response := AuthResponse{
+			Success: false,
+			Message: "ユーザー名とパスワードが必要です",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// データベース認証
+	user, err := authenticateAuthUser(req.Username, req.Password)
+	if err != nil {
+		response := AuthResponse{
+			Success: false,
+			Message: "ユーザー名またはパスワードが間違っています",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := AuthResponse{
+		Success: true,
+		Message: "ログイン成功",
+		User: map[string]interface{}{
+			"username": user.Username,
+			"email":    user.Email,
+			"loginAt":  time.Now().Unix(),
+		},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// 通常登録ハンドラ
+func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req AuthRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// 入力検証
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		response := AuthResponse{
+			Success: false,
+			Message: "すべての項目を入力してください",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// パスワード強度チェック
+	if len(req.Password) < 6 {
+		response := AuthResponse{
+			Success: false,
+			Message: "パスワードは6文字以上で入力してください",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// ユーザー存在チェック
+	exists, err := authUserExists(req.Username, req.Email)
+	if err != nil {
+		response := AuthResponse{
+			Success: false,
+			Message: "データベースエラーが発生しました",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if exists {
+		response := AuthResponse{
+			Success: false,
+			Message: "ユーザー名またはメールアドレスが既に使用されています",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// ユーザー作成
+	user, err := createAuthUser(req.Username, req.Email, req.Password)
+	if err != nil {
+		log.Printf("ユーザー作成エラー: %v", err)
+		response := AuthResponse{
+			Success: false,
+			Message: "アカウント作成に失敗しました",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	log.Printf("新規ユーザー登録: %s (%s)", req.Username, req.Email)
+
+	response := AuthResponse{
+		Success: true,
+		Message: "アカウントが正常に作成されました",
+		User: map[string]interface{}{
+			"username":   user.Username,
+			"email":      user.Email,
+			"registerId": time.Now().Unix(),
+		},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// ===== WebAuthn APIハンドラ =====
 
 func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
@@ -333,15 +669,6 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"success":true}`))
 }
 
-func saveCredentialToDB(username string, cred *webauthn.Credential) error {
-	_, err := db.Exec(`UPDATE users SET credential_id=?, credential_public_key=?, sign_count=? WHERE username=?`,
-		string(cred.ID),
-		string(cred.PublicKey),
-		int(cred.Authenticator.SignCount),
-		username)
-	return err
-}
-
 func HandleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
@@ -367,103 +694,6 @@ func HandleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
-}
-
-func SaveSessionData(username string, data *webauthn.SessionData) {
-	loginSessionStore[username] = data
-}
-
-// WebAuthnユーザーを取得（credentialも含む）
-func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
-	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
-
-	dbPath, _ := filepath.Abs("database/acc.db")
-	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
-
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		fmt.Println("[ERROR] DB接続失敗:", err)
-		return nil, err
-	}
-	defer db.Close()
-
-	rows, err := db.Query("SELECT id, username FROM users")
-	if err == nil {
-		fmt.Println("[DEBUG] 現在登録されているユーザー:")
-		for rows.Next() {
-			var id, uname string
-			rows.Scan(&id, &uname)
-			fmt.Printf(" - id: %s / username: %q\n", id, uname)
-		}
-		rows.Close()
-	}
-
-	var dbUser struct {
-		ID               string
-		Username         string
-		DisplayName      string
-		CredentialID     sql.NullString
-		CredentialPubKey sql.NullString
-		SignCount        sql.NullInt64
-	}
-
-	row := db.QueryRow("SELECT id, username, display_name, credential_id, credential_public_key, sign_count FROM users WHERE username = ?", username)
-	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName, &dbUser.CredentialID, &dbUser.CredentialPubKey, &dbUser.SignCount)
-	if err != nil {
-		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
-		return nil, err
-	}
-
-	fmt.Println("[DEBUG] ユーザー見つかりました:", dbUser.Username)
-
-	// WebAuthnUserを構築
-	user := &WebAuthnUser{
-		ID:          []byte(dbUser.ID),
-		Name:        dbUser.Username,
-		DisplayName: dbUser.DisplayName,
-		Credentials: []webauthn.Credential{},
-	}
-
-	// 既存のcredentialがあれば追加
-	if dbUser.CredentialID.Valid && dbUser.CredentialPubKey.Valid {
-		cred := webauthn.Credential{
-			ID:        []byte(dbUser.CredentialID.String),
-			PublicKey: []byte(dbUser.CredentialPubKey.String),
-		}
-		if dbUser.SignCount.Valid {
-			cred.Authenticator.SignCount = uint32(dbUser.SignCount.Int64)
-		}
-		user.Credentials = append(user.Credentials, cred)
-		fmt.Printf("[DEBUG] 既存credential追加: ID=%s\n", dbUser.CredentialID.String)
-	}
-
-	return user, nil
-}
-
-// 元のUser型取得関数（登録時用）
-func FindUserByUsername(username string) (*User, error) {
-	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
-
-	dbPath, _ := filepath.Abs("database/acc.db")
-	fmt.Println("[DEBUG] 使用しているDBファイル:", dbPath)
-
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		fmt.Println("[ERROR] DB接続失敗:", err)
-		return nil, err
-	}
-	defer db.Close()
-
-	var dbUser DBUser
-	row := db.QueryRow("SELECT id, username, display_name FROM users WHERE username = ?", username)
-	err = row.Scan(&dbUser.ID, &dbUser.Username, &dbUser.DisplayName)
-	if err != nil {
-		fmt.Println("[WARN] 該当ユーザーが見つかりませんでした")
-		return nil, err
-	}
-
-	fmt.Println("[DEBUG] ユーザー見つかりました:", dbUser.Username)
-	return DBUserToUser(dbUser), nil
 }
 
 func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {

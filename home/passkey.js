@@ -3,10 +3,6 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 3.0.5_scripts-r3
 
-document.getElementById("openAccManage").addEventListener("click", () => {
-    document.getElementById("menuModal").classList.add("hidden");
-    document.getElementById("accountModal").classList.remove("hidden");
-});
 // Uint8ArrayやArrayBufferをbase64urlエンコードする関数（forループ方式で安全に変換）
 function bufferToBase64url(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -20,55 +16,9 @@ function bufferToBase64url(buffer) {
         .replace(/=+$/, "");
 }
 
-function closeAccountModal() {
-    document.getElementById("accountModal").classList.add("hidden");
-    document.getElementById("menuModal").classList.remove("hidden");
-}
-
-function handleRegister() {
-    const username = document.getElementById("username").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
-
-    if (!username || !email || !password) {
-        Swal.fire("エラー", "すべての項目を入力してください。", "error");
-        return;
-    }
-
-    // 仮登録処理（ここで /api/register へ送信してもOK）
-    console.log("[仮] 登録ユーザー：", { username, email, password });
-
-    Swal.fire({
-        title: "パスキーを登録しますか？",
-        text: "この端末にパスワードレス認証を追加できます。",
-        icon: "info",
-        showCancelButton: true,
-        confirmButtonText: "登録する",
-        cancelButtonText: "後で"
-    }).then(result => {
-        if (result.isConfirmed) {
-            handlePasskeyRegistration();
-        }
-    });
-}
-
-function handleLogin() {
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value;
-
-    if (!username || !password) {
-        Swal.fire("エラー", "ユーザー名とパスワードを入力してください。", "error");
-        return;
-    }
-
-    // 仮ログイン処理（ここで /api/login へ送信してもOK）
-    console.log("[仮] ログイン試行：", { username, password });
-
-    Swal.fire("ログインしました", "（仮）通常ログイン成功", "success");
-}
-
-async function handlePasskeyRegistration() {
-    const username = document.getElementById("username").value.trim();
+async function handlePasskeyRegistration(usernameParam = null) {
+    // パラメータでユーザー名が提供されていればそれを使用、そうでなければDOMから取得
+    const username = usernameParam || document.getElementById("username")?.value.trim() || document.getElementById("registerUsername")?.value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
         return;
@@ -137,8 +87,9 @@ async function startRegistration(options, username) {
     return credential;
 }
 
-async function startLogin() {
-    const username = document.getElementById("username").value.trim();
+async function startLogin(usernameParam = null) {
+    // パラメータでユーザー名が提供されていればそれを使用、そうでなければDOMから取得
+    const username = usernameParam || document.getElementById("username")?.value.trim() || document.getElementById("loginUsername")?.value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
         return;
