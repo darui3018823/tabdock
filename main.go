@@ -22,7 +22,7 @@ import (
 )
 
 // const
-const version = "3.3.3"
+const version = "3.4.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -153,6 +153,7 @@ func main() {
 	// Authentication APIs
 	mux.HandleFunc("/api/auth/login", secureHandler(handleAuthLogin))
 	mux.HandleFunc("/api/auth/register", secureHandler(handleAuthRegister))
+	mux.HandleFunc("/api/auth/user-info", secureHandler(handleUserInfo))
 
 	// WebAuthn
 	mux.HandleFunc("/api/webauthn/register/start", secureHandler(HandleWebAuthnRegisterStart))
@@ -337,6 +338,13 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(10 << 20) // 最大10MB
 
+	// ユーザー名を取得
+	username := r.FormValue("username")
+	if username == "" {
+		http.Error(w, "ユーザー名が必要です", http.StatusBadRequest)
+		return
+	}
+
 	file, handler, err := r.FormFile("profileImage")
 	if err != nil {
 		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
@@ -358,6 +366,7 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 	uniqueID := uuid.New().String()
 	filename := uniqueID + ext
 	filepath := "home/assets/acc_icon/" + filename
+	imagePath := "/home/assets/acc_icon/" + filename
 
 	out, err := os.Create(filepath)
 	if err != nil {
@@ -372,11 +381,63 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// データベースにプロフィール画像パスを保存
+	err = updateUserProfileImage(username, imagePath)
+	if err != nil {
+		log.Printf("[WARN] プロフィール画像のDB更新に失敗: %v", err)
+		// ファイルは保存されているため、エラーにはしない
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   "success",
 		"filename": filename,
-		"path":     "/home/assets/acc_icon/" + filename,
+		"path":     imagePath,
+	})
+}
+
+// ユーザー情報を取得するAPI
+func handleUserInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" {
+		http.Error(w, "Username is required", http.StatusBadRequest)
+		return
+	}
+
+	// データベースからユーザー情報を取得
+	user, err := getUserByUsername(req.Username)
+	if err != nil {
+		log.Printf("[ERROR] ユーザー情報取得エラー: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "ユーザー情報を取得できませんでした",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"user": map[string]interface{}{
+			"username":     user.Username,
+			"email":        user.Email,
+			"profileImage": user.ProfileImage,
+			"loginAt":      user.LoginAt,
+		},
 	})
 }
 

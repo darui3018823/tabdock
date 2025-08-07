@@ -7,17 +7,56 @@
 document.addEventListener("DOMContentLoaded", () => {
     // パスキーログイン成功時のコールバック関数を設定
     window.onPasskeyLoginSuccess = function(user) {
-        const userInfo = {
-            username: user.username,
-            email: user.email || '',
-            loginAt: Math.floor(Date.now() / 1000),
-            loginMethod: "パスキー",
-            profileImage: null
-        };
-        saveLoginState(userInfo);
-        
-        Swal.fire("成功", "パスキーでログインしました。", "success");
-        setupAccountModal();
+        // サーバーからユーザー情報を再取得してプロフィール画像も同期
+        fetch('/api/auth/user-info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user.username })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const userInfo = {
+                    username: user.username,
+                    email: user.email || data.user.email || '',
+                    loginAt: Math.floor(Date.now() / 1000),
+                    loginMethod: "パスキー",
+                    profileImage: data.user.profileImage || null
+                };
+                saveLoginState(userInfo);
+                
+                Swal.fire("成功", "パスキーでログインしました。", "success");
+                setupAccountModal();
+            } else {
+                // サーバーから情報を取得できない場合は従来通り
+                const userInfo = {
+                    username: user.username,
+                    email: user.email || '',
+                    loginAt: Math.floor(Date.now() / 1000),
+                    loginMethod: "パスキー",
+                    profileImage: null
+                };
+                saveLoginState(userInfo);
+                
+                Swal.fire("成功", "パスキーでログインしました。", "success");
+                setupAccountModal();
+            }
+        })
+        .catch(error => {
+            console.error('ユーザー情報取得エラー:', error);
+            // エラーの場合は従来通り
+            const userInfo = {
+                username: user.username,
+                email: user.email || '',
+                loginAt: Math.floor(Date.now() / 1000),
+                loginMethod: "パスキー",
+                profileImage: null
+            };
+            saveLoginState(userInfo);
+            
+            Swal.fire("成功", "パスキーでログインしました。", "success");
+            setupAccountModal();
+        });
     };
 });
 
@@ -464,8 +503,15 @@ function setupImageEditor(img, canvasSize) {
 
 // サーバーにプロフィール画像をアップロード
 function uploadProfileImageToServer(blob) {
+    const user = getLoggedInUser();
+    if (!user) {
+        Swal.fire('エラー', 'ログインが必要です', 'error');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('profileImage', blob, 'profile.jpg');
+    formData.append('username', user.username); // ユーザー名を追加
 
     Swal.fire({
         title: 'アップロード中...',
@@ -622,24 +668,22 @@ function handleNormalLogin() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // ログイン情報をLocalStorageに保存
+            // ログイン情報をLocalStorageに保存（サーバーからの情報を使用）
             const userInfo = {
                 username: data.user.username,
                 email: data.user.email,
                 loginAt: data.user.loginAt,
                 loginMethod: "パスワード",
-                profileImage: null // 初期状態ではプロフィール画像なし
+                profileImage: data.user.profileImage || null // サーバーからプロフィール画像パスを取得
             };
             saveLoginState(userInfo);
-            
-            Swal.fire("成功", "ログインしました。", "success");
-            setupAccountModal(); // モーダル内容を更新
             
             Swal.fire("ログイン成功", "正常にログインしました。", "success");
             closeAccountModal();
             
             // UIを更新
             updateUIForLoggedInUser(userInfo);
+            setupAccountModal(); // モーダル内容を更新
         } else {
             Swal.fire("ログイン失敗", data.message || "ログインに失敗しました。", "error");
         }
@@ -661,17 +705,59 @@ function handlePasskeyLogin() {
     if (typeof startLogin === 'function') {
         // パスキーログイン成功時のコールバックを設定
         window.onPasskeyLoginSuccess = function(user) {
-            const userInfo = {
-                username: user.username || username,
-                email: user.email || "",
-                loginAt: Math.floor(Date.now() / 1000),
-                loginMethod: "パスキー"
-            };
-            saveLoginState(userInfo);
-            
-            Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
-            closeAccountModal();
-            updateUIForLoggedInUser(userInfo);
+            // サーバーからユーザー情報を再取得してプロフィール画像も同期
+            fetch('/api/auth/user-info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.username || username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const userInfo = {
+                        username: user.username || username,
+                        email: user.email || data.user.email || "",
+                        loginAt: Math.floor(Date.now() / 1000),
+                        loginMethod: "パスキー",
+                        profileImage: data.user.profileImage || null
+                    };
+                    saveLoginState(userInfo);
+                    
+                    Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
+                    closeAccountModal();
+                    updateUIForLoggedInUser(userInfo);
+                } else {
+                    // サーバーから情報を取得できない場合は従来通り
+                    const userInfo = {
+                        username: user.username || username,
+                        email: user.email || "",
+                        loginAt: Math.floor(Date.now() / 1000),
+                        loginMethod: "パスキー",
+                        profileImage: null
+                    };
+                    saveLoginState(userInfo);
+                    
+                    Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
+                    closeAccountModal();
+                    updateUIForLoggedInUser(userInfo);
+                }
+            })
+            .catch(error => {
+                console.error('ユーザー情報取得エラー:', error);
+                // エラーの場合は従来通り
+                const userInfo = {
+                    username: user.username || username,
+                    email: user.email || "",
+                    loginAt: Math.floor(Date.now() / 1000),
+                    loginMethod: "パスキー",
+                    profileImage: null
+                };
+                saveLoginState(userInfo);
+                
+                Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
+                closeAccountModal();
+                updateUIForLoggedInUser(userInfo);
+            });
         };
         
         startLogin(username);

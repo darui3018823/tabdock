@@ -51,12 +51,14 @@ type AuthResponse struct {
 }
 
 type AuthUser struct {
-	ID        int       `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"` // JSONには含めない
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           int       `json:"id"`
+	Username     string    `json:"username"`
+	Email        string    `json:"email"`
+	Password     string    `json:"-"` // JSONには含めない
+	ProfileImage string    `json:"profile_image,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	LoginAt      int64     `json:"login_at"`
 }
 
 // WebAuthn用のUser構造体
@@ -155,6 +157,7 @@ func addMissingColumns() error {
 	requiredColumns := []string{
 		"email TEXT",
 		"password TEXT",
+		"profile_image TEXT",
 		"created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 		"updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 	}
@@ -263,7 +266,7 @@ func authenticateAuthUser(username, password string) (*AuthUser, error) {
 
 	hashedPassword := hashPassword(password)
 
-	query := `SELECT username, COALESCE(email, ''), 
+	query := `SELECT username, COALESCE(email, ''), COALESCE(profile_image, ''),
 			COALESCE(created_at, CURRENT_TIMESTAMP), 
 			COALESCE(updated_at, CURRENT_TIMESTAMP) 
 			FROM users WHERE username = ? AND password = ?`
@@ -271,11 +274,14 @@ func authenticateAuthUser(username, password string) (*AuthUser, error) {
 
 	var user AuthUser
 	var createdAtStr, updatedAtStr string
-	err := row.Scan(&user.Username, &user.Email, &createdAtStr, &updatedAtStr)
+	err := row.Scan(&user.Username, &user.Email, &user.ProfileImage, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		log.Printf("[ERROR] 認証エラー: %v", err)
 		return nil, err
 	}
+
+	// ログイン時刻を設定
+	user.LoginAt = time.Now().Unix()
 
 	// 文字列をtime.Timeに変換
 	user.CreatedAt, err = parseSQLiteTime(createdAtStr)
@@ -294,6 +300,57 @@ func authenticateAuthUser(username, password string) (*AuthUser, error) {
 
 	log.Printf("[DEBUG] 認証成功: %s", username)
 	return &user, nil
+}
+
+// ユーザー名でユーザー情報を取得（AuthUser型）
+func getUserByUsername(username string) (*AuthUser, error) {
+	if db == nil {
+		return nil, fmt.Errorf("データベース接続がありません")
+	}
+
+	query := `SELECT username, COALESCE(email, ''), COALESCE(profile_image, ''),
+			COALESCE(created_at, CURRENT_TIMESTAMP), 
+			COALESCE(updated_at, CURRENT_TIMESTAMP) 
+			FROM users WHERE username = ?`
+	row := db.QueryRow(query, username)
+
+	var user AuthUser
+	var createdAtStr, updatedAtStr string
+	err := row.Scan(&user.Username, &user.Email, &user.ProfileImage, &createdAtStr, &updatedAtStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// 文字列をtime.Timeに変換
+	user.CreatedAt, err = parseSQLiteTime(createdAtStr)
+	if err != nil {
+		user.CreatedAt = time.Now()
+	}
+
+	user.UpdatedAt, err = parseSQLiteTime(updatedAtStr)
+	if err != nil {
+		user.UpdatedAt = time.Now()
+	}
+
+	user.LoginAt = time.Now().Unix()
+	return &user, nil
+}
+
+// プロフィール画像のパスをデータベースに保存
+func updateUserProfileImage(username, imagePath string) error {
+	if db == nil {
+		return fmt.Errorf("データベース接続がありません")
+	}
+
+	query := `UPDATE users SET profile_image = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?`
+	_, err := db.Exec(query, imagePath, username)
+	if err != nil {
+		log.Printf("[ERROR] プロフィール画像更新エラー: %v", err)
+		return err
+	}
+
+	log.Printf("[INFO] プロフィール画像を更新しました: %s -> %s", username, imagePath)
+	return nil
 }
 
 // ユーザー存在チェック（通常認証用）
