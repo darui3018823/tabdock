@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.3.2_acc-r1
+// This code Version: 3.3.3_acc-r1
 
 // ページ読み込み時にログイン状態をチェック
 document.addEventListener("DOMContentLoaded", () => {
@@ -295,19 +295,41 @@ function showImageResizeModal(file) {
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
+            // 画像の元サイズを取得
+            const originalWidth = img.width;
+            const originalHeight = img.height;
+            const aspectRatio = originalWidth / originalHeight;
+            
+            // Canvas サイズを動的に決定 (最大500px、最小300px)
+            let canvasSize = Math.min(Math.max(Math.max(originalWidth, originalHeight) / 4, 300), 500);
+            canvasSize = Math.round(canvasSize);
+            
+            // スケールの範囲を動的に計算
+            const maxImageSize = Math.max(originalWidth, originalHeight);
+            const minScale = Math.max(0.1, canvasSize / maxImageSize); // 画像全体がCanvasに収まる最小スケール
+            const maxScale = Math.min(5.0, (maxImageSize / canvasSize) * 2); // 適切な最大スケール
+            const initialScale = Math.max(minScale, Math.min(1.0, canvasSize / maxImageSize));
+            
+            // 位置調整の範囲を動的に計算
+            const positionRange = Math.round(canvasSize * 0.8); // Canvasサイズの80%
+            
             Swal.fire({
                 title: "プロフィール画像を調整",
                 html: `
                     <div class="space-y-4">
+                        <div class="text-xs text-gray-600 mb-2">
+                            元画像: ${originalWidth}×${originalHeight}px (縦横比: ${aspectRatio.toFixed(2)})
+                        </div>
                         <div class="flex justify-center">
-                            <canvas id="imageCanvas" width="300" height="300" style="border: 2px solid #ccc; border-radius: 50%;"></canvas>
+                            <canvas id="imageCanvas" width="${canvasSize}" height="${canvasSize}" style="border: 2px solid #ccc; border-radius: 50%; max-width: 100%;"></canvas>
                         </div>
                         <div class="space-y-2">
                             <label class="block text-sm font-medium text-gray-700">サイズ調整:</label>
-                            <input type="range" id="scaleSlider" min="0.5" max="2" step="0.1" value="1" class="w-full">
+                            <input type="range" id="scaleSlider" min="${minScale}" max="${maxScale}" step="0.01" value="${initialScale}" class="w-full">
                             <div class="flex justify-between text-xs text-gray-500">
-                                <span>縮小</span>
-                                <span>拡大</span>
+                                <span>最小 (${Math.round(minScale * 100)}%)</span>
+                                <span id="scaleValue">${Math.round(initialScale * 100)}%</span>
+                                <span>最大 (${Math.round(maxScale * 100)}%)</span>
                             </div>
                         </div>
                         <div class="space-y-2">
@@ -315,12 +337,15 @@ function showImageResizeModal(file) {
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label class="block text-xs text-gray-500">X座標:</label>
-                                    <input type="range" id="xSlider" min="-150" max="150" value="0" class="w-full">
+                                    <input type="range" id="xSlider" min="-${positionRange}" max="${positionRange}" value="0" class="w-full">
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-500">Y座標:</label>
-                                    <input type="range" id="ySlider" min="-150" max="150" value="0" class="w-full">
+                                    <input type="range" id="ySlider" min="-${positionRange}" max="${positionRange}" value="0" class="w-full">
                                 </div>
+                            </div>
+                            <div class="text-xs text-gray-500 text-center">
+                                位置: X=<span id="xValue">0</span>px, Y=<span id="yValue">0</span>px
                             </div>
                         </div>
                     </div>
@@ -328,9 +353,9 @@ function showImageResizeModal(file) {
                 showCancelButton: true,
                 confirmButtonText: "設定",
                 cancelButtonText: "キャンセル",
-                width: 400,
+                width: Math.max(400, canvasSize + 100),
                 didOpen: () => {
-                    setupImageEditor(img);
+                    setupImageEditor(img, canvasSize);
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
@@ -338,7 +363,7 @@ function showImageResizeModal(file) {
                     // Canvasから高品質なBlobを取得
                     canvas.toBlob((blob) => {
                         uploadProfileImageToServer(blob);
-                    }, 'image/jpeg', 0.8);
+                    }, 'image/jpeg', 0.9); // 品質を90%に向上
                 }
             });
         };
@@ -348,41 +373,93 @@ function showImageResizeModal(file) {
 }
 
 // 画像エディターのセットアップ
-function setupImageEditor(img) {
+function setupImageEditor(img, canvasSize) {
     const canvas = document.getElementById("imageCanvas");
     const ctx = canvas.getContext("2d");
     const scaleSlider = document.getElementById("scaleSlider");
     const xSlider = document.getElementById("xSlider");
     const ySlider = document.getElementById("ySlider");
     
+    // 値表示用の要素
+    const scaleValue = document.getElementById("scaleValue");
+    const xValue = document.getElementById("xValue");
+    const yValue = document.getElementById("yValue");
+    
+    const centerX = canvasSize / 2;
+    const centerY = canvasSize / 2;
+    const radius = canvasSize / 2;
+    
     function drawImage() {
         const scale = parseFloat(scaleSlider.value);
         const offsetX = parseInt(xSlider.value);
         const offsetY = parseInt(ySlider.value);
         
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 値を表示
+        if (scaleValue) scaleValue.textContent = Math.round(scale * 100) + '%';
+        if (xValue) xValue.textContent = offsetX;
+        if (yValue) yValue.textContent = offsetY;
+        
+        ctx.clearRect(0, 0, canvasSize, canvasSize);
         
         // 円形クリッピング
         ctx.save();
         ctx.beginPath();
-        ctx.arc(150, 150, 150, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.clip();
         
+        // スケールを適用した画像サイズを計算
         const drawWidth = img.width * scale;
         const drawHeight = img.height * scale;
-        const x = (canvas.width - drawWidth) / 2 + offsetX;
-        const y = (canvas.height - drawHeight) / 2 + offsetY;
+        
+        // 画像を中央配置してオフセットを適用
+        const x = centerX - (drawWidth / 2) + offsetX;
+        const y = centerY - (drawHeight / 2) + offsetY;
+        
+        // 高品質描画設定
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         
         ctx.drawImage(img, x, y, drawWidth, drawHeight);
         ctx.restore();
+        
+        // デバッグ用の円枠表示（オプション）
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - 1, 0, Math.PI * 2);
+        ctx.stroke();
     }
     
+    // イベントリスナー設定
     scaleSlider.addEventListener("input", drawImage);
     xSlider.addEventListener("input", drawImage);
     ySlider.addEventListener("input", drawImage);
     
     // 初期描画
     drawImage();
+    
+    // キーボードショートカット
+    document.addEventListener("keydown", function handleKeydown(e) {
+        if (e.target.tagName === 'INPUT' && e.target.type === 'range') {
+            const step = parseFloat(e.target.step) || 1;
+            let currentValue = parseFloat(e.target.value);
+            
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                e.target.value = Math.max(parseFloat(e.target.min), currentValue - step);
+                drawImage();
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                e.target.value = Math.min(parseFloat(e.target.max), currentValue + step);
+                drawImage();
+            }
+        }
+        
+        // モーダルが閉じられる時にイベントリスナーをクリーンアップ
+        if (e.key === 'Escape') {
+            document.removeEventListener("keydown", handleKeydown);
+        }
+    });
 }
 
 // サーバーにプロフィール画像をアップロード
