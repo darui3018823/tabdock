@@ -14,12 +14,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 var trustedCIDRs []*net.IPNet
 var scoreFile = "./json/ip_scores.json"
 var ipScores = map[string]int{}
+var ipScoresMutex sync.RWMutex
 var blockedDirectIPs = []string{""}
 
 func init() {
@@ -90,22 +92,33 @@ func isPrivateOrLoopback(ip string) bool {
 func loadScores() {
 	data, err := os.ReadFile(scoreFile)
 	if err == nil {
-		_ = json.Unmarshal(data, &ipScores)
+		var tempScores map[string]int
+		if json.Unmarshal(data, &tempScores) == nil {
+			ipScoresMutex.Lock()
+			ipScores = tempScores
+			ipScoresMutex.Unlock()
+		}
 	}
 }
 
 func saveScores() {
+	ipScoresMutex.RLock()
 	data, _ := json.MarshalIndent(ipScores, "", "  ")
+	ipScoresMutex.RUnlock()
 	_ = os.WriteFile(scoreFile, data, 0644)
 }
 
 func incrementScore(ip string, amount int) {
+	ipScoresMutex.Lock()
 	ipScores[ip] += amount
+	ipScoresMutex.Unlock()
 	saveScores()
 }
 
 func getLevel(ip string) string {
+	ipScoresMutex.RLock()
 	score := ipScores[ip]
+	ipScoresMutex.RUnlock()
 	if score >= 15 {
 		return "block"
 	} else if score >= 10 {
@@ -176,12 +189,30 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// プライベートIPやトラステッドIPはスコア加算なしでログのみ
+		isPrivateIP := isPrivateOrLoopback(ip)
+		isTrusted := isTrustedIP(ip)
+
+		if isPrivateIP || isTrusted {
+			// プライベート/トラステッドIPはログのみでスコア加算なし
+			if isSuspiciousPath(r.URL.Path) {
+				logRequest(r, ip, "attack")
+			} else {
+				uaStatus := detectSuspiciousUA(ua)
+				if uaStatus == "deny" || uaStatus == "warn" {
+					logRequest(r, ip, "warn")
+				} else {
+					logRequest(r, ip, "info")
+				}
+			}
+			next(w, r)
+			return
+		}
+
+		// 以下はパブリックIPのみの処理
 		internalLevelBoost := 0
 		if !isFromCloudflare(r) {
 			internalLevelBoost += 2
-			if isPrivateOrLoopback(ip) {
-				internalLevelBoost -= 3
-			}
 		}
 
 		if isBlockedDirectIP(ip) {
@@ -212,15 +243,9 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			logRequest(r, ip, getLevel(ip))
 		}
 
-		if strings.HasPrefix(ip, "60.") && !isTrustedIP(ip) {
+		if strings.HasPrefix(ip, "60.") {
 			incrementScore(ip, 3+internalLevelBoost)
 			logRequest(r, ip, "warn")
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
-		}
-
-		if isTrustedIP(ip) {
-			logRequest(r, ip, "info")
 		}
 
 		next(w, r)

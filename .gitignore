@@ -35,6 +35,7 @@ cert/
 
 # from Visual Studio Code(Custom Adds)
 trusted_ips.json
+tabdock.exe
 Releases/
 home/wallpapers/
 log/
