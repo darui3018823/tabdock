@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.2.1_status-r1
+// This code Version: 3.3.0_status-r1
 
 function checkApi(endpoint, labelId, method = "HEAD") {
     const start = performance.now();
@@ -75,3 +75,4 @@ fetchJsVersion("ui_visibility.js", "ui_visibility.js");
 fetchJsVersion("tabdock_about.js", "tabdock_about.js");
 fetchJsVersion("devtools.js", "devtools.js");
 fetchJsVersion("passkey.js", "passkey.js");
+fetchJsVersion("account.js", "account.js");

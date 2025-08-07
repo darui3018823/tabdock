@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.2.1_account-management
+// This code Version: 3.2.1_acc-r1
 
 // アカウント管理モーダルを開く
 document.getElementById("openAccManage").addEventListener("click", () => {
