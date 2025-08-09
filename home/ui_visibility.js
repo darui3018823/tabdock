@@ -11,13 +11,11 @@ function applyVisualSettings() {
     const blurLayer = document.getElementById("wallpaperBlurLayer");
     const widgets = document.querySelectorAll('.widget-box'); 
 
-    // 初期設定を反映
     if (blurLayer) {
         blurLayer.style.backdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
         blurLayer.style.webkitBackdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
     }
 
-    // 各ウィジェットの背景色を alpha で調整
     widgets.forEach(widget => {
         const alpha = Math.max(opacity / 100, 0.1);
         document.documentElement.style.setProperty('--widget-bg', `rgba(30, 30, 30, ${alpha})`);
@@ -32,9 +30,7 @@ function applyVisualSettings() {
     if (opacityValue) opacityValue.textContent = `${opacity}%`;
 }
 
-// 初期化処理
 (function initVisibilitySettings() {
-    // 前回の壁紙を復元
     const savedWallpaper = localStorage.getItem("tabdock_wallpaper");
     if (savedWallpaper) {
         handlePresetClick(savedWallpaper);
@@ -64,7 +60,6 @@ function applyVisualSettings() {
         });
     }
 
-    // 初期状態を一度反映
     initializeSliders();
     applyVisualSettings();
     initWallpaperUploadHandlers();
@@ -83,7 +78,6 @@ function initializeSliders() {
     applyVisualSettings();
 }
 
-// プリセット画像クリックで壁紙適用
 function handlePresetClick(imgSrc) {
     const wallpaper = document.getElementById("wallpaper");
     if (wallpaper) {
@@ -92,13 +86,11 @@ function handlePresetClick(imgSrc) {
         wallpaper.style.backgroundPosition = "center";
         wallpaper.style.backgroundRepeat = "no-repeat";
 
-        // セッションキャッシュとして保存（DataURL or パス）
         localStorage.setItem("tabdock_wallpaper", imgSrc);
     }
 }
 
 
-// ファイル選択→背景に反映＆プリセットへ追加
 function handleWallpaperUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -121,7 +113,6 @@ function handleWallpaperUpload(event) {
     reader.readAsDataURL(file);
 }
 
-// 壁紙一覧読み込み
 async function loadWallpapers() {
     try {
         const response = await fetch("/api/list-wallpapers");
@@ -148,7 +139,6 @@ async function loadWallpapers() {
     }
 }
 
-// モーダル制御とアップロード処理
 function initWallpaperUploadHandlers() {
     const uploadInput = document.getElementById("wallpaperUpload");
     const confirmBtn = document.getElementById("confirmUploadBtn");
@@ -202,7 +192,6 @@ function initWallpaperUploadHandlers() {
     }
 }
 
-// メニュー開閉処理
 function initMenuToggle() {
     document.getElementById("hamburgerBtn")?.addEventListener("click", () => {
         document.getElementById("menuModal")?.classList.remove("hidden");

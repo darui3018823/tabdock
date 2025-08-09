@@ -3,7 +3,6 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 3.0.5_scripts-r3
 
-// Uint8ArrayやArrayBufferをbase64urlエンコードする関数（forループ方式で安全に変換）
 function bufferToBase64url(buffer) {
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -17,7 +16,6 @@ function bufferToBase64url(buffer) {
 }
 
 async function handlePasskeyRegistration(usernameParam = null) {
-    // パラメータでユーザー名が提供されていればそれを使用、そうでなければDOMから取得
     const username = usernameParam || document.getElementById("username")?.value.trim() || document.getElementById("registerUsername")?.value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
@@ -47,7 +45,6 @@ async function handlePasskeyRegistration(usernameParam = null) {
     })
     .then(attestation => {
         console.log("登録完了:", attestation);
-        // ここで /finish へ送信など
     })
     .catch(err => {
         Swal.fire("エラー", err.message, "error");
@@ -55,14 +52,11 @@ async function handlePasskeyRegistration(usernameParam = null) {
 }
 
 async function startRegistration(options, username) {
-    // challenge, user.id をUint8Arrayに変換
     options.publicKey.challenge = Uint8Array.from(atob(options.publicKey.challenge), c => c.charCodeAt(0));
     options.publicKey.user.id = Uint8Array.from(atob(options.publicKey.user.id), c => c.charCodeAt(0));
 
-    // 認証情報を作成
     const credential = await navigator.credentials.create({ publicKey: options.publicKey });
 
-    // サーバーに送信するリクエストボディを作成
     const body = {
         username: username,
         credential: {
@@ -76,7 +70,6 @@ async function startRegistration(options, username) {
         },
     };
 
-    // /finish へ送信
     await fetch("/api/webauthn/register/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,7 +81,6 @@ async function startRegistration(options, username) {
 }
 
 async function startLogin(usernameParam = null) {
-    // パラメータでユーザー名が提供されていればそれを使用、そうでなければDOMから取得
     const username = usernameParam || document.getElementById("username")?.value.trim() || document.getElementById("loginUsername")?.value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
@@ -112,7 +104,6 @@ async function startLogin(usernameParam = null) {
         throw new Error(`JSONレスポンスではありません (${res.status}):\n${rawText}`);
     }
 
-    // JSONとして解釈してみる
     let options;
     try {
         options = JSON.parse(rawText);
@@ -148,7 +139,6 @@ async function startLogin(usernameParam = null) {
 
     const result = await verify.json();
     if (result.success) {
-        // パスキーログイン成功時のコールバックを呼び出し
         if (typeof window.onPasskeyLoginSuccess === 'function') {
             window.onPasskeyLoginSuccess({
                 username: username,
@@ -156,7 +146,6 @@ async function startLogin(usernameParam = null) {
                 loginMethod: "パスキー"
             });
         } else {
-            // 従来の処理（コールバックが設定されていない場合）
             Swal.fire("ログイン成功", "パスキーで認証されました。", "success");
             if (typeof closeAccountModal === 'function') {
                 closeAccountModal();

@@ -3,11 +3,8 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 3.3.3_acc-r1
 
-// ページ読み込み時にログイン状態をチェック
 document.addEventListener("DOMContentLoaded", () => {
-    // パスキーログイン成功時のコールバック関数を設定
     window.onPasskeyLoginSuccess = function(user) {
-        // サーバーからユーザー情報を再取得してプロフィール画像も同期
         fetch('/api/auth/user-info', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -28,7 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 Swal.fire("成功", "パスキーでログインしました。", "success");
                 setupAccountModal();
             } else {
-                // サーバーから情報を取得できない場合は従来通り
                 const userInfo = {
                     username: user.username,
                     email: user.email || '',
@@ -44,7 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .catch(error => {
             console.error('ユーザー情報取得エラー:', error);
-            // エラーの場合は従来通り
             const userInfo = {
                 username: user.username,
                 email: user.email || '',
@@ -60,51 +55,41 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 });
 
-// アカウント管理モーダルを開く
 document.getElementById("openAccManage").addEventListener("click", () => {
     document.getElementById("menuModal").classList.add("hidden");
     document.getElementById("accountModal").classList.remove("hidden");
     setupAccountModal();
 });
 
-// ログイン状態をチェック
 function isLoggedIn() {
     return localStorage.getItem("tabdock_user") !== null;
 }
 
-// ログインユーザー情報を取得
 function getLoggedInUser() {
     const userStr = localStorage.getItem("tabdock_user");
     return userStr ? JSON.parse(userStr) : null;
 }
 
-// ログイン状態を保存
 function saveLoginState(user) {
     localStorage.setItem("tabdock_user", JSON.stringify(user));
 }
 
-// ログアウト
 function logout() {
     localStorage.removeItem("tabdock_user");
     Swal.fire("ログアウト", "正常にログアウトしました。", "success");
-    setupAccountModal(); // モーダルを再構築
+    setupAccountModal();
 }
 
-// アカウントモーダルのセットアップ
 function setupAccountModal() {
     const modal = document.getElementById("accountModal");
     
-    // ログイン状態をチェック
     if (isLoggedIn()) {
-        // ログイン済みの場合のモーダル
         setupLoggedInModal(modal);
     } else {
-        // 未ログインの場合のモーダル
         setupLoginModal(modal);
     }
 }
 
-// ログイン済みユーザー用のモーダル
 function setupLoggedInModal(modal) {
     const user = getLoggedInUser();
     
@@ -213,28 +198,22 @@ function setupLoggedInModal(modal) {
         </div>
     `;
     
-    // ログイン済みユーザー用のイベントリスナーを設定
     setupLoggedInEventListeners();
 }
 
-// 未ログインユーザー用のモーダル
 function setupLoginModal(modal) {
     
-    // モーダル内容を構築
     modal.innerHTML = `
         <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20 mx-auto">
             <h2 class="text-xl font-bold mb-6 text-center">アカウント管理</h2>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- 左側：フォーム -->
                 <div class="space-y-6">
-                    <!-- タブ -->
                     <div class="flex mb-4 bg-black/20 rounded-lg p-1">
                         <button id="loginTab" class="flex-1 py-2 px-4 rounded-md bg-blue-600 text-white transition-colors">ログイン</button>
                         <button id="registerTab" class="flex-1 py-2 px-4 rounded-md hover:bg-white/10 transition-colors">登録</button>
                     </div>
-                    
-                    <!-- ログインフォーム -->
+
                     <div id="loginForm" class="space-y-4">
                         <input type="text" id="loginUsername" placeholder="ユーザー名" 
                                class="w-full p-3 bg-white/20 text-white placeholder-white/70 rounded-lg border border-white/20 focus:border-blue-400 focus:outline-none" required>
@@ -251,7 +230,6 @@ function setupLoginModal(modal) {
                         </div>
                     </div>
                     
-                    <!-- 登録フォーム -->
                     <div id="registerForm" class="space-y-4 hidden">
                         <input type="text" id="registerUsername" placeholder="ユーザー名" 
                                class="w-full p-3 bg-white/20 text-white placeholder-white/70 rounded-lg border border-white/20 focus:border-blue-400 focus:outline-none" required>
@@ -268,7 +246,6 @@ function setupLoginModal(modal) {
                     </div>
                 </div>
 
-                <!-- 右側：説明文 -->
                 <div class="space-y-6">
                     <div class="bg-black/20 rounded-lg p-4">
                         <h3 class="text-lg font-semibold mb-3">アカウント機能について</h3>
@@ -310,11 +287,9 @@ function setupLoginModal(modal) {
         </div>
     `;
     
-    // イベントリスナーを設定
     setupAccountEventListeners();
 }
 
-// プロフィール画像のアップロード処理
 function handleProfileImageUpload() {
     const input = document.createElement("input");
     input.type = "file";
@@ -328,29 +303,24 @@ function handleProfileImageUpload() {
     input.click();
 }
 
-// 画像リサイズモーダルを表示
 function showImageResizeModal(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            // 画像の元サイズを取得
             const originalWidth = img.width;
             const originalHeight = img.height;
             const aspectRatio = originalWidth / originalHeight;
             
-            // Canvas サイズを動的に決定 (最大500px、最小300px)
             let canvasSize = Math.min(Math.max(Math.max(originalWidth, originalHeight) / 4, 300), 500);
             canvasSize = Math.round(canvasSize);
             
-            // スケールの範囲を動的に計算
             const maxImageSize = Math.max(originalWidth, originalHeight);
-            const minScale = Math.max(0.1, canvasSize / maxImageSize); // 画像全体がCanvasに収まる最小スケール
-            const maxScale = Math.min(5.0, (maxImageSize / canvasSize) * 2); // 適切な最大スケール
+            const minScale = Math.max(0.1, canvasSize / maxImageSize);
+            const maxScale = Math.min(5.0, (maxImageSize / canvasSize) * 2);
             const initialScale = Math.max(minScale, Math.min(1.0, canvasSize / maxImageSize));
             
-            // 位置調整の範囲を動的に計算
-            const positionRange = Math.round(canvasSize * 0.8); // Canvasサイズの80%
+            const positionRange = Math.round(canvasSize * 0.8);
             
             Swal.fire({
                 title: "プロフィール画像を調整",
@@ -399,10 +369,9 @@ function showImageResizeModal(file) {
             }).then((result) => {
                 if (result.isConfirmed) {
                     const canvas = document.getElementById("imageCanvas");
-                    // Canvasから高品質なBlobを取得
                     canvas.toBlob((blob) => {
                         uploadProfileImageToServer(blob);
-                    }, 'image/jpeg', 0.9); // 品質を90%に向上
+                    }, 'image/jpeg', 0.9);
                 }
             });
         };
@@ -411,7 +380,6 @@ function showImageResizeModal(file) {
     reader.readAsDataURL(file);
 }
 
-// 画像エディターのセットアップ
 function setupImageEditor(img, canvasSize) {
     const canvas = document.getElementById("imageCanvas");
     const ctx = canvas.getContext("2d");
@@ -419,7 +387,6 @@ function setupImageEditor(img, canvasSize) {
     const xSlider = document.getElementById("xSlider");
     const ySlider = document.getElementById("ySlider");
     
-    // 値表示用の要素
     const scaleValue = document.getElementById("scaleValue");
     const xValue = document.getElementById("xValue");
     const yValue = document.getElementById("yValue");
@@ -433,35 +400,29 @@ function setupImageEditor(img, canvasSize) {
         const offsetX = parseInt(xSlider.value);
         const offsetY = parseInt(ySlider.value);
         
-        // 値を表示
         if (scaleValue) scaleValue.textContent = Math.round(scale * 100) + '%';
         if (xValue) xValue.textContent = offsetX;
         if (yValue) yValue.textContent = offsetY;
         
         ctx.clearRect(0, 0, canvasSize, canvasSize);
         
-        // 円形クリッピング
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.clip();
         
-        // スケールを適用した画像サイズを計算
         const drawWidth = img.width * scale;
         const drawHeight = img.height * scale;
         
-        // 画像を中央配置してオフセットを適用
         const x = centerX - (drawWidth / 2) + offsetX;
         const y = centerY - (drawHeight / 2) + offsetY;
         
-        // 高品質描画設定
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         
         ctx.drawImage(img, x, y, drawWidth, drawHeight);
         ctx.restore();
         
-        // デバッグ用の円枠表示（オプション）
         ctx.strokeStyle = 'rgba(0,0,0,0.1)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -469,15 +430,12 @@ function setupImageEditor(img, canvasSize) {
         ctx.stroke();
     }
     
-    // イベントリスナー設定
     scaleSlider.addEventListener("input", drawImage);
     xSlider.addEventListener("input", drawImage);
     ySlider.addEventListener("input", drawImage);
     
-    // 初期描画
     drawImage();
     
-    // キーボードショートカット
     document.addEventListener("keydown", function handleKeydown(e) {
         if (e.target.tagName === 'INPUT' && e.target.type === 'range') {
             const step = parseFloat(e.target.step) || 1;
@@ -494,14 +452,12 @@ function setupImageEditor(img, canvasSize) {
             }
         }
         
-        // モーダルが閉じられる時にイベントリスナーをクリーンアップ
         if (e.key === 'Escape') {
             document.removeEventListener("keydown", handleKeydown);
         }
     });
 }
 
-// サーバーにプロフィール画像をアップロード
 function uploadProfileImageToServer(blob) {
     const user = getLoggedInUser();
     if (!user) {
@@ -511,7 +467,7 @@ function uploadProfileImageToServer(blob) {
 
     const formData = new FormData();
     formData.append('profileImage', blob, 'profile.jpg');
-    formData.append('username', user.username); // ユーザー名を追加
+    formData.append('username', user.username);
 
     Swal.fire({
         title: 'アップロード中...',
@@ -542,36 +498,29 @@ function uploadProfileImageToServer(blob) {
     });
 }
 
-// プロフィール画像のパスを保存
 function saveProfileImagePath(imagePath) {
     const user = getLoggedInUser();
     user.profileImage = imagePath;
     saveLoginState(user);
     
-    // UIを更新
     setupAccountModal();
     
     Swal.fire("完了", "プロフィール画像を更新しました。", "success");
 }
 
-// アカウントモーダルを閉じる
 function closeAccountModal() {
     document.getElementById("accountModal").classList.add("hidden");
 }
 
-// ログイン済みユーザー用のイベントリスナー
 function setupLoggedInEventListeners() {
-    // プロフィール画像アップロード
     document.getElementById("uploadIcon").addEventListener("click", () => {
         handleProfileImageUpload();
     });
     
-    // プロフィール画像をクリックしてもアップロード
     document.getElementById("profileIcon").addEventListener("click", () => {
         handleProfileImageUpload();
     });
     
-    // パスキー追加
     document.getElementById("addPasskeyBtn").addEventListener("click", () => {
         const user = getLoggedInUser();
         if (typeof handlePasskeyRegistration === 'function') {
@@ -581,7 +530,6 @@ function setupLoggedInEventListeners() {
         }
     });
     
-    // パスワード変更
     document.getElementById("changePasswordBtn").addEventListener("click", () => {
         Swal.fire({
             title: "パスワード変更",
@@ -590,7 +538,6 @@ function setupLoggedInEventListeners() {
         });
     });
     
-    // ログアウト
     document.getElementById("logoutBtn").addEventListener("click", () => {
         Swal.fire({
             title: "ログアウトしますか？",
@@ -606,28 +553,21 @@ function setupLoggedInEventListeners() {
         });
     });
     
-    // モーダル閉じる
     document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
 }
 
-// イベントリスナーの設定（未ログインユーザー用）
 function setupAccountEventListeners() {
-    // タブ切り替え
     document.getElementById("loginTab").addEventListener("click", () => switchToLogin());
     document.getElementById("registerTab").addEventListener("click", () => switchToRegister());
     
-    // ログイン処理
     document.getElementById("normalLoginBtn").addEventListener("click", handleNormalLogin);
     document.getElementById("passkeyLoginBtn").addEventListener("click", handlePasskeyLogin);
     
-    // 登録処理
     document.getElementById("registerBtn").addEventListener("click", handleRegister);
     
-    // モーダル閉じる
     document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
 }
 
-// ログインタブに切り替え
 function switchToLogin() {
     document.getElementById("loginTab").classList.add("bg-blue-600", "text-white");
     document.getElementById("loginTab").classList.remove("hover:bg-white/10");
@@ -638,7 +578,6 @@ function switchToLogin() {
     document.getElementById("registerForm").classList.add("hidden");
 }
 
-// 登録タブに切り替え
 function switchToRegister() {
     document.getElementById("registerTab").classList.add("bg-blue-600", "text-white");
     document.getElementById("registerTab").classList.remove("hover:bg-white/10");
@@ -649,7 +588,6 @@ function switchToRegister() {
     document.getElementById("loginForm").classList.add("hidden");
 }
 
-// 通常ログイン処理
 function handleNormalLogin() {
     const username = document.getElementById("loginUsername").value.trim();
     const password = document.getElementById("loginPassword").value;
@@ -659,7 +597,6 @@ function handleNormalLogin() {
         return;
     }
 
-    // APIにリクエストを送信
     fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -668,22 +605,20 @@ function handleNormalLogin() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // ログイン情報をLocalStorageに保存（サーバーからの情報を使用）
             const userInfo = {
                 username: data.user.username,
                 email: data.user.email,
                 loginAt: data.user.loginAt,
                 loginMethod: "パスワード",
-                profileImage: data.user.profileImage || null // サーバーからプロフィール画像パスを取得
+                profileImage: data.user.profileImage || null
             };
             saveLoginState(userInfo);
             
             Swal.fire("ログイン成功", "正常にログインしました。", "success");
             closeAccountModal();
             
-            // UIを更新
             updateUIForLoggedInUser(userInfo);
-            setupAccountModal(); // モーダル内容を更新
+            setupAccountModal();
         } else {
             Swal.fire("ログイン失敗", data.message || "ログインに失敗しました。", "error");
         }
@@ -694,7 +629,6 @@ function handleNormalLogin() {
     });
 }
 
-// パスキーログイン処理（passkey.jsの関数を呼び出し）
 function handlePasskeyLogin() {
     const username = document.getElementById("loginUsername").value.trim();
     if (!username) {
@@ -703,9 +637,7 @@ function handlePasskeyLogin() {
     }
     
     if (typeof startLogin === 'function') {
-        // パスキーログイン成功時のコールバックを設定
         window.onPasskeyLoginSuccess = function(user) {
-            // サーバーからユーザー情報を再取得してプロフィール画像も同期
             fetch('/api/auth/user-info', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -727,7 +659,6 @@ function handlePasskeyLogin() {
                     closeAccountModal();
                     updateUIForLoggedInUser(userInfo);
                 } else {
-                    // サーバーから情報を取得できない場合は従来通り
                     const userInfo = {
                         username: user.username || username,
                         email: user.email || "",
@@ -744,7 +675,6 @@ function handlePasskeyLogin() {
             })
             .catch(error => {
                 console.error('ユーザー情報取得エラー:', error);
-                // エラーの場合は従来通り
                 const userInfo = {
                     username: user.username || username,
                     email: user.email || "",
@@ -766,7 +696,6 @@ function handlePasskeyLogin() {
     }
 }
 
-// アカウント登録処理
 function handleRegister() {
     const username = document.getElementById("registerUsername").value.trim();
     const email = document.getElementById("registerEmail").value.trim();
@@ -789,7 +718,6 @@ function handleRegister() {
         return;
     }
 
-    // APIにリクエストを送信
     fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -798,7 +726,6 @@ function handleRegister() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // 登録成功時に自動的にログイン状態にする
             const userInfo = {
                 username: data.user.username,
                 email: data.user.email,
@@ -832,11 +759,9 @@ function handleRegister() {
     });
 }
 
-// ログイン状態をUIに反映
 function updateUIForLoggedInUser(user) {
     console.log("ログインユーザー:", user);
     
-    // メニューのアカウント管理ボタンのテキストを変更
     const accManageBtn = document.getElementById("openAccManage");
     if (accManageBtn) {
         accManageBtn.innerHTML = `
@@ -847,11 +772,8 @@ function updateUIForLoggedInUser(user) {
         `;
         accManageBtn.title = `${user.username} としてログイン中`;
     }
-    
-    // 他のUI要素もここで更新可能
 }
 
-// ページ読み込み時にログイン状態をチェック
 document.addEventListener("DOMContentLoaded", () => {
     if (isLoggedIn()) {
         const user = getLoggedInUser();
@@ -859,7 +781,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// アカウントモーダルを閉じる
 function closeAccountModal() {
     document.getElementById("accountModal").classList.add("hidden");
     document.getElementById("menuModal").classList.remove("hidden");

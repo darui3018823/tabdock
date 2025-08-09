@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(updateDate, 10000);
   
     updatePCStatus();
-    setInterval(updatePCStatus, 120000); // 120秒ごとに更新
+    setInterval(updatePCStatus, 120000);
 
     fetch('/api/version')
       .then(res => res.json())

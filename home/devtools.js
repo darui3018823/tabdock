@@ -3,12 +3,10 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 3.2.0_devtools-r11
 
-// グローバル変数: デバッグログを保存するためのキューと診断情報
 let debugLog = [];
 let maxLogEntries = 100;
 let lastFullSync = null;
 
-// デバッグログ記録用のヘルパー関数
 function addDebugLog(level, message, data = null) {
     const timestamp = new Date().toISOString();
     const logEntry = { timestamp, level, message, data };
@@ -19,7 +17,6 @@ function addDebugLog(level, message, data = null) {
     console.log(`[${level.toUpperCase()}] ${message}`, data || '');
 }
 
-// JavaScriptファイルの読み込み状態をチェックする関数
 function checkJavaScriptLoadStatus() {
     const scripts = [
         { name: 'script.js', functions: [], elements: ['clock', 'date'] }, // DOM要素で確認
@@ -38,19 +35,16 @@ function checkJavaScriptLoadStatus() {
         let missingFunctions = [];
         
         if (script.functions && script.functions.length > 0) {
-            // 関数ベースの確認
             loadedFunctions = script.functions.filter(func => typeof window[func] === 'function');
             missingFunctions = script.functions.filter(func => typeof window[func] !== 'function');
             isLoaded = loadedFunctions.length > 0;
         } else if (script.elements && script.elements.length > 0) {
-            // DOM要素ベースの確認
             const existingElements = script.elements.filter(id => document.getElementById(id) !== null);
             isLoaded = existingElements.length === script.elements.length;
             loadedFunctions = existingElements;
             missingFunctions = script.elements.filter(id => document.getElementById(id) === null);
         } else {
-            // 関数もDOM要素もない場合（passkey.jsなど）
-            isLoaded = true; // 読み込まれているとみなす
+            isLoaded = true;
         }
         
         return {
@@ -67,7 +61,6 @@ function checkJavaScriptLoadStatus() {
     return results;
 }
 
-// 完全同期処理
 async function performFullSync() {
     console.log('performFullSync関数の最初の行が実行されました！');
     console.log('try-catch外での実行確認:', new Date().toISOString());
@@ -92,7 +85,6 @@ async function performFullSync() {
         
         const results = [];
         
-        // 利用可能な関数をチェック
         console.log('=== 利用可能な関数をチェック ===');
         syncTasks.forEach(task => {
             const isAvailable = typeof window[task.func] === 'function';
@@ -101,7 +93,6 @@ async function performFullSync() {
         
         console.log('関数チェック完了、同期処理を開始します');
         
-        // グローバル関数の同期
         console.log('=== グローバル関数の同期開始 ===');
     for (const task of syncTasks) {
         console.log(`${task.name} (${task.func}) の同期を開始...`);
@@ -126,21 +117,17 @@ async function performFullSync() {
         }
     }
     
-    // script.js内の関数を直接実行（DOM要素を使用）
     console.log('=== 時計・日付更新開始 ===');
     try {
         const taskStart = performance.now();
         
-        // DOM要素の存在確認
         const clockEl = document.getElementById("clock");
         const dateEl = document.getElementById("date");
         console.log(`clock要素: ${clockEl ? '存在' : '不存在'}`);
         console.log(`date要素: ${dateEl ? '存在' : '不存在'}`);
         
-        // 時計更新を直接実行
         const now = new Date();
         if (clockEl) {
-            // 24時間形式で時刻を更新
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
@@ -149,7 +136,6 @@ async function performFullSync() {
             console.log(`時計を更新: ${timeStr}`);
         }
         
-        // 日付更新を直接実行
         if (dateEl) {
             const weekdays = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
             const y = now.getFullYear();
@@ -171,12 +157,10 @@ async function performFullSync() {
         addDebugLog('error', '時計・日付更新エラー', error);
     }
     
-    // API status check も追加
     console.log('=== APIステータス確認開始 ===');
     try {
         const taskStart = performance.now();
         
-        // checkApi関数が利用可能な場合は各種APIをチェック
         console.log(`checkApi関数: ${typeof window.checkApi === 'function' ? '利用可能' : '利用不可'}`);
         if (typeof window.checkApi === 'function') {
             console.log('各種APIをチェック中...');
@@ -209,7 +193,6 @@ async function performFullSync() {
     }
 }
 
-// ローカルストレージの詳細確認・初期化
 function analyzeLocalStorage() {
     const storage = {};
     const totalItems = localStorage.length;
@@ -235,7 +218,6 @@ function analyzeLocalStorage() {
     };
 }
 
-// バイト数をフォーマットする関数
 function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -244,7 +226,6 @@ function formatBytes(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// システム診断情報を取得
 function getSystemDiagnostics() {
     return {
         userAgent: navigator.userAgent,
@@ -274,14 +255,12 @@ function getSystemDiagnostics() {
     };
 }
 
-// パフォーマンステスト実行
 async function runPerformanceTest() {
     addDebugLog('info', 'パフォーマンステスト開始');
     const tests = [];
     
     console.log('=== パフォーマンステスト実行開始 ===');
     
-    // 1. DOM操作テスト - ブラウザのDOM処理速度を測定
     console.log('DOM操作テストを実行中...');
     const domStart = performance.now();
     const testDiv = document.createElement('div');
@@ -297,7 +276,6 @@ async function runPerformanceTest() {
     tests.push(domResult);
     console.log(`DOM操作テスト完了: ${domResult.time}ms`);
     
-    // 2. ネットワーク速度テスト - サーバーとの通信速度を測定
     console.log('ネットワーク速度テストを実行中...');
     try {
         const pingStart = performance.now();
@@ -321,7 +299,6 @@ async function runPerformanceTest() {
         console.log(`ネットワークテストエラー: ${error.message}`);
     }
     
-    // 3. ローカルストレージ速度テスト - ブラウザのデータ保存処理速度を測定
     console.log('ローカルストレージ速度テストを実行中...');
     const storageStart = performance.now();
     const testData = 'test'.repeat(1000); // 4000文字のテストデータ
@@ -338,7 +315,6 @@ async function runPerformanceTest() {
     tests.push(storageResult);
     console.log(`ローカルストレージテスト完了: ${storageResult.time}ms`);
     
-    // 4. JavaScript計算処理テスト - CPU処理速度を測定
     console.log('JavaScript計算処理テストを実行中...');
     const calcStart = performance.now();
     let sum = 0;
@@ -355,7 +331,6 @@ async function runPerformanceTest() {
     tests.push(calcResult);
     console.log(`JavaScript計算テスト完了: ${calcResult.time}ms`);
     
-    // 5. メモリ使用量チェック
     if (performance.memory) {
         const memoryInfo = {
             name: 'メモリ使用状況',
@@ -373,7 +348,6 @@ async function runPerformanceTest() {
     return tests;
 }
 
-// 「完全同期」ボタン押下時の処理
 console.log('=== イベントリスナー登録開始 ===');
 const forceSyncButton = document.getElementById("forceSyncBtn");
 console.log('forceSyncBtn要素:', forceSyncButton);
@@ -384,10 +358,8 @@ if (!forceSyncButton) {
     console.log('forceSyncBtn要素が見つかりました、イベントリスナーを登録します');
 }
 
-// 実行中フラグを追加
 let isFullSyncRunning = false;
 
-// デバッグ用：フラグの変更を監視
 function setFullSyncRunning(value, reason = '') {
     console.log(`実行中フラグを ${isFullSyncRunning} から ${value} に変更 ${reason ? `(理由: ${reason})` : ''}`);
     isFullSyncRunning = value;
@@ -399,22 +371,18 @@ forceSyncButton?.addEventListener("click", async (event) => {
     console.log('現在時刻:', new Date().toISOString());
     console.log('実行中フラグ:', isFullSyncRunning);
     
-    // 既に実行中の場合は処理をスキップ
     if (isFullSyncRunning) {
         console.log('⚠️ 既に完全同期が実行中です。処理をスキップします。');
         return;
     }
     
-    // 実行中フラグを設定
     setFullSyncRunning(true, 'ボタンクリック開始');
     
-    // ボタンを無効化
     forceSyncButton.disabled = true;
     forceSyncButton.textContent = '同期中...';
     console.log('ボタンを無効化しました');
     
     try {
-        // SweetAlert2が利用可能かチェック
         console.log('Swalチェック開始...');
         if (typeof Swal === 'undefined') {
             console.error('SweetAlert2が利用できません');
@@ -424,11 +392,9 @@ forceSyncButton?.addEventListener("click", async (event) => {
         
         console.log('SweetAlert2は利用可能です');
         
-        // SweetAlertダイアログを表示（await しない）
         console.log('SweetAlertダイアログを表示中...');
         console.log('Swal.fire呼び出し前の状態確認完了');
         
-        // ローディングダイアログを非同期で表示
         Swal.fire({
             title: '完全同期中…',
             text: '全データをサーバーから再取得しています。',
@@ -441,7 +407,6 @@ forceSyncButton?.addEventListener("click", async (event) => {
         });
         console.log('SweetAlertダイアログを開始しました（非同期）');
         
-        // performFullSync実行
         console.log('performFullSync関数の存在確認:', typeof performFullSync);
         console.log('performFullSync関数を呼び出し中...');
         console.log('performFullSync呼び出し直前の時刻:', new Date().toISOString());
@@ -454,7 +419,6 @@ forceSyncButton?.addEventListener("click", async (event) => {
         const errorCount = result.results.filter(r => r.status === 'error').length;
         const skippedCount = result.results.filter(r => r.status === 'skipped').length;
         
-        // 結果の詳細をコンソールに出力
         console.log('同期結果詳細:');
         result.results.forEach(r => {
             console.log(`- ${r.name}: ${r.status}${r.time ? ` (${r.time}ms)` : ''}${r.error ? ` - Error: ${r.error}` : ''}${r.reason ? ` - Reason: ${r.reason}` : ''}`);
@@ -507,13 +471,11 @@ forceSyncButton?.addEventListener("click", async (event) => {
             alert('エラーが発生しました: ' + (error.message || error));
         }
     } finally {
-        // 実行完了後にフラグとボタンを復元
         setFullSyncRunning(false, '処理完了');
         forceSyncButton.disabled = false;
         forceSyncButton.textContent = '完全同期';
         console.log('ボタンを復元しました');
         
-        // SweetAlertダイアログを閉じる
         if (typeof Swal !== 'undefined') {
             console.log('SweetAlertダイアログを閉じます');
             Swal.close();
@@ -531,7 +493,6 @@ document.getElementById("closeDevMenuModal").addEventListener("click", () => {
     document.getElementById("menuModal").classList.remove("hidden");
 });
 
-// JavaScriptロード状態確認
 document.getElementById("checkJsStatusBtn").addEventListener("click", async () => {
     const results = checkJavaScriptLoadStatus();
     
@@ -570,7 +531,6 @@ document.getElementById("checkJsStatusBtn").addEventListener("click", async () =
     });
 });
 
-// 簡易診断実行
 document.getElementById("quickDiagBtn").addEventListener("click", async () => {
     const diagnostics = performQuickDiagnostics();
     
@@ -609,7 +569,6 @@ document.getElementById("quickDiagBtn").addEventListener("click", async () => {
     });
 });
 
-// ローカルストレージ初期化
 document.getElementById("clearLocalStorageBtn").addEventListener("click", async () => {
     const storageInfo = analyzeLocalStorage();
     
@@ -646,7 +605,6 @@ document.getElementById("clearLocalStorageBtn").addEventListener("click", async 
     }
 });
 
-// デバッグログ表示
 document.getElementById("showDebugLogBtn").addEventListener("click", async () => {
     const diagnostics = getSystemDiagnostics();
     
@@ -692,11 +650,9 @@ document.getElementById("showDebugLogBtn").addEventListener("click", async () =>
     });
 });
 
-// パフォーマンステスト実行
 document.getElementById("runPerfTestBtn").addEventListener("click", async () => {
     console.log('=== パフォーマンステストボタンが押されました ===');
     
-    // ローディングダイアログを非同期で表示（awaitしない）
     Swal.fire({
         title: 'パフォーマンステスト実行中...',
         text: 'ブラウザとシステムの性能を測定しています',
@@ -746,7 +702,6 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                     resultHtml += `<div class="text-xs text-gray-600">${test.result}</div>`;
                 }
             } else if (test.used) {
-                // メモリ情報の表示
                 resultHtml += `<div class="text-blue-600">`;
                 resultHtml += `<div>使用中: ${test.used}</div>`;
                 resultHtml += `<div>総容量: ${test.total}</div>`;
@@ -804,7 +759,6 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
     }
 });
 
-// ページ再読み込み
 document.getElementById("reloadPageBtn").addEventListener("click", async () => {
     const result = await Swal.fire({
         title: 'ページを再読み込み',
@@ -821,19 +775,16 @@ document.getElementById("reloadPageBtn").addEventListener("click", async () => {
     }
 });
 
-// 初期化時にデバッグログを開始
 console.log('=== DevTools JavaScript読み込み開始 ===');
 console.log('現在時刻:', new Date().toISOString());
 console.log('document.readyState:', document.readyState);
 addDebugLog('info', 'DevTools初期化完了', { version: '3.1.0_devtools-r8' });
 
-// 即座に基本確認を実行
 console.log('=== 即座実行: 基本確認 ===');
 console.log('Swal:', typeof Swal);
 console.log('performFullSync:', typeof performFullSync);
 console.log('addDebugLog:', typeof addDebugLog);
 
-// DOM読み込み完了後の確認
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         console.log('=== DOMContentLoaded時の確認 ===');
@@ -844,7 +795,6 @@ if (document.readyState === 'loading') {
     console.log('forceSyncBtn要素:', document.getElementById("forceSyncBtn"));
 }
 
-// 開発者向け：簡易診断機能を追加
 function performQuickDiagnostics() {
     console.log('=== クイック診断開始 ===');
     
@@ -875,28 +825,23 @@ function performQuickDiagnostics() {
     return diagnostics;
 }
 
-// ページ読み込み時に自動診断を実行
 console.log('=== DevTools自動診断開始 ===');
 setTimeout(() => {
     console.log('=== 1秒後の自動診断実行 ===');
     
-    // DOM要素の存在確認
     const forceSyncBtn = document.getElementById("forceSyncBtn");
     console.log('forceSyncBtn要素の確認:', forceSyncBtn);
     console.log('forceSyncBtn要素のイベントリスナー数:', forceSyncBtn?.getEventListeners ? forceSyncBtn.getEventListeners() : 'getEventListeners不利用可能');
     
-    // 重要な関数の存在確認
     console.log('performFullSync関数:', typeof performFullSync);
     console.log('Swal:', typeof Swal);
     console.log('SweetAlert2のバージョン:', typeof Swal !== 'undefined' ? Swal.version : '未定義');
     
-    // 実際の診断実行
     performQuickDiagnostics();
     
     console.log('=== DevTools初期化完了 ===');
 }, 1000);
 
-// デバッグ用：手動テスト関数
 window.manualTestPerformFullSync = async function() {
     console.log('=== 手動テスト: performFullSync ===');
     console.log('実行中フラグ確認:', isFullSyncRunning);
@@ -931,7 +876,6 @@ window.manualTestButtonClick = function() {
     }
 };
 
-// 実行中フラグの状態確認関数も追加
 window.checkSyncStatus = function() {
     console.log('=== 現在の同期状態 ===');
     console.log('実行中フラグ:', isFullSyncRunning);
@@ -951,7 +895,6 @@ window.checkSyncStatus = function() {
     };
 };
 
-// フラグリセット用関数
 window.resetSyncFlag = function() {
     console.log('=== 手動でフラグをリセット ===');
     const oldValue = isFullSyncRunning;

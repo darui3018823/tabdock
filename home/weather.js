@@ -88,7 +88,6 @@ async function fetchWeather() {
         const rainEl = document.getElementById("todayRain");
         rainEl.textContent = `降水確率: ${forecasts[0].chanceOfRain[rainKey] || "--%"}`;
 
-        // 明日の降水確率（平均のみ表示）
         if (tomorrowRainEl && forecasts[1]?.chanceOfRain) {
             const rainObj = forecasts[1].chanceOfRain;
             const rainTimes = ["T00_06", "T06_12", "T12_18", "T18_24"];
@@ -228,12 +227,9 @@ function showDetail(key, label, detail, overview) {
     modal.classList.remove("hidden");
 }
 
-
-// モーダル閉じる処理
 document.getElementById("modalCloseBtn")?.addEventListener("click", () => {
     document.getElementById("modal")?.classList.add("hidden");
 });
-
 
 function closeModal() {
     document.getElementById("weatherModal").classList.add("hidden");
@@ -274,20 +270,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeLocationModalBtn = document.getElementById("closeLocationModal");
     const saveLocationBtn = document.getElementById("saveLocationBtn");
 
-    // モーダルを開く
     if (openLocationModalBtn) {
         openLocationModalBtn.addEventListener("click", () => {
             locationModal.classList.remove("hidden");
         });
     }
 
-    // モーダルを閉じる
     document.getElementById("modalCloseBtn")?.addEventListener("click", () => {
         document.getElementById("modal").classList.add("hidden");
     });
     
 
-    // 保存ボタンの処理
     if (saveLocationBtn) {
         saveLocationBtn.addEventListener("click", () => {
             const pref = document.getElementById("prefInput").value.trim();

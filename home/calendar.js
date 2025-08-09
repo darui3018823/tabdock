@@ -10,7 +10,6 @@ let today = new Date();
 let currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
 let selectedDate = null;
 
-// 祝日判定
 let holidayMap = {};
 
 function isHoliday(year, month, day) {
@@ -25,12 +24,11 @@ async function fetchHolidayData() {
         holidayMap = await res.json();
     } catch (e) {
         console.error("祝日取得失敗:", e);
-        holidayMap = {}; // fallback: 無祝日モード
+        holidayMap = {};
     }
 }
 
 
-// カレンダー描画
 function renderCalendar() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -66,7 +64,6 @@ function renderCalendar() {
 
 const scheduleList = document.getElementById("scheduleList");
 
-// 仮の予定データ
 const schedules = [
     { date: "2025-06-03", title: "提出物締切", time: "17:00", description: "課題提出" },
     { date: "2025-06-04", title: "定例ミーティング", time: "19:00", description: "プロジェクト進捗" },
@@ -146,7 +143,6 @@ document.getElementById("upcomingBtn").addEventListener("click", () => {
 
 
 
-// 曜日色＆今日判定
 function applyColor(cell, weekday, year, month, day) {
     if (weekday === 0 || isHoliday(year, month, day)) {
         cell.classList.add("text-red-400");
@@ -163,8 +159,6 @@ function applyColor(cell, weekday, year, month, day) {
     }
 }
 
-
-// 月移動
 document.getElementById("prevMonth").addEventListener("click", () => {
     currentDate.setMonth(currentDate.getMonth() - 1);
     renderCalendar();
@@ -208,7 +202,6 @@ function monitorDateChange() {
             const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
             renderSchedule(todayStr);
 
-            // SweetAlert2で右上に通知
             Swal.fire({
                 toast: true,
                 position: 'top-end',
@@ -222,16 +215,15 @@ function monitorDateChange() {
     }, 60 * 1000);
 }
 
-// モーダル制御
 document.getElementById("openScheduleModal").addEventListener("click", () => {
     document.getElementById("scheduleModal").classList.remove("hidden");
     document.getElementById("menuModal").classList.add("hidden");
 });
 document.getElementById("closeScheduleModal").addEventListener("click", () => {
     document.getElementById("scheduleModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
 });
 
-// 予定を追加
 document.getElementById("addScheduleBtn").addEventListener("click", async () => {
     const date = document.getElementById("scheduleDate").value;
     const time = document.getElementById("scheduleTime").value;
@@ -290,7 +282,6 @@ function convertToEmbedURL(url) {
     try {
         const u = new URL(url);
         if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
-            // 任意の形式: 実際にはAPIによって変える必要あり
             return url.replace("/maps", "/maps/embed");
         }
     } catch (_) {}
@@ -368,17 +359,14 @@ function trimScheduleListForPreview() {
     const list = document.getElementById("scheduleList");
     const items = Array.from(list.children);
 
-    // 過去の「もっと見る」を削除
     const existingMore = document.getElementById("moreScheduleItem");
     if (existingMore) existingMore.remove();
 
     if (items.length > 3) {
-        // 3件目以降を非表示
         items.forEach((el, index) => {
             el.classList.toggle("hidden", index >= 2);
         });
 
-        // 「もっと見る」を3件目として追加
         const moreItem = document.createElement("li");
         moreItem.id = "moreScheduleItem";
         moreItem.innerHTML = `<button class="text-blue-400 hover:underline text-left">+ もっと見る...</button>`;
@@ -399,10 +387,9 @@ function openAllScheduleModal() {
         const copy = el.cloneNode(true);
         copy.classList.remove("hidden");
 
-        // 🔽 詳細ボタンを再検索してイベント追加
         const detailBtn = copy.querySelector("button");
         if (detailBtn && detailBtn.textContent.includes("詳細")) {
-            const index = cloned.indexOf(el);  // 元の位置から予定データを推定
+            const index = cloned.indexOf(el);
             const dateStr = selectedDate;
             const filtered = schedules.filter(e => e.date === dateStr);
             const sched = filtered[index];
