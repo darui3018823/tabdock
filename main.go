@@ -167,7 +167,9 @@ func main() {
 	})
 
 	serve(mux)
-} // ミドルウェア：スラッシュ補完＆エラーハンドラ
+}
+
+// ミドルウェア：スラッシュ補完＆エラーハンドラ
 func withSlashAndErrorHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// スラッシュが必要なのにない場合はリダイレクト
