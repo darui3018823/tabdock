@@ -71,7 +71,7 @@ Linux に精通している方であれば `systemd` の設定や運用につい
 このプロジェクトでは、以下のライセンスの下でサードパーティ素材を使用しています：
 
 ### Material Symbols
-- **著作権**: 2020 Google Inc.
+- **著作権**: 2025 Google Inc.
 - **ライセンス**: Apache License 2.0
 - **ソース**: https://fonts.google.com/icons
 - **使用箇所**: インターフェース全体のUIアイコンとシンボル

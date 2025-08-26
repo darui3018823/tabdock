@@ -63,7 +63,7 @@ We assume that most users familiar with Linux will already understand how to con
 This project uses third-party materials under the following licenses:
 
 ### Material Symbols
-- **Copyright**: 2020 Google Inc.
+- **Copyright**: 2025 Google Inc.
 - **License**: Apache License 2.0
 - **Source**: https://fonts.google.com/icons
 - **Usage**: UI icons and symbols throughout the interface
