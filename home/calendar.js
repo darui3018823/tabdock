@@ -215,16 +215,41 @@ function monitorDateChange() {
     }, 60 * 1000);
 }
 
-document.getElementById("openScheduleModal").addEventListener("click", () => {
-    document.getElementById("scheduleModal").classList.remove("hidden");
+// 予定種類選択モーダルの制御
+document.getElementById("openScheduleTypeModal").addEventListener("click", () => {
+    document.getElementById("scheduleTypeModal").classList.remove("hidden");
     document.getElementById("menuModal").classList.add("hidden");
 });
-document.getElementById("closeScheduleModal").addEventListener("click", () => {
-    document.getElementById("scheduleModal").classList.add("hidden");
+
+document.getElementById("closeScheduleTypeModal").addEventListener("click", () => {
+    document.getElementById("scheduleTypeModal").classList.add("hidden");
     document.getElementById("menuModal").classList.remove("hidden");
 });
 
-document.getElementById("addScheduleBtn").addEventListener("click", async () => {
+// 通常予定モーダルの制御
+document.getElementById("openRegularScheduleBtn").addEventListener("click", () => {
+    document.getElementById("scheduleTypeModal").classList.add("hidden");
+    document.getElementById("regularScheduleModal").classList.remove("hidden");
+});
+
+document.getElementById("closeRegularScheduleModal").addEventListener("click", () => {
+    document.getElementById("regularScheduleModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
+});
+
+// シフト予定モーダルの制御
+document.getElementById("openShiftScheduleBtn").addEventListener("click", () => {
+    document.getElementById("scheduleTypeModal").classList.add("hidden");
+    document.getElementById("shiftScheduleModal").classList.remove("hidden");
+});
+
+document.getElementById("closeShiftScheduleModal").addEventListener("click", () => {
+    document.getElementById("shiftScheduleModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
+});
+
+// 通常予定追加
+document.getElementById("addRegularScheduleBtn").addEventListener("click", async () => {
     const date = document.getElementById("scheduleDate").value;
     const time = document.getElementById("scheduleTime").value;
     const title = document.getElementById("scheduleTitle").value;
@@ -262,8 +287,34 @@ document.getElementById("addScheduleBtn").addEventListener("click", async () => 
     }
 
     schedules.push(scheduleData);
-    document.getElementById("scheduleModal").classList.add("hidden");
+    document.getElementById("regularScheduleModal").classList.add("hidden");
+    document.getElementById("menuModal").classList.remove("hidden");
     if (selectedDate === date) renderSchedule(date);
+});
+
+// シフト予定追加
+document.getElementById("addShiftScheduleBtn").addEventListener("click", async () => {
+    const shiftText = document.getElementById("scheduleShiftText").value;
+    
+    if (!shiftText) {
+        alert("シフト情報を入力してください");
+        return;
+    }
+
+    try {
+        const result = await window.parseAndRegisterShifts(shiftText);
+        alert(result);
+        document.getElementById("shiftScheduleModal").classList.add("hidden");
+        document.getElementById("menuModal").classList.remove("hidden");
+        
+        // カレンダーを更新（最初のシフトの日付を表示）
+        const shifts = parseShiftText(shiftText);
+        if (shifts.length > 0) {
+            renderSchedule(shifts[0].date);
+        }
+    } catch (error) {
+        alert(error.message);
+    }
 });
 
 
@@ -408,9 +459,9 @@ document.getElementById("closeAllScheduleModal").addEventListener("click", () =>
     document.getElementById("allScheduleModal").classList.add("hidden");
 });
 
-document.getElementById("toggleDetail").addEventListener("click", () => {
-  const section = document.getElementById("detailSection");
-  const btn = document.getElementById("toggleDetail");
+document.getElementById("regularToggleDetail").addEventListener("click", () => {
+  const section = document.getElementById("regularDetailSection");
+  const btn = document.getElementById("regularToggleDetail");
 
   const isOpen = !section.classList.contains("hidden");
   section.classList.toggle("hidden", isOpen);

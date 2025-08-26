@@ -44,4 +44,5 @@ json/schedule.json
 home/assets/calendar/
 database/acc.db
 home/assets/acc_icon/
-json/working_schedule.json
+json/working_schedule_user.json
+json/user/

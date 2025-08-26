@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -22,7 +23,7 @@ import (
 )
 
 // const
-const version = "3.5.0"
+const version = "3.7.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -146,6 +147,7 @@ func main() {
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
 	mux.HandleFunc("/api/schedule", secureHandler(handleSchedule))
+	mux.HandleFunc("/api/shift", secureHandler(handleShift))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 	mux.HandleFunc("/api/upload-profile-image", secureHandler(handleProfileImageUpload))
@@ -579,6 +581,54 @@ func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
+}
+
+// シフト処理用のハンドラ
+func handleShift(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var shifts []Schedule
+	if err := json.NewDecoder(r.Body).Decode(&shifts); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// 書き込み（排他）
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// 既存のスケジュールを読み込み
+	var existing []Schedule
+	if data, err := os.ReadFile(schedulePath); err == nil {
+		json.Unmarshal(data, &existing)
+	}
+
+	// シフトを追加
+	existing = append(existing, shifts...)
+
+	// ファイルに書き戻し
+	f, err := os.Create(schedulePath)
+	if err != nil {
+		http.Error(w, "Write failed", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(existing); err != nil {
+		http.Error(w, "Write failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": fmt.Sprintf("%d件のシフトを登録しました", len(shifts)),
+	})
 }
 
 func handleVesion(w http.ResponseWriter, r *http.Request) {

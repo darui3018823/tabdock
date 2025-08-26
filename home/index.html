@@ -53,7 +53,7 @@
                             </button>
                         </div>
                         <div class="mb-2">
-                            <button id="openScheduleModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
+                            <button id="openScheduleTypeModal" class="w-full bg-white/20 text-white p-2 rounded hover:bg-white/30">
                                 予定を追加
                             </button>
                         </div>
@@ -161,10 +161,33 @@
         </div>
 
 
-        <!-- 予定モーダル -->
-        <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+        <!-- 予定種類選択モーダル -->
+        <div id="scheduleTypeModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md shadow-lg">
+                <h2 class="text-xl font-bold mb-4">予定の種類を選択</h2>
+                
+                <div class="space-y-4">
+                    <button id="openRegularScheduleBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-4 rounded transition-colors flex items-center justify-center space-x-2">
+                        <span class="text-lg">📅</span>
+                        <span>通常予定を追加</span>
+                    </button>
+                    
+                    <button id="openShiftScheduleBtn" class="w-full bg-green-600 hover:bg-green-500 text-white p-4 rounded transition-colors flex items-center justify-center space-x-2">
+                        <span class="text-lg">⏰</span>
+                        <span>シフトを追加</span>
+                    </button>
+                </div>
+
+                <div class="text-right mt-4">
+                    <button id="closeScheduleTypeModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 通常予定モーダル -->
+        <div id="regularScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
             <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
-                <h2 class="text-xl font-bold mb-4">予定の追加</h2>
+                <h2 class="text-xl font-bold mb-4">通常予定の追加</h2>
 
                 <!-- 基本情報 -->
                 <input type="date" id="scheduleDate" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
@@ -172,34 +195,103 @@
                 <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
 
                 <!-- 詳細設定トグル -->
-                <button id="toggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
+                <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
 
                 <!-- 詳細設定ブロック -->
-                <div id="detailSection" class="hidden">
+                <div id="regularDetailSection" class="hidden">
+                    <input type="text" id="scheduleLocation"
+                        placeholder="場所（例: 会議室 / aタグのみ許可）"
+                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+                    <small class="text-white/50 block mb-2 ml-1">例: &lt;a href="https://..."&gt;会議室リンク&lt;/a&gt;</small>
 
-                <input type="text" id="scheduleLocation"
-                    placeholder="場所（例: 会議室 / aタグのみ許可）"
-                    class="w-full p-1 rounded bg-gray-700 text-white mb-2">
-                <small class="text-white/50 block mb-2 ml-1">例: &lt;a href="https://..."&gt;会議室リンク&lt;/a&gt;</small>
+                    <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3"
+                        class="w-full p-1 rounded bg-gray-700 text-white mb-2"></textarea>
 
-                <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3"
-                    class="w-full p-1 rounded bg-gray-700 text-white mb-2"></textarea>
+                    <input type="text" id="scheduleEmbedMap"
+                        placeholder="埋め込みマップURL（Google Mapsなど）"
+                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
 
-                <input type="text" id="scheduleEmbedMap"
-                    placeholder="埋め込みマップURL（Google Mapsなど）"
-                    class="w-full p-1 rounded bg-gray-700 text-white mb-2">
-
-                <div class="mb-4">
-                    <label class="block mb-1 text-sm">添付ファイル（JPG, PNG, PDF）</label>
-                    <input type="file" id="scheduleAttachment"
-                    class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
-                </div>
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm">添付ファイル（JPG, PNG, PDF）</label>
+                        <input type="file" id="scheduleAttachment"
+                        class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                    </div>
                 </div>
 
                 <!-- 操作ボタン -->
                 <div class="flex justify-end space-x-4 mt-4">
-                <button id="closeScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
-                <button id="addScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
+                    <button id="closeRegularScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addRegularScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- シフト予定モーダル -->
+        <div id="shiftScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
+                <h2 class="text-xl font-bold mb-4">シフトの追加</h2>
+
+                <!-- シフト情報のペースト -->
+                <div class="mb-4">
+                    <label class="block mb-2 text-lg">シフト情報をペースト</label>
+                    <textarea id="scheduleShiftText" 
+                        placeholder="例: 
+8/27（火）10:00 - 18:00・本社オフィス
+8/28（水）9:00 - 17:00・営業所
+8/29（木）13:00 - 21:00" 
+                        rows="6" 
+                        class="w-full p-3 rounded bg-gray-700 text-white mb-2 font-mono"></textarea>
+                    <div class="text-sm text-white/70 space-y-1 mt-3">
+                        <p>【対応フォーマット】</p>
+                        <p>(月)/(日)（曜日）(時):(分) - (時):(分)・(勤務先)</p>
+                        <p>※勤務先は省略可能です</p>
+                    </div>
+                </div>
+
+                <!-- 操作ボタン -->
+                <div class="flex justify-end space-x-4 mt-4">
+                    <button id="closeShiftScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addShiftScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">シフトを追加</button>
+                </div>
+            </div>
+        </div>
+
+                <!-- 詳細設定トグル -->
+                <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
+
+                <!-- 詳細設定ブロック -->
+                <div id="regularDetailSection" class="hidden">
+                    <input type="text" id="scheduleLocation"
+                        placeholder="場所（例: 会議室 / aタグのみ許可）"
+                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+                    <small class="text-white/50 block mb-2 ml-1">例: &lt;a href="https://..."&gt;会議室リンク&lt;/a&gt;</small>
+
+                    <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3"
+                        class="w-full p-1 rounded bg-gray-700 text-white mb-2"></textarea>
+
+                    <input type="text" id="scheduleEmbedMap"
+                        placeholder="埋め込みマップURL（Google Mapsなど）"
+                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm">添付ファイル（JPG, PNG, PDF）</label>
+                        <input type="file" id="scheduleAttachment"
+                        class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                    </div>
+                </div>
+
+                <!-- 操作ボタン -->
+                <div class="flex justify-end space-x-4 mt-4">
+                    <button id="closeRegularScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addRegularScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
+                </div>
+            </div>
+        </div>
+
+                <!-- 操作ボタン -->
+                <div class="flex justify-end space-x-4 mt-4">
+                    <button id="closeShiftScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addShiftScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">シフトを追加</button>
                 </div>
             </div>
         </div>
@@ -599,6 +691,7 @@
             <script src="devtools.js" defer></script>
             <script src="passkey.js" defer></script>
             <script src="account.js" defer></script>
+            <script src="shift_parser.js" defer></script>
 
             <!-- time stamp-->
             <span id="weather-last-update" class="hidden">未取得</span>
