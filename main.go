@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "modernc.org/sqlite"
 
 	"github.com/google/uuid"
 )
@@ -83,6 +86,17 @@ type Schedule struct {
 	EmbedMap    string `json:"embedmap,omitempty"`
 }
 
+type ShiftEntry struct {
+	ID          int    `json:"id"`
+	Username    string `json:"username"`
+	Date        string `json:"date"`
+	StartTime   string `json:"startTime"`
+	EndTime     string `json:"endTime"`
+	Location    string `json:"location"`
+	Description string `json:"description"`
+	CreatedAt   string `json:"createdAt"`
+}
+
 // func
 func (rw *responseWriterWithStatus) WriteHeader(code int) {
 	rw.status = code
@@ -126,6 +140,10 @@ func main() {
 
 	if err := initDB(); err != nil {
 		log.Fatal("DB初期化失敗:", err)
+	}
+
+	if err := initShiftDB(); err != nil {
+		log.Fatal("シフトDB初期化失敗:", err)
 	}
 
 	// main page!
@@ -192,6 +210,95 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 			return
 		}
 	})
+}
+
+// データベース関連の関数
+func initShiftDB() error {
+	db, err := sql.Open("sqlite", "./database/shift.db")
+	if err != nil {
+		return fmt.Errorf("シフトデータベース接続エラー: %v", err)
+	}
+	defer db.Close()
+
+	// シフトテーブル
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS shifts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT NOT NULL,
+			date TEXT NOT NULL,
+			start_time TEXT NOT NULL,
+			end_time TEXT NOT NULL,
+			location TEXT,
+			description TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("シフトテーブル作成エラー: %v", err)
+	}
+
+	return nil
+}
+
+// シフト登録
+func registerShift(username string, shift ShiftEntry) error {
+	db, err := sql.Open("sqlite", "./database/shift.db")
+	if err != nil {
+		return fmt.Errorf("データベース接続エラー: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		INSERT INTO shifts (username, date, start_time, end_time, location, description)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, username, shift.Date, shift.StartTime, shift.EndTime, shift.Location, shift.Description)
+
+	if err != nil {
+		return fmt.Errorf("シフト登録エラー: %v", err)
+	}
+
+	return nil
+}
+
+// シフト取得
+func getShifts(username string) ([]ShiftEntry, error) {
+	db, err := sql.Open("sqlite", "./database/shift.db")
+	if err != nil {
+		return nil, fmt.Errorf("データベース接続エラー: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query(`
+		SELECT id, date, start_time, end_time, location, description, created_at
+		FROM shifts
+		WHERE username = ?
+		ORDER BY date ASC, start_time ASC
+	`, username)
+	if err != nil {
+		return nil, fmt.Errorf("シフト取得エラー: %v", err)
+	}
+	defer rows.Close()
+
+	var shifts []ShiftEntry
+	for rows.Next() {
+		var shift ShiftEntry
+		err := rows.Scan(
+			&shift.ID,
+			&shift.Date,
+			&shift.StartTime,
+			&shift.EndTime,
+			&shift.Location,
+			&shift.Description,
+			&shift.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("シフトデータ読み込みエラー: %v", err)
+		}
+		shifts = append(shifts, shift)
+	}
+
+	return shifts, nil
 }
 
 // APIハンドラ関数
@@ -585,8 +692,22 @@ func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
 
 // シフト処理用のハンドラ
 func handleShift(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	switch r.Method {
+	case http.MethodPost:
+		handleShiftPost(w, r)
+	case http.MethodGet:
+		handleShiftGet(w, r)
+	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// シフト登録
+func handleShiftPost(w http.ResponseWriter, r *http.Request) {
+	// ユーザー認証の確認
+	username := r.Header.Get("X-Username")
+	if username == "" {
+		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
 	}
 
@@ -596,23 +717,38 @@ func handleShift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 書き込み（排他）
+	// データベースに登録
+	for _, s := range shifts {
+		shift := ShiftEntry{
+			Username:    username,
+			Date:        s.Date,
+			StartTime:   s.Time,
+			EndTime:     s.EndTime,
+			Location:    s.Location,
+			Description: s.Description,
+		}
+
+		if err := registerShift(username, shift); err != nil {
+			log.Printf("シフト登録エラー: %v", err)
+			http.Error(w, "シフトの登録に失敗しました", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// 通常のスケジュールとしても登録（既存の処理を維持）
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// 既存のスケジュールを読み込み
 	var existing []Schedule
 	if data, err := os.ReadFile(schedulePath); err == nil {
 		json.Unmarshal(data, &existing)
 	}
 
-	// シフトを追加
 	existing = append(existing, shifts...)
 
-	// ファイルに書き戻し
 	f, err := os.Create(schedulePath)
 	if err != nil {
-		http.Error(w, "Write failed", http.StatusInternalServerError)
+		http.Error(w, "スケジュール書き込みに失敗しました", http.StatusInternalServerError)
 		return
 	}
 	defer f.Close()
@@ -621,7 +757,7 @@ func handleShift(w http.ResponseWriter, r *http.Request) {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(existing); err != nil {
-		http.Error(w, "Write failed", http.StatusInternalServerError)
+		http.Error(w, "スケジュール書き込みに失敗しました", http.StatusInternalServerError)
 		return
 	}
 
@@ -629,6 +765,25 @@ func handleShift(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": fmt.Sprintf("%d件のシフトを登録しました", len(shifts)),
 	})
+}
+
+// シフト取得
+func handleShiftGet(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("X-Username")
+	if username == "" {
+		http.Error(w, "認証が必要です", http.StatusUnauthorized)
+		return
+	}
+
+	shifts, err := getShifts(username)
+	if err != nil {
+		log.Printf("シフト取得エラー: %v", err)
+		http.Error(w, "シフトの取得に失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(shifts)
 }
 
 func handleVesion(w http.ResponseWriter, r *http.Request) {
