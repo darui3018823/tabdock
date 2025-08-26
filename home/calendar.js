@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.6_calendar-r1
+// This code Version: 3.7.0_calendar-r1
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -234,7 +234,7 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
 
 document.getElementById("closeRegularScheduleModal").addEventListener("click", () => {
     document.getElementById("regularScheduleModal").classList.add("hidden");
-    document.getElementById("menuModal").classList.remove("hidden");
+    document.getElementById("scheduleTypeModal").classList.remove("hidden");
 });
 
 // シフト予定モーダルの制御
@@ -245,7 +245,7 @@ document.getElementById("openShiftScheduleBtn").addEventListener("click", () => 
 
 document.getElementById("closeShiftScheduleModal").addEventListener("click", () => {
     document.getElementById("shiftScheduleModal").classList.add("hidden");
-    document.getElementById("menuModal").classList.remove("hidden");
+    document.getElementById("scheduleTypeModal").classList.remove("hidden");
 });
 
 // 通常予定追加
