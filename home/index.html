@@ -189,15 +189,12 @@
             <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
                 <h2 class="text-xl font-bold mb-4">通常予定の追加</h2>
 
-                <!-- 基本情報 -->
                 <input type="date" id="scheduleDate" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
                 <input type="text" id="scheduleTime" placeholder="時間 (例: 12:00~14:00)" class="w-full p-1 rounded bg-gray-700 text-white mb-2">
                 <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
 
-                <!-- 詳細設定トグル -->
                 <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
 
-                <!-- 詳細設定ブロック -->
                 <div id="regularDetailSection" class="hidden">
                     <input type="text" id="scheduleLocation"
                         placeholder="場所（例: 会議室 / aタグのみ許可）"
@@ -231,7 +228,6 @@
             <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
                 <h2 class="text-xl font-bold mb-4">シフトの追加</h2>
 
-                <!-- シフト情報のペースト -->
                 <div class="mb-4">
                     <label class="block mb-2 text-lg">シフト情報をペースト</label>
                     <textarea id="scheduleShiftText" 
@@ -248,56 +244,12 @@
                     </div>
                 </div>
 
-                <!-- 操作ボタン -->
                 <div class="flex justify-end space-x-4 mt-4">
                     <button id="closeShiftScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
                     <button id="addShiftScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">シフトを追加</button>
                 </div>
             </div>
-        </div>
-
-                <!-- 詳細設定トグル -->
-                <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
-
-                <!-- 詳細設定ブロック -->
-                <div id="regularDetailSection" class="hidden">
-                    <input type="text" id="scheduleLocation"
-                        placeholder="場所（例: 会議室 / aタグのみ許可）"
-                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
-                    <small class="text-white/50 block mb-2 ml-1">例: &lt;a href="https://..."&gt;会議室リンク&lt;/a&gt;</small>
-
-                    <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3"
-                        class="w-full p-1 rounded bg-gray-700 text-white mb-2"></textarea>
-
-                    <input type="text" id="scheduleEmbedMap"
-                        placeholder="埋め込みマップURL（Google Mapsなど）"
-                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
-
-                    <div class="mb-4">
-                        <label class="block mb-1 text-sm">添付ファイル（JPG, PNG, PDF）</label>
-                        <input type="file" id="scheduleAttachment"
-                        class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
-                    </div>
-                </div>
-
-                <!-- 操作ボタン -->
-                <div class="flex justify-end space-x-4 mt-4">
-                    <button id="closeRegularScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
-                    <button id="addRegularScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
-                </div>
-            </div>
-        </div>
-
-                <!-- 操作ボタン -->
-                <div class="flex justify-end space-x-4 mt-4">
-                    <button id="closeShiftScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
-                    <button id="addShiftScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">シフトを追加</button>
-                </div>
-            </div>
-        </div>
-
-
-          
+        </div>          
         
         <!-- main contents-->
         <div id="widgetContainer" class="relative z-10">
