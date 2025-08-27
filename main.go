@@ -809,6 +809,16 @@ func deleteAllShiftsForUser(username string) error {
 	}
 	defer db.Close()
 
+	// ユーザーが存在するか確認
+	var exists int
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", username).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("ユーザー確認エラー: %v", err)
+	}
+	if exists == 0 {
+		return fmt.Errorf("ログインユーザーが見つかりません: %s", username)
+	}
+
 	_, err = db.Exec(`DELETE FROM shifts WHERE username = ?`, username)
 	if err != nil {
 		return fmt.Errorf("シフト削除エラー: %v", err)

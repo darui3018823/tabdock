@@ -838,6 +838,18 @@ async function deleteAllShiftsForUser() {
         }
         const username = user.username;
 
+        // サーバーにユーザー情報を確認
+        const userResponse = await fetch('/api/auth/user-info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
+        });
+
+        const userData = await userResponse.json();
+        if (!userData.success) {
+            throw new Error('ユーザー認証に失敗しました');
+        }
+
         const result = await Swal.fire({
             title: '全シフトの削除',
             html: `
