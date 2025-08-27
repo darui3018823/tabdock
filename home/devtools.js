@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.2.0_devtools-r11
+// This code Version: 3.7.0_devtools-r1
 
 let debugLog = [];
 let maxLogEntries = 100;
@@ -832,10 +832,11 @@ function performQuickDiagnostics() {
 // シフト削除機能
 async function deleteAllShiftsForUser() {
     try {
-        const username = localStorage.getItem('username');
-        if (!username) {
+        const user = getLoggedInUser();
+        if (!user || !user.username) {
             throw new Error('ログインユーザーが見つかりません');
         }
+        const username = user.username;
 
         const result = await Swal.fire({
             title: '全シフトの削除',
