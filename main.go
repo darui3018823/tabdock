@@ -690,21 +690,40 @@ func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
 	w.Write(data)
 }
 
-// シフト処理用のハンドラ
 func handleShift(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		handleShiftPost(w, r)
 	case http.MethodGet:
 		handleShiftGet(w, r)
+	case http.MethodDelete:
+		username := r.Header.Get("X-Username")
+		if username == "" {
+			http.Error(w, "認証が必要です", http.StatusUnauthorized)
+			return
+		}
+
+		log.Printf("[INFO] シフト削除リクエスト - ユーザー: %s, IPアドレス: %s", username, r.RemoteAddr)
+
+		if err := deleteAllShiftsForUser(username); err != nil {
+			log.Printf("[ERROR] シフト削除エラー - ユーザー: %s, エラー: %v", username, err)
+			http.Error(w, "シフトの削除に失敗しました", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("[INFO] シフト削除成功 - ユーザー: %s", username)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": "すべてのシフトを削除しました",
+		})
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-// シフト登録
 func handleShiftPost(w http.ResponseWriter, r *http.Request) {
-	// ユーザー認証の確認
 	username := r.Header.Get("X-Username")
 	if username == "" {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
@@ -717,7 +736,6 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// データベースに登録
 	for _, s := range shifts {
 		shift := ShiftEntry{
 			Username:    username,
@@ -735,7 +753,6 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 通常のスケジュールとしても登録（既存の処理を維持）
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -767,7 +784,6 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// シフト取得
 func handleShiftGet(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("X-Username")
 	if username == "" {
@@ -784,6 +800,21 @@ func handleShiftGet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(shifts)
+}
+
+func deleteAllShiftsForUser(username string) error {
+	db, err := sql.Open("sqlite", "./database/shift.db")
+	if err != nil {
+		return fmt.Errorf("データベース接続エラー: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`DELETE FROM shifts WHERE username = ?`, username)
+	if err != nil {
+		return fmt.Errorf("シフト削除エラー: %v", err)
+	}
+
+	return nil
 }
 
 func handleVesion(w http.ResponseWriter, r *http.Request) {

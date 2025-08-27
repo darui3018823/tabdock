@@ -866,6 +866,11 @@ async function deleteAllShiftsForUser() {
                 throw new Error('シフトの削除に失敗しました');
             }
 
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'シフトの削除に失敗しました');
+            }
+
             await Swal.fire({
                 icon: 'success',
                 title: '削除完了',
