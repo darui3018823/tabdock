@@ -233,15 +233,30 @@
 8/27（火）10:00 - 18:00
 ・本社オフィス
 8/28（水）9:00 - 17:00
-・営業所
+・本社オフィス
 8/29（木）13:00 - 21:00" 
                         rows="6" 
                         class="w-full p-3 rounded bg-gray-700 text-white mb-2 font-mono"></textarea>
-                    <div class="text-sm text-white/70 space-y-1 mt-3">
-                        <p>【対応フォーマット】</p>
-                        <p>(月)/(日)（曜日）(時):(分) - (時):(分)</p>
-                        <p>・(勤務先)</p>
-                        <p>※勤務先は省略可能です</p>
+                    <div class="grid grid-cols-2 gap-4 text-sm text-white/70 mt-3">
+                        <div class="space-y-1">
+                            <p>【対応フォーマット】</p>
+                            <p>(月)/(日)（曜日）(時):(分) - (時):(分)</p>
+                            <p>・(勤務先)</p>
+                            <p>※勤務先は省略可能です</p>
+                        </div>
+                        <div class="space-y-1">
+                            <p>【対応アプリ】</p>
+                            <p class="hover:text-blue-400">
+                                <a href="https://apps.apple.com/jp/app/%E3%82%B7%E3%83%95%E3%83%88%E3%83%9C%E3%83%BC%E3%83%89-%E3%83%90%E3%82%A4%E3%83%88%E3%81%AE%E7%B5%A6%E6%96%99%E8%A8%88%E7%AE%97%E3%81%A8%E3%82%B7%E3%83%95%E3%83%88%E7%AE%A1%E7%90%86/id747364886" 
+                                   target="_blank" 
+                                   class="flex items-center">
+                                   - シフトボード
+                                   <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                   </svg>
+                                </a>
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -610,6 +625,11 @@
                             </div>
 
                             <div class="flex justify-between">
+                                <span>ログインユーザーのシフトを全て削除</span>
+                                <button id="deleteAllShiftsBtn" class="bg-red-600 hover:bg-red-500 px-3 py-1 rounded">削除</button>
+                            </div>
+
+                            <div class="flex justify-between">
                                 <span>ページ再読み込み</span>
                                 <button id="reloadPageBtn" class="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded">再読込</button>
                             </div>
@@ -645,6 +665,7 @@
             <script src="passkey.js" defer></script>
             <script src="account.js" defer></script>
             <script src="shift_parser.js" defer></script>
+            <script src="shift_modal.js" defer></script>
 
             <!-- time stamp-->
             <span id="weather-last-update" class="hidden">未取得</span>

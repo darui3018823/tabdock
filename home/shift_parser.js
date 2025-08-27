@@ -6,27 +6,47 @@
 function parseShiftText(text) {
     const lines = text.trim().split('\n');
     const shifts = [];
+    let currentShift = null;
     
     for (const line of lines) {
         const dateTimeMatch = line.match(/(\d+)\/(\d+)（([月火水木金土日])）\s*(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
         if (dateTimeMatch) {
+            if (currentShift) {
+                shifts.push(currentShift);
+            }
             const [_, month, date, dayOfWeek, startHour, startMin, endHour, endMin] = dateTimeMatch;
             
             const locationMatch = line.match(/・(.+)$/);
-            const location = locationMatch ? locationMatch[1].trim() : '';
+            let location = '';
+            let title = '';
+            
+            if (locationMatch) {
+                const fullMatch = locationMatch[1].trim();
+                // シフトボードの場合、"［シフトボード］"で始まるタイトルが含まれる
+                const shiftboardMatch = fullMatch.match(/^［シフトボード］(.+)/);
+                if (shiftboardMatch) {
+                    title = shiftboardMatch[1].trim();
+                } else {
+                    location = fullMatch;
+                }
+            }
             
             const currentYear = new Date().getFullYear();
             
-            shifts.push({
+            currentShift = {
                 date: `${currentYear}-${month.padStart(2, '0')}-${date.padStart(2, '0')}`,
                 startTime: `${startHour.padStart(2, '0')}:${startMin.padStart(2, '0')}`,
                 endTime: `${endHour.padStart(2, '0')}:${endMin.padStart(2, '0')}`,
                 dayOfWeek,
-                location
-            });
+                location,
+                title
+            };
         }
     }
     
+    if (currentShift) {
+        shifts.push(currentShift);
+    }
     return shifts;
 }
 
@@ -35,7 +55,7 @@ async function registerShifts(shifts) {
         date: shift.date,
         time: shift.startTime,
         endTime: shift.endTime,
-        title: `シフト${shift.location ? ` @ ${shift.location}` : ''}`,
+        title: shift.title || `シフト${shift.location ? ` @ ${shift.location}` : ''}`,
         description: `勤務時間: ${shift.startTime} - ${shift.endTime}\n${shift.location ? `勤務先: ${shift.location}` : ''}`
     }));
 

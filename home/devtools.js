@@ -650,6 +650,10 @@ document.getElementById("showDebugLogBtn").addEventListener("click", async () =>
     });
 });
 
+document.getElementById("deleteAllShiftsBtn").addEventListener("click", async () => {
+    await deleteAllShiftsForUser();
+});
+
 document.getElementById("runPerfTestBtn").addEventListener("click", async () => {
     console.log('=== パフォーマンステストボタンが押されました ===');
     
@@ -823,6 +827,66 @@ function performQuickDiagnostics() {
     addDebugLog('info', 'クイック診断実行', diagnostics);
     
     return diagnostics;
+}
+
+// シフト削除機能
+async function deleteAllShiftsForUser() {
+    try {
+        const username = localStorage.getItem('username');
+        if (!username) {
+            throw new Error('ログインユーザーが見つかりません');
+        }
+
+        const result = await Swal.fire({
+            title: '全シフトの削除',
+            html: `
+                <div class="text-left">
+                    <p class="mb-2">ユーザー "${username}" の全シフトを削除します。</p>
+                    <p class="text-red-600 font-bold">この操作は元に戻せません！</p>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '削除する',
+            cancelButtonText: 'キャンセル',
+            confirmButtonColor: '#dc2626'
+        });
+
+        if (result.isConfirmed) {
+            const response = await fetch('/api/shift', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Username': username
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('シフトの削除に失敗しました');
+            }
+
+            await Swal.fire({
+                icon: 'success',
+                title: '削除完了',
+                text: 'すべてのシフトを削除しました',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            // カレンダーを再読み込み
+            if (typeof loadSchedules === 'function') {
+                await loadSchedules();
+            }
+        }
+    } catch (error) {
+        console.error('シフト削除エラー:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: 'エラー',
+            text: error.message,
+            confirmButtonText: '閉じる'
+        });
+    }
 }
 
 console.log('=== DevTools自動診断開始 ===');
