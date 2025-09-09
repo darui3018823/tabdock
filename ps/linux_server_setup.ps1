@@ -33,7 +33,7 @@ server {
     ssl_certificate_key /etc/ssl/private/private.key;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:8083;
 
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
