@@ -127,6 +127,7 @@ func initDB() error {
 		display_name TEXT,
 		email TEXT,
 		password TEXT,
+		profile_image TEXT,
 		credential_id TEXT,
 		credential_public_key TEXT,
 		sign_count INTEGER,

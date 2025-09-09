@@ -189,10 +189,9 @@ func main() {
 	serve(mux)
 }
 
-// ミドルウェア：スラッシュ補完＆エラーハンドラ
+// スラッシュ補完
 func withSlashAndErrorHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// スラッシュが必要なのにない場合はリダイレクト
 		if !strings.HasSuffix(r.URL.Path, "/") && !strings.Contains(r.URL.Path, ".") {
 			http.Redirect(w, r, r.URL.Path+"/", http.StatusMovedPermanently)
 			return
@@ -212,7 +211,6 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 	})
 }
 
-// データベース関連の関数
 func initShiftDB() error {
 	db, err := sql.Open("sqlite", "./database/shift.db")
 	if err != nil {
@@ -220,18 +218,17 @@ func initShiftDB() error {
 	}
 	defer db.Close()
 
-	// シフトテーブル
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS shifts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username TEXT NOT NULL,
+			user_id TEXT NOT NULL,
 			date TEXT NOT NULL,
 			start_time TEXT NOT NULL,
 			end_time TEXT NOT NULL,
 			location TEXT,
 			description TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)
 	`)
 	if err != nil {
@@ -241,7 +238,6 @@ func initShiftDB() error {
 	return nil
 }
 
-// シフト登録
 func registerShift(username string, shift ShiftEntry) error {
 	db, err := sql.Open("sqlite", "./database/shift.db")
 	if err != nil {
@@ -249,10 +245,16 @@ func registerShift(username string, shift ShiftEntry) error {
 	}
 	defer db.Close()
 
+	var userID string
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	if err != nil {
+		return fmt.Errorf("ユーザー認証エラー: %v", err)
+	}
+
 	_, err = db.Exec(`
-		INSERT INTO shifts (username, date, start_time, end_time, location, description)
+		INSERT INTO shifts (user_id, date, start_time, end_time, location, description)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, username, shift.Date, shift.StartTime, shift.EndTime, shift.Location, shift.Description)
+	`, userID, shift.Date, shift.StartTime, shift.EndTime, shift.Location, shift.Description)
 
 	if err != nil {
 		return fmt.Errorf("シフト登録エラー: %v", err)
@@ -261,7 +263,6 @@ func registerShift(username string, shift ShiftEntry) error {
 	return nil
 }
 
-// シフト取得
 func getShifts(username string) ([]ShiftEntry, error) {
 	db, err := sql.Open("sqlite", "./database/shift.db")
 	if err != nil {
@@ -269,12 +270,18 @@ func getShifts(username string) ([]ShiftEntry, error) {
 	}
 	defer db.Close()
 
+	var userID string
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	if err != nil {
+		return nil, fmt.Errorf("ユーザー認証エラー: %v", err)
+	}
+
 	rows, err := db.Query(`
 		SELECT id, date, start_time, end_time, location, description, created_at
 		FROM shifts
-		WHERE username = ?
+		WHERE user_id = ?
 		ORDER BY date ASC, start_time ASC
-	`, username)
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("シフト取得エラー: %v", err)
 	}
@@ -295,6 +302,7 @@ func getShifts(username string) ([]ShiftEntry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("シフトデータ読み込みエラー: %v", err)
 		}
+		shift.Username = username // 表示用にユーザー名を設定
 		shifts = append(shifts, shift)
 	}
 
@@ -736,6 +744,24 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db, err := sql.Open("sqlite", "./database/shift.db")
+	if err != nil {
+		http.Error(w, "データベースエラー", http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	var userID string
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "ユーザーが見つかりません", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "データベースエラー", http.StatusInternalServerError)
+		}
+		return
+	}
+
 	for _, s := range shifts {
 		shift := ShiftEntry{
 			Username:    username,
@@ -761,7 +787,24 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(data, &existing)
 	}
 
-	existing = append(existing, shifts...)
+	filtered := make([]Schedule, 0)
+	for _, s := range existing {
+		if !strings.HasPrefix(s.Title, fmt.Sprintf("[シフト] %s:", username)) {
+			filtered = append(filtered, s)
+		}
+	}
+
+	for _, s := range shifts {
+		sched := Schedule{
+			Title:       fmt.Sprintf("[シフト] %s: %s", username, s.Location),
+			Date:        s.Date,
+			Time:        s.Time,
+			EndTime:     s.EndTime,
+			Location:    s.Location,
+			Description: s.Description,
+		}
+		filtered = append(filtered, sched)
+	}
 
 	f, err := os.Create(schedulePath)
 	if err != nil {
@@ -773,7 +816,7 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(f)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(existing); err != nil {
+	if err := enc.Encode(filtered); err != nil {
 		http.Error(w, "スケジュール書き込みに失敗しました", http.StatusInternalServerError)
 		return
 	}
@@ -809,17 +852,16 @@ func deleteAllShiftsForUser(username string) error {
 	}
 	defer db.Close()
 
-	// ユーザーが存在するか確認
-	var exists int
-	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", username).Scan(&exists)
+	var userID string
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("ログインユーザーが見つかりません: %s", username)
+		}
 		return fmt.Errorf("ユーザー確認エラー: %v", err)
 	}
-	if exists == 0 {
-		return fmt.Errorf("ログインユーザーが見つかりません: %s", username)
-	}
 
-	_, err = db.Exec(`DELETE FROM shifts WHERE username = ?`, username)
+	_, err = db.Exec(`DELETE FROM shifts WHERE user_id = ?`, userID)
 	if err != nil {
 		return fmt.Errorf("シフト削除エラー: %v", err)
 	}
