@@ -16,6 +16,4 @@ Remove-Item Env:GOOS
 Remove-Item Env:GOARCH
 
 Write-Host "Build successful! The executable is located at ./dist/tabdock_linux_arm64"
-Write-Host "Running the application..."
 Write-Host "===================================================="
-./dist/tabdock_linux_arm64
