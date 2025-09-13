@@ -45,8 +45,6 @@ if ($SignExec) {
 
                     if ($exists) {
                         try {
-                            signtool version
-
                             signtool sign `
                                 /f $PfxPath `
                                 /p $CertPassword `
