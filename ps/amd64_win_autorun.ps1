@@ -70,6 +70,9 @@ if ($SignExec) {
                         Write-Host "signtool not found. Please install the Windows SDK to get signtool."
                         exit 1
                     }
+                } catch {
+                    Write-Host "Error checking for signtool. Please ensure it is installed correctly."
+                    exit 1
                 }
             } else {
                 Write-Host "Failed to create .pfx file. Please check your certificate and key files."
