@@ -120,7 +120,7 @@ def get_main_window():
             
             # iPad用：文字数制限を大幅に緩和し、改行を含む形式で返す
             # 3行目に行かないよう、適度な長さで区切る（約80文字程度）
-            max_length = 80
+            max_length = 60
             if len(window_text) > max_length:
                 return window_text[:max_length] + "..."
             else:

@@ -25,7 +25,7 @@ import (
 )
 
 // const
-const version = "4.0.0"
+const version = "4.1.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -44,20 +44,6 @@ var (
 type responseWriterWithStatus struct {
 	http.ResponseWriter
 	status int
-}
-
-type PCStatus struct {
-	PC         string `json:"pc"`
-	Battery    string `json:"battery"`
-	WAN        string `json:"wan"`
-	Uptime     string `json:"uptime"`
-	CPU        string `json:"cpu"`
-	Mem        string `json:"mem"`
-	GPU0       string `json:"gpu0"`
-	GPU1       string `json:"gpu1"`
-	VRAM       string `json:"vram"`
-	DriveC     string `json:"driveC"`
-	MainWindow string `json:"mainWindow"`
 }
 
 type Forecast struct {
@@ -315,7 +301,7 @@ func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	if r.Method == http.MethodHead {
 		w.WriteHeader(http.StatusOK)

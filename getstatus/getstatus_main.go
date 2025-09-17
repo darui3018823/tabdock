@@ -82,13 +82,61 @@ func getGPU() string {
 
 func getVRAM() string {
 	return runPS(`nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | ForEach-Object {
-        $p=$_.Split(",");$u=[double]$p[0];$t=[double]$p[1];$pr=[math]::Round(($u/$t)*100,0);
-        "$pr% ($u" + "MiB/$t" + "MiB)"
+        $p=$_.Split(",")
+        $u=[double]$p[0]
+        $t=[double]$p[1]
+        $pr=[math]::Round(($u/$t)*100,0)
+        $uGB = [math]::Round($u/1024,1)
+        $tGB = [math]::Round($t/1024,1)
+        "$pr% ($uGB" + "GB/$tGB" + "GB)"
     } | Select-Object -First 1`)
 }
 
 func getMainWindow() string {
-	return runPS(`Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object -First 1 -Expand MainWindowTitle`)
+	GetMainWindowComand := `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public class User32 {
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+}
+"@
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+function Get-MainWindow {
+    try {
+        $hWnd = [User32]::GetForegroundWindow()
+        if ($hWnd -ne [IntPtr]::Zero) {
+            $buffer = New-Object System.Text.StringBuilder 1024
+            [User32]::GetWindowText($hWnd, $buffer, $buffer.Capacity) | Out-Null
+            $windowText = $buffer.ToString()
+
+            if ([string]::IsNullOrWhiteSpace($windowText)) {
+                return "Unknown"
+            }
+
+            $maxLength = 60
+            if ($windowText.Length -gt $maxLength) {
+                return $windowText.Substring(0, $maxLength) + "..."
+            } else {
+                return $windowText
+            }
+        } else {
+            return "None"
+        }
+    } catch {
+        return "Unavailable"
+    }
+}
+Get-MainWindow`
+
+	return runPS(GetMainWindowComand)
 }
 
 // Darwin
