@@ -25,7 +25,7 @@ import (
 )
 
 // const
-const version = "3.7.0"
+const version = "4.0.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -103,9 +103,9 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 }
 
 func serve(mux http.Handler) {
-	update1 := "WebAuthn support added."
-	update2 := "Passkey feature requires iOS 16 or later."
-	update3 := "This service requires local DNS configuration in order to use 'tabdock.daruks.com'."
+	update1 := "GetStatus has been ported to Golang."
+	update2 := "As a result, PowerShell Core is now required even outside Windows environments."
+	update3 := "Many more fixes have also been applied."
 
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
