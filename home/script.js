@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 4.2.0_js-r2
+// This code Version: 4.3.0_js-r1
 
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
@@ -73,14 +73,14 @@ function updatePCStatus() {
         .then(data => {
             // 左列
             document.getElementById("PC").textContent = " (" + data.PC + ") : Online";
-            document.getElementById("Battery").textContent = data.Battery;
+            document.getElementById("Battery").textContent = data.Battery + "%";
             document.getElementById("WAN").textContent = data.WAN;
             document.getElementById("Uptime").textContent = data.Uptime;
     
             // 中央列
             document.getElementById("CPU").textContent = data.CPU;
             document.getElementById("Mem").textContent = data.Mem;
-            document.getElementById("GPU0").textContent = data.GPU0;
+            document.getElementById("GPU0").textContent = data.GPU0 + "%";
             document.getElementById("VRAM").textContent = data.VRAM;
     
             // 右列

@@ -549,9 +549,10 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: "ログイン成功",
 		User: map[string]interface{}{
-			"username": user.Username,
-			"email":    user.Email,
-			"loginAt":  time.Now().Unix(),
+			"username":     user.Username,
+			"email":        user.Email,
+			"profileImage": user.ProfileImage,
+			"loginAt":      time.Now().Unix(),
 		},
 	}
 	w.Header().Set("Content-Type", "application/json")
