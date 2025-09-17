@@ -303,20 +303,28 @@ func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	if r.Method == http.MethodHead {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
+	statusCh := make(chan *getstatus.PCStatus)
+	errCh := make(chan error)
 
-	status, err := getPCStatus()
-	if err != nil {
+	go func() {
+		status, err := getPCStatus()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		statusCh <- status
+	}()
+
+	select {
+	case status := <-statusCh:
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			log.Println("encode error:", err)
+		}
+	case err := <-errCh:
 		log.Println("status error:", err)
 		http.Error(w, "Failed to get status", http.StatusInternalServerError)
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(status); err != nil {
-		log.Println("encode error:", err)
+	case <-time.After(5 * time.Second):
+		http.Error(w, "Timeout getting status", http.StatusGatewayTimeout)
 	}
 }
 

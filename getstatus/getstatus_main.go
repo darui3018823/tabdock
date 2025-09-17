@@ -6,17 +6,27 @@ package getstatus
 
 import (
 	"fmt"
-	"os/exec"
+	"net"
+	"os"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+	"golang.org/x/sys/windows"
 )
 
 // Windows
+var (
+	user32             = windows.NewLazySystemDLL("user32.dll")
+	procGetForeground  = user32.NewProc("GetForegroundWindow")
+	procGetWindowTextW = user32.NewProc("GetWindowTextW")
+)
+
 func getWindowsStatus() (*PCStatus, error) {
 	status := &PCStatus{}
 	status.PC = getPCName()
@@ -33,7 +43,8 @@ func getWindowsStatus() (*PCStatus, error) {
 }
 
 func getPCName() string {
-	return runPS(`$env:COMPUTERNAME`)
+	name, _ := os.Hostname()
+	return name
 }
 
 func getBattery() string {
@@ -41,10 +52,11 @@ func getBattery() string {
 }
 
 func getWAN() string {
-	cmd := exec.Command("ping", "-n", "1", "-w", "1000", "1.1.1.1")
-	if err := cmd.Run(); err != nil {
+	conn, err := net.DialTimeout("tcp", "1.1.1.1:53", 200*time.Millisecond)
+	if err != nil {
 		return "Offline"
 	}
+	conn.Close()
 	return "Active"
 }
 
@@ -93,50 +105,13 @@ func getVRAM() string {
 }
 
 func getMainWindow() string {
-	GetMainWindowComand := `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Text;
-
-public class User32 {
-    [DllImport("user32.dll")]
-    public static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-}
-"@
-$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
-function Get-MainWindow {
-    try {
-        $hWnd = [User32]::GetForegroundWindow()
-        if ($hWnd -ne [IntPtr]::Zero) {
-            $buffer = New-Object System.Text.StringBuilder 1024
-            [User32]::GetWindowText($hWnd, $buffer, $buffer.Capacity) | Out-Null
-            $windowText = $buffer.ToString()
-
-            if ([string]::IsNullOrWhiteSpace($windowText)) {
-                return "Unknown"
-            }
-
-            $maxLength = 60
-            if ($windowText.Length -gt $maxLength) {
-                return $windowText.Substring(0, $maxLength) + "..."
-            } else {
-                return $windowText
-            }
-        } else {
-            return "None"
-        }
-    } catch {
-        return "Unavailable"
-    }
-}
-Get-MainWindow`
-
-	return runPS(GetMainWindowComand)
+	hwnd, _, _ := procGetForeground.Call()
+	if hwnd == 0 {
+		return "None"
+	}
+	buf := make([]uint16, 256)
+	procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	return syscall.UTF16ToString(buf)
 }
 
 // Darwin
