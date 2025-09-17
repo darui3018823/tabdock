@@ -15,11 +15,22 @@ type PCStatus struct {
 }
 
 func runPS(cmd string) string {
-	out, err := exec.Command("pwsh", "-Command", cmd).Output()
-	if err != nil {
-		return "Error"
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.Command("powershell", "-Command", cmd).Output()
+		if err != nil {
+			return "Error"
+		}
+		return strings.TrimSpace(string(out))
+	case "linux", "darwin":
+		out, err := exec.Command("sh", "-c", cmd).Output()
+		if err != nil {
+			return "Error"
+		}
+		return strings.TrimSpace(string(out))
+	default:
+		return "N/A"
 	}
-	return strings.TrimSpace(string(out))
 }
 
 func GetStatus() (*PCStatus, error) {

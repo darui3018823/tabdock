@@ -61,7 +61,7 @@ func getWAN() string {
 }
 
 func getCPU() string {
-	p, _ := cpu.Percent(time.Second, false)
+	p, _ := cpu.Percent(0, false)
 	if len(p) > 0 {
 		return strings.TrimSpace(fmt.Sprintf("%.0f%%", p[0]))
 	}
