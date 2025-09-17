@@ -32,9 +32,15 @@ func GetStatus() (*PCStatus, error) {
 		return getDarwinStatus()
 	default:
 		return &PCStatus{
-			PC: "Unknown", Battery: "N/A", WAN: "N/A",
-			Uptime: "N/A", CPU: "N/A", Mem: "N/A",
-			GPU0: "N/A", VRAM: "N/A", DriveC: "N/A",
+			PC:         "Unknown",
+			Battery:    "N/A",
+			WAN:        "N/A",
+			Uptime:     "N/A",
+			CPU:        "N/A",
+			Mem:        "N/A",
+			GPU0:       "N/A",
+			VRAM:       "N/A",
+			DriveC:     "N/A",
 			MainWindow: "N/A",
 		}, nil
 	}
