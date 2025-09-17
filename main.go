@@ -13,11 +13,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
+	"tabdock/getstatus"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -335,27 +334,8 @@ func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getPCStatus() (*PCStatus, error) {
-	var cmd *exec.Cmd
-
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("./get_status.exe")
-	} else {
-		cmd = exec.Command("python3", "Python/get_status.py")
-	}
-
-	output, err := cmd.Output()
-	if err != nil {
-		log.Println("Command execution failed:", err)
-		return nil, err
-	}
-
-	var status PCStatus
-	if err := json.Unmarshal(output, &status); err != nil {
-		log.Println("JSON parse failed:", err)
-		return nil, err
-	}
-	return &status, nil
+func getPCStatus() (*getstatus.PCStatus, error) {
+	return getstatus.GetStatus()
 }
 
 func handleWeather(w http.ResponseWriter, r *http.Request) {
