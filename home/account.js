@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.3.3_acc-r1
+// This code Version: 4.3.1-acc-r1
 
 document.addEventListener("DOMContentLoaded", () => {
     window.onPasskeyLoginSuccess = function(user) {
@@ -605,29 +605,42 @@ function handleNormalLogin() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const userInfo = {
-                username: data.user.username,
-                email: data.user.email,
-                loginAt: data.user.loginAt,
-                loginMethod: "パスワード",
-                profileImage: data.user.profileImage || null
-            };
-            saveLoginState(userInfo);
-            
-            Swal.fire("ログイン成功", "正常にログインしました。", "success");
-            closeAccountModal();
-            
-            updateUIForLoggedInUser(userInfo);
-            setupAccountModal();
+            fetch("/api/auth/user-info", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: data.user.username })
+            })
+            .then(resp => resp.json())
+            .then(info => {
+                const userInfo = {
+                    username: data.user.username,
+                    email: data.user.email,
+                    loginAt: data.user.loginAt,
+                    loginMethod: "パスワード",
+                    profileImage: info.success ? info.user.profileImage : null
+                };
+
+                saveLoginState(userInfo);
+
+                Swal.fire("ログイン成功", "正常にログインしました。", "success");
+                closeAccountModal();
+                updateUIForLoggedInUser(userInfo);
+                setupAccountModal();
+            })
+            .catch(err => {
+                console.error("ユーザー情報取得エラー:", err);
+                Swal.fire("エラー", "ユーザー情報取得に失敗しました。", "error");
+            });
         } else {
             Swal.fire("ログイン失敗", data.message || "ログインに失敗しました。", "error");
         }
     })
     .catch(error => {
         console.error("ログインエラー:", error);
-        Swal.fire("エラー", "ログイン処理中にエラーが発生しました。", "error");
+        Swal.fire("エラー", "ログイン処理中にエラーが発生しました", "error");
     });
 }
+
 
 function handlePasskeyLogin() {
     const username = document.getElementById("loginUsername").value.trim();
