@@ -104,6 +104,14 @@ func getVRAM() string {
     } | Select-Object -First 1`)
 }
 
+func trimString(s string, limit int) string {
+	runes := []rune(s)
+	if len(runes) > limit {
+		return string(runes[:limit]) + "..."
+	}
+	return s
+}
+
 func getMainWindow() string {
 	hwnd, _, _ := procGetForeground.Call()
 	if hwnd == 0 {
@@ -111,7 +119,9 @@ func getMainWindow() string {
 	}
 	buf := make([]uint16, 256)
 	procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
-	return syscall.UTF16ToString(buf)
+	title := syscall.UTF16ToString(buf)
+
+	return trimString(title, 100)
 }
 
 // Darwin
