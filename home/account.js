@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 4.4.0_acc-r2
+// This code Version: 4.4.0_acc-r3
 
 document.addEventListener("DOMContentLoaded", () => {
     window.onPasskeyLoginSuccess = function(user) {
@@ -775,14 +775,9 @@ function handleRegister() {
 function updateUIForLoggedInUser(user) {
     console.log("ログインユーザー:", user);
 
-    Swal.fire({
-        toast: true,
-        position: 'top-end',
+    Toast.fire({
         icon: 'success',
-        title: `${user.username} としてログインしました`,
-        showConfirmButton: false,
-        timer: 5000,
-        timerProgressBar: true
+        title: `${user.username} としてログインしました`
     });
 
     const accManageBtn = document.getElementById("openAccManage");

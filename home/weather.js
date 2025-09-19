@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 4.4.0_weather-r2
+// This code Version: 4.4.0_weather-r3
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -154,14 +154,9 @@ async function fetchWeather() {
             }
         }
 
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
+        Toast.fire({
             icon: 'info',
-            title: '天気情報を更新しました',
-            showConfirmButton: false,
-            timer: 5000,
-            timerProgressBar: true
+            title: '天気情報を更新しました'
         });
 
         setWeatherDetailEvents();
