@@ -121,7 +121,7 @@ func getMainWindow() string {
 	procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
 	title := syscall.UTF16ToString(buf)
 
-	return trimString(title, 100)
+	return trimString(title, 50)
 }
 
 // Darwin
