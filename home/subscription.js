@@ -1,4 +1,8 @@
-// Subscription Management Module
+// 2025 TabDock: darui3018823 All rights reserved.
+// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
+// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
+// This code Version: 5.0.0_subsc-ra2
+
 class SubscriptionManager {
     constructor() {
         this.modal = null;
@@ -13,42 +17,45 @@ class SubscriptionManager {
 
     createModal() {
         const modalHTML = `
-            <div id="subscriptionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center transition-opacity duration-300">
-                <div class="bg-white bg-opacity-95 rounded-lg p-6 w-full max-w-md transform scale-95 opacity-0 transition-all duration-300">
-                    <h2 class="text-2xl font-bold mb-4">サブスクリプションスケジュールを追加</h2>
+            <div id="subscriptionModal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center transition-opacity duration-300">
+                <div class="bg-gray-900 bg-opacity-95 rounded-lg p-6 w-full max-w-md transform scale-95 opacity-0 transition-all duration-300 shadow-2xl border border-gray-800">
+                    <h2 class="text-2xl font-bold mb-4 text-white">サブスクリプションスケジュールを追加</h2>
                     <form id="subscriptionForm" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">サービス名</label>
-                            <input type="text" name="serviceName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <label class="block text-sm font-medium text-gray-200">サービス名</label>
+                            <input type="text" name="serviceName" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">プラン名</label>
-                            <input type="text" name="planName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <label class="block text-sm font-medium text-gray-200">プラン名</label>
+                            <input type="text" name="planName" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">金額</label>
-                                <input type="number" name="amount" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <label class="block text-sm font-medium text-gray-200">金額</label>
+                                <input type="number" name="amount" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">通貨</label>
-                                <select name="currency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="JPY" selected>JPY</option>
+                                <label class="block text-sm font-medium text-gray-200">通貨</label>
+                                <select name="currency" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="" selected disabled>選択してください</option>
+                                    <option value="JPY">JPY</option>
                                     <option value="USD">USD</option>
                                     <option value="EUR">EUR</option>
                                 </select>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">課金サイクル</label>
-                            <select name="billingCycle" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <label class="block text-sm font-medium text-gray-200">課金サイクル</label>
+                            <select name="billingCycle" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="" selected disabled>選択してください</option>
                                 <option value="monthly">月額</option>
                                 <option value="yearly">年額</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">決済方法</label>
-                            <select name="paymentMethod" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <label class="block text-sm font-medium text-gray-200">決済方法</label>
+                            <select name="paymentMethod" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="" selected disabled>選択してください</option>
                                 <option value="CC">クレジットカード</option>
                                 <option value="PayPal">PayPal</option>
                                 <option value="GooglePay">Google Pay</option>
@@ -60,30 +67,30 @@ class SubscriptionManager {
                         </div>
                         <div id="paymentDetails" class="hidden space-y-4">
                             <div id="ccDetails" class="hidden">
-                                <label class="block text-sm font-medium text-gray-700">カード末尾4桁（任意）</label>
-                                <input type="text" name="cardLastFour" pattern="[0-9]{4}" maxlength="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <label class="block text-sm font-medium text-gray-200">カード末尾4桁（任意）</label>
+                                <input type="text" name="cardLastFour" pattern="[0-9]{4}" maxlength="4" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
                             <div id="paypalDetails" class="hidden">
-                                <label class="block text-sm font-medium text-gray-700">PayPalメールアドレス（任意）</label>
-                                <input type="email" name="paypalEmail" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <label class="block text-sm font-medium text-gray-200">PayPalメールアドレス（任意）</label>
+                                <input type="email" name="paypalEmail" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
                             <div id="otherDetails" class="hidden">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">決済方法名</label>
-                                    <input type="text" name="otherPaymentMethod" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <label class="block text-sm font-medium text-gray-200">決済方法名</label>
+                                    <input type="text" name="otherPaymentMethod" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">ラベル（任意）</label>
-                                    <input type="text" name="otherPaymentLabel" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <label class="block text-sm font-medium text-gray-200">ラベル（任意）</label>
+                                    <input type="text" name="otherPaymentLabel" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">次回支払日</label>
-                            <input type="date" name="nextPaymentDate" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <label class="block text-sm font-medium text-gray-200">次回支払日</label>
+                            <input type="date" name="nextPaymentDate" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                         <div class="flex justify-end space-x-3 pt-4">
-                            <button type="button" id="cancelSubscription" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                            <button type="button" id="cancelSubscription" class="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
                                 キャンセル
                             </button>
                             <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
@@ -101,13 +108,21 @@ class SubscriptionManager {
     }
 
     setupEventListeners() {
-        // メニューから開くためのイベントリスナー
-        document.addEventListener('DOMContentLoaded', () => {
-            const addButton = document.querySelector('[data-action="add-subscription"]');
-            if (addButton) {
-                addButton.addEventListener('click', () => this.showModal());
-            }
-        });
+            // メニューから開くためのイベントリスナー
+            document.addEventListener('DOMContentLoaded', () => {
+                const addButton = document.querySelector('[data-action="add-subscription"]');
+                if (addButton) {
+                    addButton.addEventListener('click', () => {
+                        // 予定種類選択モーダルを閉じる
+                        const scheduleTypeModal = document.getElementById('scheduleTypeModal');
+                        if (scheduleTypeModal) {
+                            scheduleTypeModal.classList.add('hidden');
+                            scheduleTypeModal.classList.remove('flex');
+                        }
+                        this.showModal();
+                    });
+                }
+            });
 
         // 決済方法の変更時の処理
         const paymentMethodSelect = this.form.querySelector('[name="paymentMethod"]');
@@ -130,17 +145,22 @@ class SubscriptionManager {
     showModal() {
         this.modal.classList.remove('hidden');
         this.modal.classList.add('flex');
+        this.modal.style.zIndex = '1000'; // 最前面に
         requestAnimationFrame(() => {
-            this.modal.querySelector('.bg-white').classList.remove('scale-95', 'opacity-0');
-            this.modal.querySelector('.bg-white').classList.add('scale-100', 'opacity-100');
+            const modalContent = this.modal.querySelector('.bg-gray-900');
+            if (modalContent) {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }
         });
     }
 
     hideModal() {
-        const modalContent = this.modal.querySelector('.bg-white');
-        modalContent.classList.remove('scale-100', 'opacity-100');
-        modalContent.classList.add('scale-95', 'opacity-0');
-        
+        const modalContent = this.modal.querySelector('.bg-gray-900');
+        if (modalContent) {
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+        }
         setTimeout(() => {
             this.modal.classList.remove('flex');
             this.modal.classList.add('hidden');
@@ -213,10 +233,24 @@ class SubscriptionManager {
         }
 
         try {
+            let username = null;
+            if (window.getLoggedInUser) {
+                const user = window.getLoggedInUser();
+                if (user && user.username) username = user.username;
+            } else if (localStorage.getItem('tabdock_user')) {
+                const user = JSON.parse(localStorage.getItem('tabdock_user'));
+                if (user && user.username) username = user.username;
+            }
+
+            if (!username) {
+                throw new Error('ログインユーザー情報が取得できません。ログインしてください。');
+            }
+
             const response = await fetch('/api/subscriptions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Username': username
                 },
                 body: JSON.stringify(data),
                 credentials: 'include'
