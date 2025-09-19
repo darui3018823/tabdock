@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.3.0_status-r1
+// This code Version: 3.3.0_status-r2
 
 function checkApi(endpoint, labelId, method = "HEAD") {
     const start = performance.now();
@@ -71,11 +71,11 @@ fetchJsVersion("account.js", "account.js");
 fetchJsVersion("calendar.js", "calendar.js");
 fetchJsVersion("devtools.js", "devtools.js");
 fetchJsVersion("passkey.js", "passkey.js");
-fetchJsVersion("script", "script.js");
-fetchJsVersion("shift_modal", "shift_modal.js");
-fetchJsVersion("shift_parser", "shift_parser.js");
-fetchJsVersion("status", "status.js");
-fetchJsVersion("tabdock_about", "tabdock_about.js");
-fetchJsVersion("toast", "toast.js");
-fetchJsVersion("ui_visibility", "ui_visibility.js");
-fetchJsVersion("weather", "weather.js");
+fetchJsVersion("script.js", "script.js");
+fetchJsVersion("shift_modal.js", "shift_modal.js");
+fetchJsVersion("shift_parser.js", "shift_parser.js");
+fetchJsVersion("status.js", "status.js");
+fetchJsVersion("tabdock_about.js", "tabdock_about.js");
+fetchJsVersion("toast.js", "toast.js");
+fetchJsVersion("ui_visibility.js", "ui_visibility.js");
+fetchJsVersion("weather.js", "weather.js");
