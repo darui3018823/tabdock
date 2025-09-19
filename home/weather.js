@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 2.9.3_weather-r10
+// This code Version: 4.3.2_weather-r2
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -231,8 +231,8 @@ document.getElementById("modalCloseBtn")?.addEventListener("click", () => {
     document.getElementById("modal")?.classList.add("hidden");
 });
 
-function closeModal() {
-    document.getElementById("weatherModal").classList.add("hidden");
+function closeLocationModal() {
+    document.getElementById("locationModal")?.classList.add("hidden");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -267,7 +267,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const locationModal = document.getElementById("locationModal");
     const openLocationModalBtn = document.getElementById("openLocationModalBtn"); // 地域選択を開くボタン（仮）
-    const closeLocationModalBtn = document.getElementById("closeLocationModal");
+    document.getElementById("closeLocationModal")?.addEventListener("click", closeLocationModal);
+    document.getElementById("modalCloseBtn")?.addEventListener("click", closeWeatherDetailModal);
     const saveLocationBtn = document.getElementById("saveLocationBtn");
 
     if (openLocationModalBtn) {
@@ -276,8 +277,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    document.getElementById("modalCloseBtn")?.addEventListener("click", () => {
-        document.getElementById("modal").classList.add("hidden");
+    document.getElementById("closeLocationModal")?.addEventListener("click", () => {
+        document.getElementById("locationModal")?.classList.add("hidden");
     });
     
 
@@ -316,9 +317,6 @@ function getCookie(name) {
     return value ? decodeURIComponent(value[2]) : null;
 }
 
-function closeModal() {
-    const modal = document.getElementById("weatherDetailModal");
-    if (modal) {
-        modal.classList.add("hidden");
-    }
+function closeWeatherDetailModal() {
+    document.getElementById("weatherDetailModal")?.classList.add("hidden");
 }
