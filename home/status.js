@@ -67,12 +67,15 @@ async function fetchJsVersion(filename, id) {
     }
 }
 
-fetchJsVersion("script.js", "scripts.js");
-fetchJsVersion("status.js", "status.js");
-fetchJsVersion("weather.js", "weather.js");
+fetchJsVersion("account.js", "account.js");
 fetchJsVersion("calendar.js", "calendar.js");
-fetchJsVersion("ui_visibility.js", "ui_visibility.js");
-fetchJsVersion("tabdock_about.js", "tabdock_about.js");
 fetchJsVersion("devtools.js", "devtools.js");
 fetchJsVersion("passkey.js", "passkey.js");
-fetchJsVersion("account.js", "account.js");
+fetchJsVersion("script", "script.js");
+fetchJsVersion("shift_modal", "shift_modal.js");
+fetchJsVersion("shift_parser", "shift_parser.js");
+fetchJsVersion("status", "status.js");
+fetchJsVersion("tabdock_about", "tabdock_about.js");
+fetchJsVersion("toast", "toast.js");
+fetchJsVersion("ui_visibility", "ui_visibility.js");
+fetchJsVersion("weather", "weather.js");
