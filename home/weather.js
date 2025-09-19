@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 4.3.2_weather-r2
+// This code Version: 4.4.0_weather-r2
 
 let weatherDetailData = [];
 let weatherData = null;
@@ -14,9 +14,10 @@ async function fetchWeather() {
         return temp?.celsius ?? "--";
     }
 
-    const pref = getCookie("prefname");
-    const city = getCookie("cityname");
+    const pref = localStorage.getItem("prefname");
+    const city = localStorage.getItem("cityname");
     if (!pref || !city) return;
+
     document.getElementById("weather-title").textContent = `天気予報（地域：${pref}、${city}）`;
 
     try {
@@ -251,12 +252,15 @@ document.addEventListener("DOMContentLoaded", () => {
         locationSave.addEventListener("click", () => {
             const pref = document.getElementById("prefInput").value.trim();
             const city = document.getElementById("cityInput").value.trim();
-            if (!pref || !city) return;
-
-            document.cookie = `prefname=${encodeURIComponent(pref)}; path=/;`;
-            document.cookie = `cityname=${encodeURIComponent(city)}; path=/;`;
-            document.getElementById("locationModal").classList.add("hidden");
-            fetchWeather();
+            if (pref && city) {
+                localStorage.setItem("prefname", pref);
+                localStorage.setItem("cityname", city);
+                
+                locationModal.classList.add("hidden");
+                fetchWeather();
+            } else {
+                alert("都道府県名と市区町村名を両方入力してください。");
+            }
         });
     }
 
@@ -288,11 +292,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const city = document.getElementById("cityInput").value.trim();
 
             if (pref && city) {
-                document.cookie = `prefname=${encodeURIComponent(pref)}; path=/;`;
-                document.cookie = `cityname=${encodeURIComponent(city)}; path=/;`;
+                localStorage.setItem("prefname", pref);
+                localStorage.setItem("cityname", city);
 
                 locationModal.classList.add("hidden");
-                location.reload(); // Cookie反映のためリロード
+                fetchWeather();
             } else {
                 alert("都道府県名と市区町村名を両方入力してください。");
             }
@@ -311,11 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
         showDetail("dayafter", "明後日", weatherData.forecasts[2].detail, weatherData.description.bodyText);
     };    
 });
-
-function getCookie(name) {
-    const value = document.cookie.match(`(^|;)\\s*${name}=([^;]*)`);
-    return value ? decodeURIComponent(value[2]) : null;
-}
 
 function closeWeatherDetailModal() {
     document.getElementById("weatherDetailModal")?.classList.add("hidden");
