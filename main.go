@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"tabdock/getstatus"
+	"tabdock/subscription"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -25,7 +26,7 @@ import (
 )
 
 // const
-const version = "4.4.0"
+const version = "5.0.0-α"
 
 // var
 var fallbackHolidays map[string]string
@@ -159,6 +160,14 @@ func main() {
 	mux.HandleFunc("/api/auth/login", secureHandler(handleAuthLogin))
 	mux.HandleFunc("/api/auth/register", secureHandler(handleAuthRegister))
 	mux.HandleFunc("/api/auth/user-info", secureHandler(handleUserInfo))
+
+	// Subscription APIs
+	subHandler := subscription.NewHandler(db, getUserIDFromSession)
+	mux.HandleFunc("/api/subscriptions", secureHandler(subHandler.Create))
+	mux.HandleFunc("/api/subscriptions/list", secureHandler(subHandler.GetUserSubscriptions))
+	mux.HandleFunc("/api/subscriptions/upcoming", secureHandler(subHandler.GetUpcoming))
+	mux.HandleFunc("/api/subscriptions/status", secureHandler(subHandler.UpdateStatus))
+	mux.HandleFunc("/api/subscriptions/delete", secureHandler(subHandler.Delete))
 
 	// WebAuthn
 	mux.HandleFunc("/api/webauthn/register/start", secureHandler(HandleWebAuthnRegisterStart))
@@ -841,6 +850,30 @@ func deleteAllShiftsForUser(username string) error {
 	}
 
 	return nil
+}
+
+func getUserIDFromSession(r *http.Request) (int64, error) {
+	username := r.Header.Get("X-Username")
+	if username == "" {
+		return 0, fmt.Errorf("unauthorized: no username")
+	}
+
+	db, err := sql.Open("sqlite", "./database/acc.db")
+	if err != nil {
+		return 0, fmt.Errorf("database error: %v", err)
+	}
+	defer db.Close()
+
+	var id int64
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("unauthorized: user not found")
+		}
+		return 0, fmt.Errorf("database error: %v", err)
+	}
+
+	return id, nil
 }
 
 func handleVesion(w http.ResponseWriter, r *http.Request) {
