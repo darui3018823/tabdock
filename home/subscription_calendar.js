@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.2.0_subsccal-r1
+// This code Version: 5.2.0_subsccal-r2
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -519,12 +519,17 @@ class SubscriptionCalendarManager {
                     </div>
                 </form>
 
-                <div class="flex justify-between mt-6 border-t border-gray-700 pt-4">
-                    <button id="saveSubscriptionEdit" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded transition-colors">
-                        保存
-                    </button>
+                <div class="flex justify-between items-center mt-6 border-t border-gray-700 pt-4">
+                    <div class="flex items-center gap-2">
+                        <button id="saveSubscriptionEdit" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded transition-colors">
+                            保存
+                        </button>
+                        <button id="cancelSubscriptionFromEdit" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded transition-colors">
+                            キャンセル
+                        </button>
+                    </div>
                     <button id="closeEditForm" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded transition-colors">
-                        キャンセル
+                        閉じる
                     </button>
                 </div>
             </div>
@@ -689,6 +694,31 @@ class SubscriptionCalendarManager {
         document.getElementById('closeEditForm').addEventListener('click', () => {
             document.body.removeChild(editModal);
         });
+
+        // 解約（キャンセル）ボタン: 成功時のみモーダルを閉じる
+        const cancelBtn = document.getElementById('cancelSubscriptionFromEdit');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', async () => {
+                // 編集モーダルは残したまま解約確認を表示。成功時のみ閉じる
+                const beforeStatus = sub.status;
+                await this.handleCancellation(sub);
+                // handleCancellation 内で一覧更新が走る想定。状態が変わっていれば閉じる
+                try {
+                    // 最新のサブスク情報を取り直して対象を確認
+                    await this.loadSubscriptions();
+                    const latest = this.subscriptions.find(s => s.id === sub.id);
+                    if (latest && latest.status === 'cancelled' && beforeStatus !== 'cancelled') {
+                        if (document.body.contains(editModal)) {
+                            document.body.removeChild(editModal);
+                        }
+                        // 解約後の詳細を表示（任意）
+                        this.showSubscriptionDetail(latest);
+                    }
+                } catch (e) {
+                    console.warn('解約後の状態確認に失敗: ', e);
+                }
+            });
+        }
 
         const paymentMethodSelect = document.getElementById('paymentMethodSelect');
         if (paymentMethodSelect) {
