@@ -132,6 +132,10 @@ func main() {
 		log.Fatal("シフトDB初期化失敗:", err)
 	}
 
+	if err := initSubscriptionDB(); err != nil {
+		log.Fatal("サブスクリプションDB初期化失敗:", err)
+	}
+
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
 	mux.Handle("/home/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/home/", http.FileServer(http.Dir("./home")))).ServeHTTP))
@@ -162,7 +166,11 @@ func main() {
 	mux.HandleFunc("/api/auth/user-info", secureHandler(handleUserInfo))
 
 	// Subscription APIs
-	subHandler := subscription.NewHandler(db, getUserIDFromSession)
+	subscriptionDB, err := sql.Open("sqlite", "./database/subscription.db")
+	if err != nil {
+		log.Fatal("サブスクリプションDB接続失敗:", err)
+	}
+	subHandler := subscription.NewHandler(subscriptionDB, getUserIDFromSession)
 	mux.HandleFunc("/api/subscriptions", secureHandler(subHandler.Create))
 	mux.HandleFunc("/api/subscriptions/list", secureHandler(subHandler.GetUserSubscriptions))
 	mux.HandleFunc("/api/subscriptions/upcoming", secureHandler(subHandler.GetUpcoming))
@@ -181,6 +189,40 @@ func main() {
 	})
 
 	serve(mux)
+}
+
+func initSubscriptionDB() error {
+	// subscription.db
+	subscriptionDB, err := sql.Open("sqlite", "./database/subscription.db")
+	if err != nil {
+		return fmt.Errorf("subscription.db接続エラー: %v", err)
+	}
+	defer subscriptionDB.Close()
+
+	// サブスクリプションテーブル作成
+	_, err = subscriptionDB.Exec(`
+		CREATE TABLE IF NOT EXISTS subscriptions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id TEXT NOT NULL,
+			service_name TEXT NOT NULL,
+			plan_name TEXT NOT NULL,
+			amount REAL NOT NULL,
+			currency TEXT NOT NULL,
+			billing_cycle TEXT NOT NULL,
+			payment_method TEXT NOT NULL,
+			payment_details TEXT,
+			next_payment_date DATETIME NOT NULL,
+			status TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("サブスクリプションテーブル作成エラー: %v", err)
+	}
+
+	return nil
 }
 
 // スラッシュ補完
