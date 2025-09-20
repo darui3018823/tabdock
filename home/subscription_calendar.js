@@ -1,12 +1,38 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.2.0_subsccal-r2
+// This code Version: 5.2.1_subsccal-r1
 
 class SubscriptionCalendarManager {
     constructor() {
         this.subscriptions = [];
         this.initialize();
+    }
+
+    getDisplayWidth(str = '') {
+        let width = 0;
+        for (const ch of String(str)) {
+            // ASCII (0x20-0x7E) および 半角カナ(FF61-FF9F) を半角、それ以外は全角扱い
+            if (/[\u0020-\u007E\uFF61-\uFF9F]/.test(ch)) {
+                width += 1;
+            } else {
+                width += 2;
+            }
+        }
+        return width;
+    }
+
+    truncateByDisplayWidth(str = '', maxHalfWidth = 20) {
+        if (this.getDisplayWidth(str) <= maxHalfWidth) return str;
+        let acc = '';
+        let w = 0;
+        for (const ch of String(str)) {
+            const cw = /[\u0020-\u007E\uFF61-\uFF9F]/.test(ch) ? 1 : 2;
+            if (w + cw > maxHalfWidth) break;
+            acc += ch;
+            w += cw;
+        }
+        return acc + '...';
     }
 
     async initialize() {
@@ -25,7 +51,8 @@ class SubscriptionCalendarManager {
             });
             
             if (!response.ok) throw new Error('サブスクリプション取得エラー');
-            this.subscriptions = await response.json();
+            const data = await response.json().catch(() => null);
+            this.subscriptions = Array.isArray(data) ? data : [];
         } catch (error) {
             console.error('サブスクリプション読み込みエラー:', error);
             this.subscriptions = [];
@@ -54,8 +81,11 @@ class SubscriptionCalendarManager {
     }
 
     addSubscriptionToSchedule(dateStr) {
+        if (!Array.isArray(this.subscriptions) || this.subscriptions.length === 0) return;
         const subscriptionsForDate = this.subscriptions.filter(sub => {
+            if (!sub || !sub.nextPaymentDate) return false;
             const paymentDate = new Date(sub.nextPaymentDate);
+            if (Number.isNaN(paymentDate.getTime())) return false;
             return paymentDate.toISOString().split('T')[0] === dateStr;
         });
 
@@ -77,7 +107,7 @@ class SubscriptionCalendarManager {
             content.className = 'flex justify-between items-start';
             content.innerHTML = `
                 <div class="flex-grow">
-                    <div class="text-sm font-semibold">${sub.serviceName} (${sub.planName})</div>
+                    <div class="text-sm font-semibold">${this.truncateByDisplayWidth(sub.serviceName || '', 20)}</div>
                     <div class="text-xs text-white/70">
                         ${sub.amount} ${sub.currency} / ${this.formatBillingCycle(sub.billingCycle)}
                     </div>
@@ -231,7 +261,7 @@ class SubscriptionCalendarManager {
                 detailButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const subId = item.dataset.id;
-                    const subscription = this.subscriptions.find(s => s.id === subId);
+                    const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
                     if (subscription) {
                         document.body.removeChild(subscriptionListModal);
                         this.showSubscriptionDetail(subscription);
@@ -304,12 +334,12 @@ class SubscriptionCalendarManager {
                 </div>
 
                 <div class="flex justify-between mt-6 border-t border-gray-700 pt-4">
-                    <div>
-                        <button id="editSubscription" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded transition-colors mr-2">
+                    <div class="space-x-2">
+                        <button id="editSubscription" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded transition-colors">
                             編集
                         </button>
-                        <button id="cancelSubscription" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded transition-colors">
-                            キャンセル
+                        <button id="deleteSubscription" class="px-6 py-2 bg-red-700 hover:bg-red-600 rounded transition-colors">
+                            削除
                         </button>
                     </div>
                     <button id="closeSubscriptionDetail" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded transition-colors">
@@ -335,10 +365,15 @@ class SubscriptionCalendarManager {
             this.handleEdit(sub);
         });
 
-        document.getElementById('cancelSubscription').addEventListener('click', () => {
-            document.body.removeChild(detailModal);
-            this.handleCancellation(sub);
-        });
+        // キャンセル（解約）ボタンは削除しました
+
+        // 削除ボタンのイベント
+        const deleteBtn = document.getElementById('deleteSubscription');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                await this.handleDelete(sub, detailModal);
+            });
+        }
     }
 
     formatPaymentMethod(method) {
@@ -447,6 +482,102 @@ class SubscriptionCalendarManager {
                 Swal.fire('エラー', error.message, 'error');
             }
         }
+    }
+
+    async handleDelete(sub, detailModalEl) {
+        const result = await Swal.fire({
+            title: 'サブスクリプションの削除',
+            html: `このサブスクリプション「<b>${sub.serviceName}</b>」を完全に削除します。<br>この操作は元に戻せません。実行しますか？`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '削除する',
+            confirmButtonColor: '#d33',
+            cancelButtonText: '戻る'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const response = await fetch(`/api/subscriptions/delete?id=${sub.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-Username': this.getUsername()
+                }
+            });
+
+            if (!response.ok) {
+                const msg = await response.text();
+                throw new Error(msg || '削除に失敗しました');
+            }
+
+            await Swal.fire('削除完了', 'サブスクリプションを削除しました', 'success');
+
+            // データとUI更新
+            await this.loadSubscriptions();
+            await this.updateSubscriptionList();
+            if (detailModalEl && document.body.contains(detailModalEl)) {
+                document.body.removeChild(detailModalEl);
+            }
+        } catch (error) {
+            Swal.fire('エラー', error.message, 'error');
+        }
+    }
+
+    // サブスクリプション一覧モーダルが開いていれば、その内容を最新のデータで更新する
+    async updateSubscriptionList() {
+        await this.loadSubscriptions();
+
+        const listModal = document.getElementById('subscriptionListModal');
+        if (!listModal) return; // モーダルが出ていなければ何もしない
+
+        const container = listModal.querySelector('#subscriptionListContent');
+        if (!container) return;
+
+        container.innerHTML = this.subscriptions.map(sub => `
+            <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item group" data-id="${sub.id || ''}">
+                <div class="flex justify-between items-start">
+                    <div class="flex-grow">
+                        <div class="font-semibold text-lg flex items-center">
+                            ${sub.serviceName || ''}
+                            ${sub.status === 'active' ? 
+                                '<span class="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">有効</span>' : 
+                                '<span class="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">無効</span>'
+                            }
+                        </div>
+                        <div class="text-sm text-white/70 mt-1">
+                            プラン: ${sub.planName || '未設定'}
+                        </div>
+                        <div class="text-sm text-white/70">
+                            次回支払: ${sub.nextPaymentDate ? new Date(sub.nextPaymentDate).toLocaleDateString() : '未設定'}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-lg font-semibold">${sub.amount || 0} ${sub.currency || 'JPY'}</div>
+                        <div class="text-sm text-white/70">${this.formatBillingCycle(sub.billingCycle || 'monthly')}</div>
+                        <button class="mt-2 px-3 py-1 text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-400/10 rounded-full">
+                            詳細を表示 →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // 詳細ボタンの再バインド
+        const subscriptionItems = listModal.querySelectorAll('.subscription-item');
+        subscriptionItems.forEach(item => {
+            const detailButton = item.querySelector('.text-blue-400');
+            if (detailButton) {
+                detailButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const subId = item.dataset.id;
+                    const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
+                    if (subscription) {
+                        document.body.removeChild(listModal);
+                        this.showSubscriptionDetail(subscription);
+                    }
+                });
+            }
+        });
     }
 
     async handleEdit(sub) {
