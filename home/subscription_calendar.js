@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.1.0_subsccal-r6
+// This code Version: 5.2.0_subsccal-r1
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -496,7 +496,7 @@ class SubscriptionCalendarManager {
                     </div>
 
                     <div class="bg-black/20 rounded-lg p-4">
-                        <div class="grid gap-4">
+                        <div class="grid gap-4" id="paymentFieldsGrid">
                             <div>
                                 <label class="block text-white/70 text-sm mb-1">支払い方法</label>
                                 <select name="paymentMethod" class="w-full bg-gray-700 text-white rounded px-3 py-2" id="paymentMethodSelect">
@@ -510,7 +510,7 @@ class SubscriptionCalendarManager {
                                 </select>
                             </div>
                             <div id="additionalPaymentFields"></div>
-                            <div>
+                            <div id="nextPaymentDateContainer">
                                 <label class="block text-white/70 text-sm mb-1">次回支払い日</label>
                                 <input type="date" name="nextPaymentDate" value="${sub.nextPaymentDate.split('T')[0]}" 
                                     class="w-full bg-gray-700 text-white rounded px-3 py-2">
@@ -553,30 +553,55 @@ class SubscriptionCalendarManager {
         function updatePaymentFields() {
             const paymentMethodSelect = document.getElementById('paymentMethodSelect');
             const additionalFields = document.getElementById('additionalPaymentFields');
-            
-            if (!paymentMethodSelect || !additionalFields) {
+            const nextPaymentDateContainer = document.getElementById('nextPaymentDateContainer');
+            const paymentFieldsGrid = document.getElementById('paymentFieldsGrid');
+
+            if (!paymentMethodSelect || !additionalFields || !nextPaymentDateContainer || !paymentFieldsGrid) {
                 console.error('Required elements not found');
                 return;
             }
 
             const method = paymentMethodSelect.value;
             const details = paymentDetails || {};
-            
-            console.log('Current method:', method);
-            console.log('Details for fields:', details);
-            
+
+            // 既存の備考フィールドがあれば値を保持
+            let existingNoteValue = '';
+            const existingNoteInput = document.querySelector('input[name="label"]');
+            if (existingNoteInput) existingNoteValue = existingNoteInput.value;
+
+            // 次回支払い日の値も保持
+            let existingNextDateValue = '';
+            const existingNextDateInput = nextPaymentDateContainer.querySelector('input[name="nextPaymentDate"]');
+            if (existingNextDateInput) existingNextDateValue = existingNextDateInput.value;
+
+            // 追加フィールドを一旦クリア
             additionalFields.innerHTML = '';
-            
-            switch(method) {
+
+            // デフォルトは1カラム
+            paymentFieldsGrid.className = 'grid gap-4';
+
+            // 次回支払い日コンテナを通常状態に戻す
+            nextPaymentDateContainer.className = '';
+            nextPaymentDateContainer.innerHTML = `
+                <label class="block text-white/70 text-sm mb-1">次回支払い日</label>
+                <input type="date" name="nextPaymentDate" value="${existingNextDateValue || sub.nextPaymentDate.split('T')[0]}" 
+                    class="w-full bg-gray-700 text-white rounded px-3 py-2">
+            `;
+
+            // 既存の備考コンテナがあれば一旦削除（Other以外）
+            const existingNoteContainer = document.getElementById('noteFieldContainer');
+            if (existingNoteContainer && method !== 'Other') {
+                existingNoteContainer.remove();
+            }
+
+            switch (method) {
                 case 'CC': {
                     const ccDiv = document.createElement('div');
                     ccDiv.className = 'grid gap-4';
-                    
                     const ccInputDiv = document.createElement('div');
                     const ccLabel = document.createElement('label');
                     ccLabel.className = 'block text-white/70 text-sm mb-1';
                     ccLabel.textContent = 'カード末尾4桁';
-                    
                     const ccInput = document.createElement('input');
                     ccInput.type = 'text';
                     ccInput.name = 'cardLastFour';
@@ -585,74 +610,77 @@ class SubscriptionCalendarManager {
                     ccInput.value = details.cardLastFour || '';
                     ccInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
                     ccInput.placeholder = '1234';
-                    
                     ccInputDiv.appendChild(ccLabel);
                     ccInputDiv.appendChild(ccInput);
                     ccDiv.appendChild(ccInputDiv);
                     additionalFields.appendChild(ccDiv);
                     break;
                 }
-
                 case 'PayPal': {
                     const ppDiv = document.createElement('div');
                     ppDiv.className = 'grid gap-4';
-                    
                     const ppInputDiv = document.createElement('div');
                     const ppLabel = document.createElement('label');
                     ppLabel.className = 'block text-white/70 text-sm mb-1';
                     ppLabel.textContent = 'PayPalメールアドレス';
-                    
                     const ppInput = document.createElement('input');
                     ppInput.type = 'email';
                     ppInput.name = 'paypalEmail';
                     ppInput.value = details.paypalEmail || '';
                     ppInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
                     ppInput.placeholder = 'example@example.com';
-                    
                     ppInputDiv.appendChild(ppLabel);
                     ppInputDiv.appendChild(ppInput);
                     ppDiv.appendChild(ppInputDiv);
                     additionalFields.appendChild(ppDiv);
                     break;
                 }
-
                 case 'Other': {
-                    const otherContainer = document.createElement('div');
-                    otherContainer.className = 'grid grid-cols-2 gap-4';
+                    // 親グリッドを2カラムに切替（1行目: 支払い方法 | 支払い方法名、2行目: 次回支払い日 | 備考）
+                    paymentFieldsGrid.className = 'grid grid-cols-2 gap-4';
 
+                    // 1行目右: 支払い方法名
                     const methodDiv = document.createElement('div');
                     const methodLabel = document.createElement('label');
                     methodLabel.className = 'block text-white/70 text-sm mb-1';
                     methodLabel.textContent = '支払い方法名';
-                    
                     const methodInput = document.createElement('input');
                     methodInput.type = 'text';
                     methodInput.name = 'methodName';
                     methodInput.value = details.methodName || '';
                     methodInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
                     methodInput.placeholder = '銀行振込など';
-                    
                     methodDiv.appendChild(methodLabel);
                     methodDiv.appendChild(methodInput);
+                    additionalFields.appendChild(methodDiv);
 
-                    const labelDiv = document.createElement('div');
+                    // 2行目右: 備考（次回支払い日の兄弟要素として配置）
+                    let noteDiv = document.getElementById('noteFieldContainer');
+                    if (!noteDiv) {
+                        noteDiv = document.createElement('div');
+                        noteDiv.id = 'noteFieldContainer';
+                    } else {
+                        noteDiv.innerHTML = '';
+                    }
                     const noteLabel = document.createElement('label');
                     noteLabel.className = 'block text-white/70 text-sm mb-1';
                     noteLabel.textContent = '備考';
-                    
                     const noteInput = document.createElement('input');
                     noteInput.type = 'text';
                     noteInput.name = 'label';
-                    noteInput.value = details.label || '';
+                    noteInput.value = existingNoteValue || details.label || '';
                     noteInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
                     noteInput.placeholder = 'メモ';
-                    
-                    labelDiv.appendChild(noteLabel);
-                    labelDiv.appendChild(noteInput);
+                    noteDiv.appendChild(noteLabel);
+                    noteDiv.appendChild(noteInput);
 
-                    otherContainer.appendChild(methodDiv);
-                    otherContainer.appendChild(labelDiv);
-                    additionalFields.appendChild(otherContainer);
+                    // 次回支払い日コンテナの直後に備考を追加（順序: select, method, nextDate, note）
+                    if (!noteDiv.parentElement) {
+                        paymentFieldsGrid.insertBefore(noteDiv, nextPaymentDateContainer.nextSibling);
+                    } else if (noteDiv.parentElement !== paymentFieldsGrid) {
+                        noteDiv.parentElement.removeChild(noteDiv);
+                        paymentFieldsGrid.insertBefore(noteDiv, nextPaymentDateContainer.nextSibling);
+                    }
                     break;
                 }
             }
