@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.0.0_subsccal-r3
+// This code Version: 5.0.0_subsccal-r4
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -114,7 +114,10 @@ class SubscriptionCalendarManager {
             </div>
         `;
 
-        menuModal.querySelector('.modal-content').appendChild(section);
+        const modalContent = menuModal.querySelector('.bg-white\\/30');
+        if (!modalContent) return;
+
+        modalContent.appendChild(section);
         this.updateSubscriptionList();
     }
 
