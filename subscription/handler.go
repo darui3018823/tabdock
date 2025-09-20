@@ -1,8 +1,13 @@
+// 2025 TabDock: darui3018823 All rights reserved.
+// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
+// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
+
 package subscription
 
 import (
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -33,32 +38,49 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sub Subscription
-	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	// リクエストボディを一度だけ読み取り
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
 
-	if sub.NextPaymentDate.IsZero() {
-		var raw map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&raw); err == nil {
-			if v, ok := raw["nextPaymentDate"].(string); ok {
-				var t time.Time
-				var err error
-				// ISO8601
-				t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
-				if err != nil {
-					// YYYY-MM-DD
-					t, err = time.Parse("2006-01-02", v)
-				}
-				if err == nil {
-					sub.NextPaymentDate = t
-				} else {
-					http.Error(w, "Invalid nextPaymentDate format", http.StatusBadRequest)
-					return
-				}
+	// 生データをパース
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// NextPaymentDateを事前パース
+	if v, ok := raw["nextPaymentDate"].(string); ok {
+		var t time.Time
+		var err error
+		// YYYY-MM-DD
+		t, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			// ISO8601
+			t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
+			if err != nil {
+				http.Error(w, "Invalid nextPaymentDate format", http.StatusBadRequest)
+				return
 			}
 		}
+		// パース成功した日付を書き戻す
+		raw["nextPaymentDate"] = t
+	}
+
+	// 全体をSubscription構造体に変換
+	jsonData, err := json.Marshal(raw)
+	if err != nil {
+		http.Error(w, "Failed to process data", http.StatusInternalServerError)
+		return
+	}
+
+	var sub Subscription
+	if err := json.Unmarshal(jsonData, &sub); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	sub.UserID = userID
