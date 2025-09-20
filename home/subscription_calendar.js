@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.1.0_subsccal-r5
+// This code Version: 5.1.0_subsccal-r6
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -46,7 +46,6 @@ class SubscriptionCalendarManager {
     }
 
     integrateWithCalendar() {
-        // カレンダーのrenderSchedule関数をオーバーライド
         const originalRenderSchedule = window.renderSchedule;
         window.renderSchedule = (dateStr) => {
             originalRenderSchedule(dateStr);
@@ -65,13 +64,11 @@ class SubscriptionCalendarManager {
         const scheduleList = document.getElementById('scheduleList');
         if (!scheduleList) return;
 
-        // サブスクリプションセクションのヘッダー
         const header = document.createElement('div');
         header.className = 'mt-4 mb-2 font-semibold text-sm text-white/70';
         header.textContent = 'サブスクリプション支払い予定';
         scheduleList.appendChild(header);
 
-        // 各サブスクリプションの表示
         subscriptionsForDate.forEach(sub => {
             const li = document.createElement('li');
             li.classList.add('mb-2', 'subscription-item');
@@ -102,7 +99,6 @@ class SubscriptionCalendarManager {
     }
 
     setupSubscriptionList() {
-        // アカウントモーダルにサブスクリプション管理ボタンを追加
         this.addSubscriptionButton();
     }
 
@@ -117,34 +113,29 @@ class SubscriptionCalendarManager {
             const buttonContainer = accountDataSection.querySelector('.space-y-2');
             if (!buttonContainer) return;
 
-            obs.disconnect(); // 監視を停止
+            obs.disconnect();
 
-            // 既存のボタンがあれば削除
             const existingButton = buttonContainer.querySelector('#subscriptionManageBtn');
             if (existingButton) {
                 existingButton.remove();
             }
 
-            // ボタンを作成
             const button = document.createElement('button');
             button.id = 'subscriptionManageBtn';
             button.className = 'w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors';
             button.textContent = 'サブスクリプション管理';
             button.addEventListener('click', () => this.showSubscriptionListModal());
 
-            // データエクスポートボタンの前に挿入
             const exportButton = buttonContainer.firstChild;
             buttonContainer.insertBefore(button, exportButton);
         });
 
-        // DOM変更の監視を開始
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
     async showSubscriptionListModal() {
-        await this.loadSubscriptions(); // サブスクリプション情報を更新
+        await this.loadSubscriptions();
 
-        // 月額合計と年額合計を計算
         const monthlyTotal = this.subscriptions
             .filter(sub => sub.billingCycle === 'monthly' && sub.status === 'active')
             .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
@@ -153,7 +144,6 @@ class SubscriptionCalendarManager {
             .filter(sub => sub.billingCycle === 'yearly' && sub.status === 'active')
             .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
 
-        // サブスクリプション一覧モーダルを作成
         const modalHtml = `
             <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
                 <div class="flex justify-between items-center mb-6">
@@ -222,7 +212,6 @@ class SubscriptionCalendarManager {
 
         document.body.appendChild(subscriptionListModal);
 
-        // イベントリスナーの設定
         document.getElementById('closeSubscriptionList').addEventListener('click', () => {
             document.body.removeChild(subscriptionListModal);
         });
@@ -237,11 +226,10 @@ class SubscriptionCalendarManager {
 
         const subscriptionItems = subscriptionListModal.querySelectorAll('.subscription-item');
         subscriptionItems.forEach(item => {
-            // アイテム全体のクリックイベントを削除し、詳細ボタンにのみ設定
             const detailButton = item.querySelector('.text-blue-400');
             if (detailButton) {
                 detailButton.addEventListener('click', (e) => {
-                    e.stopPropagation(); // イベントの伝播を止める
+                    e.stopPropagation();
                     const subId = item.dataset.id;
                     const subscription = this.subscriptions.find(s => s.id === subId);
                     if (subscription) {
@@ -338,7 +326,6 @@ class SubscriptionCalendarManager {
 
         document.body.appendChild(detailModal);
 
-        // イベントリスナーの設定
         document.getElementById('closeSubscriptionDetail').addEventListener('click', () => {
             document.body.removeChild(detailModal);
         });
@@ -394,7 +381,6 @@ class SubscriptionCalendarManager {
         const methodInfo = methods[method] || { text: method };
 
         if (methodInfo.logo) {
-            // 直接ロゴ付きの表示を返す
             return `
                 <div class="flex items-center">
                     <img src="${methodInfo.logo}" alt="${methodInfo.text}" class="${methodInfo.class}" onerror="this.style.display='none'">
@@ -551,7 +537,6 @@ class SubscriptionCalendarManager {
 
         document.body.appendChild(editModal);
 
-        // 支払い方法の詳細情報を取得
         let paymentDetails = {};
         try {
             if (sub.paymentDetails) {
@@ -565,7 +550,6 @@ class SubscriptionCalendarManager {
             paymentDetails = {};
         }
 
-        // 支払い方法が変更されたときの処理関数
         function updatePaymentFields() {
             const paymentMethodSelect = document.getElementById('paymentMethodSelect');
             const additionalFields = document.getElementById('additionalPaymentFields');
@@ -581,10 +565,8 @@ class SubscriptionCalendarManager {
             console.log('Current method:', method);
             console.log('Details for fields:', details);
             
-            // フィールドをクリア
             additionalFields.innerHTML = '';
             
-            // 支払い方法に応じたフィールドを追加
             switch(method) {
                 case 'CC': {
                     const ccDiv = document.createElement('div');
@@ -636,9 +618,8 @@ class SubscriptionCalendarManager {
 
                 case 'Other': {
                     const otherContainer = document.createElement('div');
-                    otherContainer.className = 'grid gap-4';
+                    otherContainer.className = 'grid grid-cols-2 gap-4';
 
-                    // Method name field
                     const methodDiv = document.createElement('div');
                     const methodLabel = document.createElement('label');
                     methodLabel.className = 'block text-white/70 text-sm mb-1';
@@ -654,7 +635,6 @@ class SubscriptionCalendarManager {
                     methodDiv.appendChild(methodLabel);
                     methodDiv.appendChild(methodInput);
 
-                    // Note field
                     const labelDiv = document.createElement('div');
                     const noteLabel = document.createElement('label');
                     noteLabel.className = 'block text-white/70 text-sm mb-1';
@@ -678,16 +658,13 @@ class SubscriptionCalendarManager {
             }
         }
 
-        // イベントリスナーの設定
         document.getElementById('closeEditForm').addEventListener('click', () => {
             document.body.removeChild(editModal);
         });
 
-        // 支払い方法変更イベントの設定
         const paymentMethodSelect = document.getElementById('paymentMethodSelect');
         if (paymentMethodSelect) {
             paymentMethodSelect.addEventListener('change', updatePaymentFields);
-            // 初期表示時にも実行（少し遅延させて確実にDOM構築後に実行）
             setTimeout(updatePaymentFields, 100);
         }
 
@@ -697,20 +674,16 @@ class SubscriptionCalendarManager {
             const updatedData = Object.fromEntries(formData.entries());
 
             try {
-                // amountを数値型に変換
                 if (updatedData.amount) {
                     updatedData.amount = parseFloat(updatedData.amount);
-                    // 数値変換に失敗した場合はエラーを投げる
                     if (isNaN(updatedData.amount)) {
                         throw new Error('支払い金額は有効な数値である必要があります');
                     }
                 }
 
-                // PaymentDetailsの処理
                 console.log('Form data before processing:', updatedData);
                 const paymentDetails = {};
                 
-                // 支払い方法に応じたデータを保存
                 switch (updatedData.paymentMethod) {
                     case 'CC':
                         if (updatedData.cardLastFour) {
@@ -738,7 +711,6 @@ class SubscriptionCalendarManager {
                 
                 console.log('Payment details before save:', paymentDetails);
                 
-                // 送信データの準備
                 updatedData.paymentDetails = JSON.stringify(paymentDetails);
                 console.log('Final form data:', updatedData);
                 
@@ -757,7 +729,6 @@ class SubscriptionCalendarManager {
                 await this.loadSubscriptions(); // サブスクリプション一覧を更新
                 document.body.removeChild(editModal);
                 
-                // 更新後に詳細画面を再表示
                 const updatedSub = this.subscriptions.find(s => s.id === sub.id);
                 if (updatedSub) {
                     this.showSubscriptionDetail(updatedSub);
@@ -768,10 +739,9 @@ class SubscriptionCalendarManager {
         });
     }
 
-    // 通知
     setupNotifications() {
-        setInterval(() => this.checkUpcomingPayments(), 3600000); // 1時間ごと
-        this.checkUpcomingPayments(); // 初回チェック
+        setInterval(() => this.checkUpcomingPayments(), 3600000);
+        this.checkUpcomingPayments();
     }
 
     async checkUpcomingPayments() {
@@ -809,7 +779,6 @@ class SubscriptionCalendarManager {
     }
 }
 
-// インスタンスの作成と初期化
 document.addEventListener('DOMContentLoaded', () => {
     window.subscriptionCalendarManager = new SubscriptionCalendarManager();
 });
