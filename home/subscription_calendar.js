@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.1.0_subsccal-r2
+// This code Version: 5.1.0_subsccal-r4
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -536,15 +536,14 @@ class SubscriptionCalendarManager {
                         // 支払い方法の詳細情報を取得
                         let paymentDetails;
                         try {
-                            paymentDetails = ${typeof sub.paymentDetails === 'string' ? sub.paymentDetails : JSON.stringify(sub.paymentDetails || {})};
-                            if (typeof paymentDetails === 'string') {
-                                paymentDetails = JSON.parse(paymentDetails);
-                            }
+                            const rawDetails = '${JSON.stringify(sub.paymentDetails || {})}';
+                            paymentDetails = JSON.parse(rawDetails);
+                            console.log('Raw payment details:', rawDetails);
                         } catch (error) {
                             console.error('Payment details parse error:', error);
                             paymentDetails = {};
                         }
-                        console.log('Payment Details:', paymentDetails); // デバッグ用
+                        console.log('Processed payment details:', paymentDetails);
                         
                         // 支払い方法が変更されたときの処理
                         document.getElementById('paymentMethodSelect').addEventListener('change', function(e) {
@@ -552,98 +551,105 @@ class SubscriptionCalendarManager {
                             const method = e.target.value;
                             const details = paymentDetails || {};
                             
+                            // デバッグ用のログ出力
+                            console.log('Current method:', method);
+                            console.log('Details for fields:', details);
+                            
                             // フィールドをクリア
                             additionalFields.innerHTML = '';
                             
-                            // コンテナ要素を作成
-                            const container = document.createElement('div');
-                            container.className = 'grid gap-4';
-
-                            console.log('Current method:', method); // デバッグ用
-                            console.log('Details for fields:', details); // デバッグ用
-                            
                             // 支払い方法に応じたフィールドを追加
                             switch(method) {
-                                case 'CC':
-                                    {
-                                        const fieldContainer = document.createElement('div');
-                                        const label = document.createElement('label');
-                                        label.className = 'block text-white/70 text-sm mb-1';
-                                        label.textContent = 'カード末尾4桁';
-
-                                        const input = document.createElement('input');
-                                        input.type = 'text';
-                                        input.name = 'cardLastFour';
-                                        input.pattern = '[0-9]{4}';
-                                        input.maxLength = 4;
-                                        input.value = details.cardLastFour || '';
-                                        input.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                        input.placeholder = '1234';
-
-                                        fieldContainer.appendChild(label);
-                                        fieldContainer.appendChild(input);
-                                        container.appendChild(fieldContainer);
-                                    }
+                                case 'CC': {
+                                    const ccDiv = document.createElement('div');
+                                    ccDiv.className = 'grid gap-4';
+                                    
+                                    const ccInputDiv = document.createElement('div');
+                                    const ccLabel = document.createElement('label');
+                                    ccLabel.className = 'block text-white/70 text-sm mb-1';
+                                    ccLabel.textContent = 'カード末尾4桁';
+                                    
+                                    const ccInput = document.createElement('input');
+                                    ccInput.type = 'text';
+                                    ccInput.name = 'cardLastFour';
+                                    ccInput.pattern = '[0-9]{4}';
+                                    ccInput.maxLength = 4;
+                                    ccInput.value = details.cardLastFour || '';
+                                    ccInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                                    ccInput.placeholder = '1234';
+                                    
+                                    ccInputDiv.appendChild(ccLabel);
+                                    ccInputDiv.appendChild(ccInput);
+                                    ccDiv.appendChild(ccInputDiv);
+                                    additionalFields.appendChild(ccDiv);
                                     break;
+                                }
 
-                                case 'PayPal':
-                                    {
-                                        const fieldContainer = document.createElement('div');
-                                        const label = document.createElement('label');
-                                        label.className = 'block text-white/70 text-sm mb-1';
-                                        label.textContent = 'PayPalメールアドレス';
-
-                                        const input = document.createElement('input');
-                                        input.type = 'email';
-                                        input.name = 'paypalEmail';
-                                        input.value = details.paypalEmail || '';
-                                        input.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                        input.placeholder = 'example@example.com';
-
-                                        fieldContainer.appendChild(label);
-                                        fieldContainer.appendChild(input);
-                                        container.appendChild(fieldContainer);
-                                    }
+                                case 'PayPal': {
+                                    const ppDiv = document.createElement('div');
+                                    ppDiv.className = 'grid gap-4';
+                                    
+                                    const ppInputDiv = document.createElement('div');
+                                    const ppLabel = document.createElement('label');
+                                    ppLabel.className = 'block text-white/70 text-sm mb-1';
+                                    ppLabel.textContent = 'PayPalメールアドレス';
+                                    
+                                    const ppInput = document.createElement('input');
+                                    ppInput.type = 'email';
+                                    ppInput.name = 'paypalEmail';
+                                    ppInput.value = details.paypalEmail || '';
+                                    ppInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                                    ppInput.placeholder = 'example@example.com';
+                                    
+                                    ppInputDiv.appendChild(ppLabel);
+                                    ppInputDiv.appendChild(ppInput);
+                                    ppDiv.appendChild(ppInputDiv);
+                                    additionalFields.appendChild(ppDiv);
                                     break;
+                                }
 
-                                case 'Other':
-                                    {
-                                        const methodContainer = document.createElement('div');
-                                        const methodLabel = document.createElement('label');
-                                        methodLabel.className = 'block text-white/70 text-sm mb-1';
-                                        methodLabel.textContent = '支払い方法名';
+                                case 'Other': {
+                                    const otherContainer = document.createElement('div');
+                                    otherContainer.className = 'grid gap-4';
 
-                                        const methodInput = document.createElement('input');
-                                        methodInput.type = 'text';
-                                        methodInput.name = 'methodName';
-                                        methodInput.value = details.methodName || '';
-                                        methodInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                        methodInput.placeholder = '銀行振込など';
+                                    // Method name field
+                                    const methodDiv = document.createElement('div');
+                                    const methodLabel = document.createElement('label');
+                                    methodLabel.className = 'block text-white/70 text-sm mb-1';
+                                    methodLabel.textContent = '支払い方法名';
+                                    
+                                    const methodInput = document.createElement('input');
+                                    methodInput.type = 'text';
+                                    methodInput.name = 'methodName';
+                                    methodInput.value = details.methodName || '';
+                                    methodInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                                    methodInput.placeholder = '銀行振込など';
+                                    
+                                    methodDiv.appendChild(methodLabel);
+                                    methodDiv.appendChild(methodInput);
 
-                                        methodContainer.appendChild(methodLabel);
-                                        methodContainer.appendChild(methodInput);
-                                        container.appendChild(methodContainer);
+                                    // Note field
+                                    const labelDiv = document.createElement('div');
+                                    const noteLabel = document.createElement('label');
+                                    noteLabel.className = 'block text-white/70 text-sm mb-1';
+                                    noteLabel.textContent = '備考';
+                                    
+                                    const noteInput = document.createElement('input');
+                                    noteInput.type = 'text';
+                                    noteInput.name = 'label';
+                                    noteInput.value = details.label || '';
+                                    noteInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                                    noteInput.placeholder = 'メモ';
+                                    
+                                    labelDiv.appendChild(noteLabel);
+                                    labelDiv.appendChild(noteInput);
 
-                                        const labelContainer = document.createElement('div');
-                                        const noteLabel = document.createElement('label');
-                                        noteLabel.className = 'block text-white/70 text-sm mb-1';
-                                        noteLabel.textContent = '備考';
-
-                                        const noteInput = document.createElement('input');
-                                        noteInput.type = 'text';
-                                        noteInput.name = 'label';
-                                        noteInput.value = details.label || '';
-                                        noteInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                        noteInput.placeholder = 'メモ';
-
-                                        labelContainer.appendChild(noteLabel);
-                                        labelContainer.appendChild(noteInput);
-                                        container.appendChild(labelContainer);
-                                    }
+                                    otherContainer.appendChild(methodDiv);
+                                    otherContainer.appendChild(labelDiv);
+                                    additionalFields.appendChild(otherContainer);
                                     break;
+                                }
                             }
-                            
-                            additionalFields.appendChild(container);
                         });
                         
                         // 初期表示時にも実行
@@ -681,26 +687,40 @@ class SubscriptionCalendarManager {
 
             try {
                 // PaymentDetailsの処理
+                console.log('Form data before processing:', updatedData);
                 const paymentDetails = {};
-                if (updatedData.paymentMethod === 'CC' && updatedData.cardLastFour) {
-                    paymentDetails.cardLastFour = updatedData.cardLastFour;
-                    delete updatedData.cardLastFour;
-                } else if (updatedData.paymentMethod === 'PayPal' && updatedData.paypalEmail) {
-                    paymentDetails.paypalEmail = updatedData.paypalEmail;
-                    delete updatedData.paypalEmail;
-                } else if (updatedData.paymentMethod === 'Other') {
-                    if (updatedData.methodName) {
-                        paymentDetails.methodName = updatedData.methodName;
-                        delete updatedData.methodName;
-                    }
-                    if (updatedData.label) {
-                        paymentDetails.label = updatedData.label;
-                        delete updatedData.label;
-                    }
+                
+                // 支払い方法に応じたデータを保存
+                switch (updatedData.paymentMethod) {
+                    case 'CC':
+                        if (updatedData.cardLastFour) {
+                            paymentDetails.cardLastFour = updatedData.cardLastFour;
+                            delete updatedData.cardLastFour;
+                        }
+                        break;
+                    case 'PayPal':
+                        if (updatedData.paypalEmail) {
+                            paymentDetails.paypalEmail = updatedData.paypalEmail;
+                            delete updatedData.paypalEmail;
+                        }
+                        break;
+                    case 'Other':
+                        if (updatedData.methodName) {
+                            paymentDetails.methodName = updatedData.methodName;
+                            delete updatedData.methodName;
+                        }
+                        if (updatedData.label) {
+                            paymentDetails.label = updatedData.label;
+                            delete updatedData.label;
+                        }
+                        break;
                 }
+                
+                console.log('Payment details before save:', paymentDetails);
                 
                 // 送信データの準備
                 updatedData.paymentDetails = JSON.stringify(paymentDetails);
+                console.log('Final form data:', updatedData);
                 
                 const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
                     method: 'PUT',
