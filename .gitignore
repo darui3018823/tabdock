@@ -48,3 +48,5 @@ json/working_schedule_user.json
 json/user/
 database/shift.db
 database/subscription.db
+home/assets/payment/Apple_Pay_Mark_RGB_041619.svg
+home/assets/payment/google-pay-mark_800.svg

@@ -144,34 +144,68 @@ class SubscriptionCalendarManager {
     async showSubscriptionListModal() {
         await this.loadSubscriptions(); // サブスクリプション情報を更新
 
+        // 月額合計と年額合計を計算
+        const monthlyTotal = this.subscriptions
+            .filter(sub => sub.billingCycle === 'monthly' && sub.status === 'active')
+            .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
+        
+        const yearlyTotal = this.subscriptions
+            .filter(sub => sub.billingCycle === 'yearly' && sub.status === 'active')
+            .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
+
         // サブスクリプション一覧モーダルを作成
         const modalHtml = `
             <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
-                <h2 class="text-xl font-bold mb-4">サブスクリプション一覧</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">サブスクリプション一覧</h2>
+                    <div class="flex gap-4">
+                        <div class="text-right">
+                            <div class="text-sm text-white/70">月額合計</div>
+                            <div class="font-semibold text-lg text-green-400">${monthlyTotal.toLocaleString()} JPY</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-white/70">年額合計</div>
+                            <div class="font-semibold text-lg text-green-400">${yearlyTotal.toLocaleString()} JPY</div>
+                        </div>
+                    </div>
+                </div>
                 
-                <div id="subscriptionListContent" class="space-y-2 mb-4">
+                <div id="subscriptionListContent" class="space-y-3 mb-6">
                     ${this.subscriptions.map(sub => `
-                        <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item" data-id="${sub.id || ''}">
+                        <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item group" data-id="${sub.id || ''}">
                             <div class="flex justify-between items-start">
-                                <div>
-                                    <div class="font-semibold text-lg">${sub.serviceName || ''}</div>
+                                <div class="flex-grow">
+                                    <div class="font-semibold text-lg flex items-center">
+                                        ${sub.serviceName || ''}
+                                        ${sub.status === 'active' ? 
+                                            '<span class="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">有効</span>' : 
+                                            '<span class="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">無効</span>'
+                                        }
+                                    </div>
                                     <div class="text-sm text-white/70 mt-1">
+                                        プラン: ${sub.planName || '未設定'}
+                                    </div>
+                                    <div class="text-sm text-white/70">
                                         次回支払: ${sub.nextPaymentDate ? new Date(sub.nextPaymentDate).toLocaleDateString() : '未設定'}
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-lg">${sub.amount || 0} ${sub.currency || 'JPY'}</div>
+                                    <div class="text-lg font-semibold">${sub.amount || 0} ${sub.currency || 'JPY'}</div>
                                     <div class="text-sm text-white/70">${this.formatBillingCycle(sub.billingCycle || 'monthly')}</div>
+                                    <button class="mt-2 px-3 py-1 text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-400/10 rounded-full">
+                                        詳細を表示 →
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     `).join('')}
                 </div>
 
-                <div class="border-t border-gray-700 pt-4 mt-4">
+                <div class="border-t border-gray-700 pt-4">
                     <div class="flex justify-between">
-                        <button id="addNewSubscription" class="px-6 py-2 bg-green-600 hover:bg-green-500 rounded transition-colors">
-                            新規追加
+                        <button id="addNewSubscription" class="px-6 py-2 bg-green-600 hover:bg-green-500 rounded transition-colors flex items-center">
+                            <span class="text-lg mr-1">+</span>
+                            <span>新規追加</span>
                         </button>
                         <button id="closeSubscriptionList" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded transition-colors">
                             閉じる
@@ -203,13 +237,19 @@ class SubscriptionCalendarManager {
 
         const subscriptionItems = subscriptionListModal.querySelectorAll('.subscription-item');
         subscriptionItems.forEach(item => {
-            item.addEventListener('click', () => {
-                const subId = item.dataset.id;
-                const subscription = this.subscriptions.find(s => s.id === subId);
-                if (subscription) {
-                    this.showSubscriptionDetail(subscription);
-                }
-            });
+            // アイテム全体のクリックイベントを削除し、詳細ボタンにのみ設定
+            const detailButton = item.querySelector('.text-blue-400');
+            if (detailButton) {
+                detailButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // イベントの伝播を止める
+                    const subId = item.dataset.id;
+                    const subscription = this.subscriptions.find(s => s.id === subId);
+                    if (subscription) {
+                        document.body.removeChild(subscriptionListModal);
+                        this.showSubscriptionDetail(subscription);
+                    }
+                });
+            }
         });
     }
 
@@ -260,7 +300,9 @@ class SubscriptionCalendarManager {
                     <div class="bg-black/20 rounded-lg p-4">
                         <h3 class="text-lg font-semibold mb-3">支払い方法</h3>
                         <div>
-                            <div class="text-lg">${this.formatPaymentMethod(sub.paymentMethod)}</div>
+                            <div class="text-lg" id="paymentMethodContainer">
+                                ${this.formatPaymentMethod(sub.paymentMethod)}
+                            </div>
                             ${detailsHTML}
                         </div>
                     </div>
@@ -314,15 +356,50 @@ class SubscriptionCalendarManager {
 
     formatPaymentMethod(method) {
         const methods = {
-            'CC': 'クレジットカード',
-            'PayPal': 'PayPal',
-            'GooglePay': 'Google Pay',
-            'ApplePay': 'Apple Pay',
-            'PayPay': 'PayPay',
-            'AmazonPay': 'Amazon Pay',
-            'Other': 'その他'
+            'CC': {
+                text: 'クレジットカード'
+            },
+            'PayPal': {
+                text: 'PayPal'
+            },
+            'GooglePay': {
+                text: 'Google Pay',
+                logo: '/home/assets/payment/google-pay-mark_800.svg',
+                class: 'h-4 inline-block mr-2'
+            },
+            'ApplePay': {
+                text: 'Apple Pay',
+                logo: '/home/assets/payment/Apple_Pay_Mark_RGB_041619.svg',
+                class: 'h-4 inline-block mr-2'
+            },
+            'PayPay': {
+                text: 'PayPay'
+            },
+            'AmazonPay': {
+                text: 'Amazon Pay'
+            },
+            'Other': {
+                text: 'その他'
+            }
         };
-        return methods[method] || method;
+
+        const methodInfo = methods[method] || { text: method };
+
+        if (methodInfo.logo) {
+            // ロゴ画像が存在するか確認
+            const img = new Image();
+            img.src = methodInfo.logo;
+            if (img.complete) {
+                return `
+                    <div class="flex items-center">
+                        <img src="${methodInfo.logo}" alt="${methodInfo.text}" class="${methodInfo.class}">
+                        <span>${methodInfo.text}</span>
+                    </div>
+                `;
+            }
+        }
+        
+        return methodInfo.text;
     }
 
     formatPaymentDetails(details, method) {
