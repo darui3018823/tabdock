@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.1.0_subsccal-r4
+// This code Version: 5.1.0_subsccal-r5
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -383,7 +383,7 @@ class SubscriptionCalendarManager {
             },
             'AmazonPay': {
                 text: 'Amazon Pay',
-                logo: '/home/assets/payment/logo_amazonpay-primary-fullcolor-negative.png',
+                logo: '/home/assets/payment/Black-XL.png',
                 class: 'h-6 inline-block mr-2'
             },
             'Other': {
@@ -531,130 +531,6 @@ class SubscriptionCalendarManager {
                             </div>
                         </div>
                     </div>
-
-                    <script>
-                        // 支払い方法の詳細情報を取得
-                        let paymentDetails;
-                        try {
-                            const rawDetails = '${JSON.stringify(sub.paymentDetails || {})}';
-                            paymentDetails = JSON.parse(rawDetails);
-                            console.log('Raw payment details:', rawDetails);
-                        } catch (error) {
-                            console.error('Payment details parse error:', error);
-                            paymentDetails = {};
-                        }
-                        console.log('Processed payment details:', paymentDetails);
-                        
-                        // 支払い方法が変更されたときの処理
-                        document.getElementById('paymentMethodSelect').addEventListener('change', function(e) {
-                            const additionalFields = document.getElementById('additionalPaymentFields');
-                            const method = e.target.value;
-                            const details = paymentDetails || {};
-                            
-                            // デバッグ用のログ出力
-                            console.log('Current method:', method);
-                            console.log('Details for fields:', details);
-                            
-                            // フィールドをクリア
-                            additionalFields.innerHTML = '';
-                            
-                            // 支払い方法に応じたフィールドを追加
-                            switch(method) {
-                                case 'CC': {
-                                    const ccDiv = document.createElement('div');
-                                    ccDiv.className = 'grid gap-4';
-                                    
-                                    const ccInputDiv = document.createElement('div');
-                                    const ccLabel = document.createElement('label');
-                                    ccLabel.className = 'block text-white/70 text-sm mb-1';
-                                    ccLabel.textContent = 'カード末尾4桁';
-                                    
-                                    const ccInput = document.createElement('input');
-                                    ccInput.type = 'text';
-                                    ccInput.name = 'cardLastFour';
-                                    ccInput.pattern = '[0-9]{4}';
-                                    ccInput.maxLength = 4;
-                                    ccInput.value = details.cardLastFour || '';
-                                    ccInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                    ccInput.placeholder = '1234';
-                                    
-                                    ccInputDiv.appendChild(ccLabel);
-                                    ccInputDiv.appendChild(ccInput);
-                                    ccDiv.appendChild(ccInputDiv);
-                                    additionalFields.appendChild(ccDiv);
-                                    break;
-                                }
-
-                                case 'PayPal': {
-                                    const ppDiv = document.createElement('div');
-                                    ppDiv.className = 'grid gap-4';
-                                    
-                                    const ppInputDiv = document.createElement('div');
-                                    const ppLabel = document.createElement('label');
-                                    ppLabel.className = 'block text-white/70 text-sm mb-1';
-                                    ppLabel.textContent = 'PayPalメールアドレス';
-                                    
-                                    const ppInput = document.createElement('input');
-                                    ppInput.type = 'email';
-                                    ppInput.name = 'paypalEmail';
-                                    ppInput.value = details.paypalEmail || '';
-                                    ppInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                    ppInput.placeholder = 'example@example.com';
-                                    
-                                    ppInputDiv.appendChild(ppLabel);
-                                    ppInputDiv.appendChild(ppInput);
-                                    ppDiv.appendChild(ppInputDiv);
-                                    additionalFields.appendChild(ppDiv);
-                                    break;
-                                }
-
-                                case 'Other': {
-                                    const otherContainer = document.createElement('div');
-                                    otherContainer.className = 'grid gap-4';
-
-                                    // Method name field
-                                    const methodDiv = document.createElement('div');
-                                    const methodLabel = document.createElement('label');
-                                    methodLabel.className = 'block text-white/70 text-sm mb-1';
-                                    methodLabel.textContent = '支払い方法名';
-                                    
-                                    const methodInput = document.createElement('input');
-                                    methodInput.type = 'text';
-                                    methodInput.name = 'methodName';
-                                    methodInput.value = details.methodName || '';
-                                    methodInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                    methodInput.placeholder = '銀行振込など';
-                                    
-                                    methodDiv.appendChild(methodLabel);
-                                    methodDiv.appendChild(methodInput);
-
-                                    // Note field
-                                    const labelDiv = document.createElement('div');
-                                    const noteLabel = document.createElement('label');
-                                    noteLabel.className = 'block text-white/70 text-sm mb-1';
-                                    noteLabel.textContent = '備考';
-                                    
-                                    const noteInput = document.createElement('input');
-                                    noteInput.type = 'text';
-                                    noteInput.name = 'label';
-                                    noteInput.value = details.label || '';
-                                    noteInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
-                                    noteInput.placeholder = 'メモ';
-                                    
-                                    labelDiv.appendChild(noteLabel);
-                                    labelDiv.appendChild(noteInput);
-
-                                    otherContainer.appendChild(methodDiv);
-                                    otherContainer.appendChild(labelDiv);
-                                    additionalFields.appendChild(otherContainer);
-                                    break;
-                                }
-                            }
-                        });
-                        
-                        // 初期表示時にも実行
-                        document.getElementById('paymentMethodSelect').dispatchEvent(new Event('change'));
-                    </script>
                 </form>
 
                 <div class="flex justify-between mt-6 border-t border-gray-700 pt-4">
@@ -675,10 +551,145 @@ class SubscriptionCalendarManager {
 
         document.body.appendChild(editModal);
 
+        // 支払い方法の詳細情報を取得
+        let paymentDetails = {};
+        try {
+            if (sub.paymentDetails) {
+                paymentDetails = typeof sub.paymentDetails === 'string' ? 
+                    JSON.parse(sub.paymentDetails) : 
+                    sub.paymentDetails;
+            }
+            console.log('Processed payment details:', paymentDetails);
+        } catch (error) {
+            console.error('Payment details parse error:', error);
+            paymentDetails = {};
+        }
+
+        // 支払い方法が変更されたときの処理関数
+        function updatePaymentFields() {
+            const paymentMethodSelect = document.getElementById('paymentMethodSelect');
+            const additionalFields = document.getElementById('additionalPaymentFields');
+            
+            if (!paymentMethodSelect || !additionalFields) {
+                console.error('Required elements not found');
+                return;
+            }
+
+            const method = paymentMethodSelect.value;
+            const details = paymentDetails || {};
+            
+            console.log('Current method:', method);
+            console.log('Details for fields:', details);
+            
+            // フィールドをクリア
+            additionalFields.innerHTML = '';
+            
+            // 支払い方法に応じたフィールドを追加
+            switch(method) {
+                case 'CC': {
+                    const ccDiv = document.createElement('div');
+                    ccDiv.className = 'grid gap-4';
+                    
+                    const ccInputDiv = document.createElement('div');
+                    const ccLabel = document.createElement('label');
+                    ccLabel.className = 'block text-white/70 text-sm mb-1';
+                    ccLabel.textContent = 'カード末尾4桁';
+                    
+                    const ccInput = document.createElement('input');
+                    ccInput.type = 'text';
+                    ccInput.name = 'cardLastFour';
+                    ccInput.pattern = '[0-9]{4}';
+                    ccInput.maxLength = 4;
+                    ccInput.value = details.cardLastFour || '';
+                    ccInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                    ccInput.placeholder = '1234';
+                    
+                    ccInputDiv.appendChild(ccLabel);
+                    ccInputDiv.appendChild(ccInput);
+                    ccDiv.appendChild(ccInputDiv);
+                    additionalFields.appendChild(ccDiv);
+                    break;
+                }
+
+                case 'PayPal': {
+                    const ppDiv = document.createElement('div');
+                    ppDiv.className = 'grid gap-4';
+                    
+                    const ppInputDiv = document.createElement('div');
+                    const ppLabel = document.createElement('label');
+                    ppLabel.className = 'block text-white/70 text-sm mb-1';
+                    ppLabel.textContent = 'PayPalメールアドレス';
+                    
+                    const ppInput = document.createElement('input');
+                    ppInput.type = 'email';
+                    ppInput.name = 'paypalEmail';
+                    ppInput.value = details.paypalEmail || '';
+                    ppInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                    ppInput.placeholder = 'example@example.com';
+                    
+                    ppInputDiv.appendChild(ppLabel);
+                    ppInputDiv.appendChild(ppInput);
+                    ppDiv.appendChild(ppInputDiv);
+                    additionalFields.appendChild(ppDiv);
+                    break;
+                }
+
+                case 'Other': {
+                    const otherContainer = document.createElement('div');
+                    otherContainer.className = 'grid gap-4';
+
+                    // Method name field
+                    const methodDiv = document.createElement('div');
+                    const methodLabel = document.createElement('label');
+                    methodLabel.className = 'block text-white/70 text-sm mb-1';
+                    methodLabel.textContent = '支払い方法名';
+                    
+                    const methodInput = document.createElement('input');
+                    methodInput.type = 'text';
+                    methodInput.name = 'methodName';
+                    methodInput.value = details.methodName || '';
+                    methodInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                    methodInput.placeholder = '銀行振込など';
+                    
+                    methodDiv.appendChild(methodLabel);
+                    methodDiv.appendChild(methodInput);
+
+                    // Note field
+                    const labelDiv = document.createElement('div');
+                    const noteLabel = document.createElement('label');
+                    noteLabel.className = 'block text-white/70 text-sm mb-1';
+                    noteLabel.textContent = '備考';
+                    
+                    const noteInput = document.createElement('input');
+                    noteInput.type = 'text';
+                    noteInput.name = 'label';
+                    noteInput.value = details.label || '';
+                    noteInput.className = 'w-full bg-gray-700 text-white rounded px-3 py-2';
+                    noteInput.placeholder = 'メモ';
+                    
+                    labelDiv.appendChild(noteLabel);
+                    labelDiv.appendChild(noteInput);
+
+                    otherContainer.appendChild(methodDiv);
+                    otherContainer.appendChild(labelDiv);
+                    additionalFields.appendChild(otherContainer);
+                    break;
+                }
+            }
+        }
+
         // イベントリスナーの設定
         document.getElementById('closeEditForm').addEventListener('click', () => {
             document.body.removeChild(editModal);
         });
+
+        // 支払い方法変更イベントの設定
+        const paymentMethodSelect = document.getElementById('paymentMethodSelect');
+        if (paymentMethodSelect) {
+            paymentMethodSelect.addEventListener('change', updatePaymentFields);
+            // 初期表示時にも実行（少し遅延させて確実にDOM構築後に実行）
+            setTimeout(updatePaymentFields, 100);
+        }
 
         document.getElementById('saveSubscriptionEdit').addEventListener('click', async () => {
             const form = document.getElementById('editSubscriptionForm');
@@ -686,6 +697,15 @@ class SubscriptionCalendarManager {
             const updatedData = Object.fromEntries(formData.entries());
 
             try {
+                // amountを数値型に変換
+                if (updatedData.amount) {
+                    updatedData.amount = parseFloat(updatedData.amount);
+                    // 数値変換に失敗した場合はエラーを投げる
+                    if (isNaN(updatedData.amount)) {
+                        throw new Error('支払い金額は有効な数値である必要があります');
+                    }
+                }
+
                 // PaymentDetailsの処理
                 console.log('Form data before processing:', updatedData);
                 const paymentDetails = {};
