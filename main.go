@@ -26,7 +26,7 @@ import (
 )
 
 // const
-const version = "5.0.0-α2"
+const version = "5.0.0-β1"
 
 // var
 var fallbackHolidays map[string]string

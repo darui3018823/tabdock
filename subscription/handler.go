@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type Handler struct {
@@ -38,6 +39,28 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if sub.NextPaymentDate.IsZero() {
+		var raw map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&raw); err == nil {
+			if v, ok := raw["nextPaymentDate"].(string); ok {
+				var t time.Time
+				var err error
+				// ISO8601
+				t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
+				if err != nil {
+					// YYYY-MM-DD
+					t, err = time.Parse("2006-01-02", v)
+				}
+				if err == nil {
+					sub.NextPaymentDate = t
+				} else {
+					http.Error(w, "Invalid nextPaymentDate format", http.StatusBadRequest)
+					return
+				}
+			}
+		}
+	}
+
 	sub.UserID = userID
 	sub.Status = "active"
 
@@ -56,7 +79,6 @@ func (h *Handler) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// セッション確認
 	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -79,7 +101,6 @@ func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// セッション確認
 	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -102,7 +123,6 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// セッション確認
 	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -146,7 +166,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// セッション確認
 	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
