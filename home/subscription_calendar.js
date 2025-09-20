@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.0.0_subsccal-r6
+// This code Version: 5.1.0_subsccal-r2
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -357,7 +357,9 @@ class SubscriptionCalendarManager {
     formatPaymentMethod(method) {
         const methods = {
             'CC': {
-                text: 'クレジットカード'
+                text: 'クレジットカード',
+                logo: '/home/assets/payment/credit-card.png',
+                class: 'h-6 inline-block mr-2'
             },
             'PayPal': {
                 text: 'PayPal',
@@ -375,10 +377,14 @@ class SubscriptionCalendarManager {
                 class: 'h-6 inline-block mr-2'
             },
             'PayPay': {
-                text: 'PayPay'
+                text: 'PayPay',
+                logo: '/home/assets/payment/paypay_3_rgb.png',
+                class: 'h-6 inline-block mr-2'
             },
             'AmazonPay': {
-                text: 'Amazon Pay'
+                text: 'Amazon Pay',
+                logo: '/home/assets/payment/logo_amazonpay-primary-fullcolor-negative.png',
+                class: 'h-6 inline-block mr-2'
             },
             'Other': {
                 text: 'その他'
@@ -528,7 +534,17 @@ class SubscriptionCalendarManager {
 
                     <script>
                         // 支払い方法の詳細情報を取得
-                        const paymentDetails = ${sub.paymentDetails ? sub.paymentDetails : '{}'};
+                        let paymentDetails;
+                        try {
+                            paymentDetails = ${typeof sub.paymentDetails === 'string' ? sub.paymentDetails : JSON.stringify(sub.paymentDetails || {})};
+                            if (typeof paymentDetails === 'string') {
+                                paymentDetails = JSON.parse(paymentDetails);
+                            }
+                        } catch (error) {
+                            console.error('Payment details parse error:', error);
+                            paymentDetails = {};
+                        }
+                        console.log('Payment Details:', paymentDetails); // デバッグ用
                         
                         // 支払い方法が変更されたときの処理
                         document.getElementById('paymentMethodSelect').addEventListener('change', function(e) {
@@ -543,6 +559,9 @@ class SubscriptionCalendarManager {
                             const container = document.createElement('div');
                             container.className = 'grid gap-4';
 
+                            console.log('Current method:', method); // デバッグ用
+                            console.log('Details for fields:', details); // デバッグ用
+                            
                             // 支払い方法に応じたフィールドを追加
                             switch(method) {
                                 case 'CC':
