@@ -365,12 +365,12 @@ class SubscriptionCalendarManager {
             'GooglePay': {
                 text: 'Google Pay',
                 logo: '/home/assets/payment/google-pay-mark_800.svg',
-                class: 'h-4 inline-block mr-2'
+                class: 'h-6 inline-block mr-2'
             },
             'ApplePay': {
                 text: 'Apple Pay',
                 logo: '/home/assets/payment/Apple_Pay_Mark_RGB_041619.svg',
-                class: 'h-4 inline-block mr-2'
+                class: 'h-6 inline-block mr-2'
             },
             'PayPay': {
                 text: 'PayPay'
@@ -386,17 +386,13 @@ class SubscriptionCalendarManager {
         const methodInfo = methods[method] || { text: method };
 
         if (methodInfo.logo) {
-            // ロゴ画像が存在するか確認
-            const img = new Image();
-            img.src = methodInfo.logo;
-            if (img.complete) {
-                return `
-                    <div class="flex items-center">
-                        <img src="${methodInfo.logo}" alt="${methodInfo.text}" class="${methodInfo.class}">
-                        <span>${methodInfo.text}</span>
-                    </div>
-                `;
-            }
+            // 直接ロゴ付きの表示を返す
+            return `
+                <div class="flex items-center">
+                    <img src="${methodInfo.logo}" alt="${methodInfo.text}" class="${methodInfo.class}" onerror="this.style.display='none'">
+                    <span>${methodInfo.text}</span>
+                </div>
+            `;
         }
         
         return methodInfo.text;
