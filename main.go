@@ -90,9 +90,10 @@ func (rw *responseWriterWithStatus) WriteHeader(code int) {
 }
 
 func serve(mux http.Handler) {
-	update1 := "GetStatus has been ported to Golang."
-	update2 := "As a result, PowerShell Core is now required even outside Windows environments."
-	update3 := "Many more fixes have also been applied."
+	update1 := "You can now view subscription schedules."
+	update2 := "We will continue to apply optimizations and improvements in v5."
+	update3 := "For performance improvements, we reduced the dependency on PowerShell Core and now use Windows PowerShell."
+	update4 := "Since Core is still required outside Windows, we would appreciate your code contributions."
 
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
@@ -102,6 +103,7 @@ func serve(mux http.Handler) {
 	log.Println(update1)
 	log.Println(update2)
 	log.Println(update3)
+	log.Println(update4)
 	log.Println("=================")
 
 	if useDocker {
