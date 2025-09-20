@@ -360,7 +360,9 @@ class SubscriptionCalendarManager {
                 text: 'クレジットカード'
             },
             'PayPal': {
-                text: 'PayPal'
+                text: 'PayPal',
+                logo: '/home/assets/payment/pp_h_rgb.png',
+                class: 'h-6 inline-block mr-2'
             },
             'GooglePay': {
                 text: 'Google Pay',
