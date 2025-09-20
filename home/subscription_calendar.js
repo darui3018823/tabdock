@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.0.0_subsccal-r4
+// This code Version: 5.0.0_subsccal-r5
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -102,48 +102,114 @@ class SubscriptionCalendarManager {
     }
 
     setupSubscriptionList() {
-        const menuModal = document.getElementById('menuModal');
-        if (!menuModal) return;
+        // アカウントモーダルにサブスクリプション管理ボタンを追加
+        this.addSubscriptionButton();
+    }
 
-        // サブスクリプション一覧セクションの追加
-        const section = document.createElement('div');
-        section.className = 'mt-4 border-t border-gray-700 pt-4';
-        section.innerHTML = `
-            <h3 class="text-lg font-semibold mb-2">登録済みサブスクリプション</h3>
-            <div id="subscriptionList" class="space-y-2 max-h-60 overflow-y-auto">
+    addSubscriptionButton() {
+        const observer = new MutationObserver((mutations, obs) => {
+            const accountModal = document.getElementById('accountModal');
+            if (!accountModal) return;
+
+            const accountDataSection = accountModal.querySelector('.bg-black\\/20:nth-of-type(3)');
+            if (!accountDataSection) return;
+
+            const buttonContainer = accountDataSection.querySelector('.space-y-2');
+            if (!buttonContainer) return;
+
+            obs.disconnect(); // 監視を停止
+
+            // 既存のボタンがあれば削除
+            const existingButton = buttonContainer.querySelector('#subscriptionManageBtn');
+            if (existingButton) {
+                existingButton.remove();
+            }
+
+            // ボタンを作成
+            const button = document.createElement('button');
+            button.id = 'subscriptionManageBtn';
+            button.className = 'w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors';
+            button.textContent = 'サブスクリプション管理';
+            button.addEventListener('click', () => this.showSubscriptionListModal());
+
+            // データエクスポートボタンの前に挿入
+            const exportButton = buttonContainer.firstChild;
+            buttonContainer.insertBefore(button, exportButton);
+        });
+
+        // DOM変更の監視を開始
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    async showSubscriptionListModal() {
+        await this.loadSubscriptions(); // サブスクリプション情報を更新
+
+        // サブスクリプション一覧モーダルを作成
+        const modalHtml = `
+            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+                <h2 class="text-xl font-bold mb-4">サブスクリプション一覧</h2>
+                
+                <div id="subscriptionListContent" class="space-y-2 mb-4">
+                    ${this.subscriptions.map(sub => `
+                        <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item" data-id="${sub.id || ''}">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-semibold text-lg">${sub.serviceName || ''}</div>
+                                    <div class="text-sm text-white/70 mt-1">
+                                        次回支払: ${sub.nextPaymentDate ? new Date(sub.nextPaymentDate).toLocaleDateString() : '未設定'}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg">${sub.amount || 0} ${sub.currency || 'JPY'}</div>
+                                    <div class="text-sm text-white/70">${this.formatBillingCycle(sub.billingCycle || 'monthly')}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="border-t border-gray-700 pt-4 mt-4">
+                    <div class="flex justify-between">
+                        <button id="addNewSubscription" class="px-6 py-2 bg-green-600 hover:bg-green-500 rounded transition-colors">
+                            新規追加
+                        </button>
+                        <button id="closeSubscriptionList" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded transition-colors">
+                            閉じる
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
 
-        const modalContent = menuModal.querySelector('.bg-white\\/30');
-        if (!modalContent) return;
+        const subscriptionListModal = document.createElement('div');
+        subscriptionListModal.id = 'subscriptionListModal';
+        subscriptionListModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[70]';
+        subscriptionListModal.innerHTML = modalHtml;
 
-        modalContent.appendChild(section);
-        this.updateSubscriptionList();
-    }
+        document.body.appendChild(subscriptionListModal);
 
-    async updateSubscriptionList() {
-        await this.loadSubscriptions();
-        const list = document.getElementById('subscriptionList');
-        if (!list) return;
+        // イベントリスナーの設定
+        document.getElementById('closeSubscriptionList').addEventListener('click', () => {
+            document.body.removeChild(subscriptionListModal);
+        });
 
-        list.innerHTML = '';
-        this.subscriptions.forEach(sub => {
-            const item = document.createElement('div');
-            item.className = 'flex justify-between items-center p-2 rounded hover:bg-white/5';
-            item.innerHTML = `
-                <div>
-                    <div class="font-semibold">${sub.serviceName}</div>
-                    <div class="text-sm text-white/70">
-                        次回支払: ${new Date(sub.nextPaymentDate).toLocaleDateString()}
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div>${sub.amount} ${sub.currency}</div>
-                    <div class="text-sm text-white/70">${this.formatBillingCycle(sub.billingCycle)}</div>
-                </div>
-            `;
-            item.addEventListener('click', () => this.showSubscriptionDetail(sub));
-            list.appendChild(item);
+        document.getElementById('addNewSubscription').addEventListener('click', () => {
+            document.body.removeChild(subscriptionListModal);
+            const subscriptionManager = window.subscriptionManager;
+            if (subscriptionManager) {
+                subscriptionManager.showAddModal();
+            }
+        });
+
+        const subscriptionItems = subscriptionListModal.querySelectorAll('.subscription-item');
+        subscriptionItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const subId = item.dataset.id;
+                const subscription = this.subscriptions.find(s => s.id === subId);
+                if (subscription) {
+                    this.showSubscriptionDetail(subscription);
+                }
+            });
         });
     }
 
@@ -155,7 +221,16 @@ class SubscriptionCalendarManager {
     }
 
     showSubscriptionDetail(sub) {
-        const paymentDetails = sub.paymentDetails ? JSON.parse(sub.paymentDetails) : {};
+        let paymentDetails = {};
+        try {
+            paymentDetails = sub.paymentDetails ? (
+                typeof sub.paymentDetails === 'string' ? 
+                JSON.parse(sub.paymentDetails) : 
+                sub.paymentDetails
+            ) : {};
+        } catch (error) {
+            console.warn('支払い詳細の解析に失敗しました:', error);
+        }
         const detailsHTML = this.formatPaymentDetails(paymentDetails, sub.paymentMethod);
 
         Swal.fire({
