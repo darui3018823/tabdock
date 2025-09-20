@@ -458,11 +458,127 @@ class SubscriptionCalendarManager {
     }
 
     async handleEdit(sub) {
-        // サブスクリプション編集モーダルを表示
-        const subscriptionManager = window.subscriptionManager;
-        if (subscriptionManager) {
-            subscriptionManager.showEditModal(sub);
-        }
+        const modalHtml = `
+            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto shadow-lg">
+                <h2 class="text-xl font-bold mb-6">サブスクリプション編集</h2>
+                
+                <form id="editSubscriptionForm" class="space-y-6">
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <div class="grid gap-4">
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">サービス名</label>
+                                <input type="text" name="serviceName" value="${sub.serviceName}" 
+                                    class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">プラン名</label>
+                                <input type="text" name="planName" value="${sub.planName}" 
+                                    class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <div class="grid gap-4">
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">支払い金額</label>
+                                <input type="number" name="amount" value="${sub.amount}" 
+                                    class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">通貨</label>
+                                <select name="currency" class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                                    <option value="JPY" ${sub.currency === 'JPY' ? 'selected' : ''}>JPY</option>
+                                    <option value="USD" ${sub.currency === 'USD' ? 'selected' : ''}>USD</option>
+                                    <option value="EUR" ${sub.currency === 'EUR' ? 'selected' : ''}>EUR</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">支払いサイクル</label>
+                                <select name="billingCycle" class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                                    <option value="monthly" ${sub.billingCycle === 'monthly' ? 'selected' : ''}>月額</option>
+                                    <option value="yearly" ${sub.billingCycle === 'yearly' ? 'selected' : ''}>年額</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <div class="grid gap-4">
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">支払い方法</label>
+                                <select name="paymentMethod" class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                                    <option value="CC" ${sub.paymentMethod === 'CC' ? 'selected' : ''}>クレジットカード</option>
+                                    <option value="PayPal" ${sub.paymentMethod === 'PayPal' ? 'selected' : ''}>PayPal</option>
+                                    <option value="GooglePay" ${sub.paymentMethod === 'GooglePay' ? 'selected' : ''}>Google Pay</option>
+                                    <option value="ApplePay" ${sub.paymentMethod === 'ApplePay' ? 'selected' : ''}>Apple Pay</option>
+                                    <option value="PayPay" ${sub.paymentMethod === 'PayPay' ? 'selected' : ''}>PayPay</option>
+                                    <option value="AmazonPay" ${sub.paymentMethod === 'AmazonPay' ? 'selected' : ''}>Amazon Pay</option>
+                                    <option value="Other" ${sub.paymentMethod === 'Other' ? 'selected' : ''}>その他</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-white/70 text-sm mb-1">次回支払い日</label>
+                                <input type="date" name="nextPaymentDate" value="${sub.nextPaymentDate.split('T')[0]}" 
+                                    class="w-full bg-gray-700 text-white rounded px-3 py-2">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="flex justify-between mt-6 border-t border-gray-700 pt-4">
+                    <button id="saveSubscriptionEdit" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded transition-colors">
+                        保存
+                    </button>
+                    <button id="closeEditForm" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded transition-colors">
+                        キャンセル
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const editModal = document.createElement('div');
+        editModal.id = 'subscriptionEditModal';
+        editModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[70]';
+        editModal.innerHTML = modalHtml;
+
+        document.body.appendChild(editModal);
+
+        // イベントリスナーの設定
+        document.getElementById('closeEditForm').addEventListener('click', () => {
+            document.body.removeChild(editModal);
+        });
+
+        document.getElementById('saveSubscriptionEdit').addEventListener('click', async () => {
+            const form = document.getElementById('editSubscriptionForm');
+            const formData = new FormData(form);
+            const updatedData = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Username': this.getUsername()
+                    },
+                    body: JSON.stringify(updatedData)
+                });
+
+                if (!response.ok) throw new Error('更新に失敗しました');
+
+                await Swal.fire('完了', 'サブスクリプション情報を更新しました', 'success');
+                await this.loadSubscriptions(); // サブスクリプション一覧を更新
+                document.body.removeChild(editModal);
+                
+                // 更新後に詳細画面を再表示
+                const updatedSub = this.subscriptions.find(s => s.id === sub.id);
+                if (updatedSub) {
+                    this.showSubscriptionDetail(updatedSub);
+                }
+            } catch (error) {
+                Swal.fire('エラー', error.message, 'error');
+            }
+        });
     }
 
     // 通知

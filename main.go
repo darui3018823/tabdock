@@ -26,7 +26,7 @@ import (
 )
 
 // const
-const version = "5.0.0"
+const version = "5.1.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -174,6 +174,7 @@ func main() {
 	mux.HandleFunc("/api/subscriptions", secureHandler(subHandler.Create))
 	mux.HandleFunc("/api/subscriptions/list", secureHandler(subHandler.GetUserSubscriptions))
 	mux.HandleFunc("/api/subscriptions/upcoming", secureHandler(subHandler.GetUpcoming))
+	mux.HandleFunc("/api/subscriptions/update", secureHandler(subHandler.Update))
 	mux.HandleFunc("/api/subscriptions/status", secureHandler(subHandler.UpdateStatus))
 	mux.HandleFunc("/api/subscriptions/delete", secureHandler(subHandler.Delete))
 

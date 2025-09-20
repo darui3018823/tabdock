@@ -139,6 +139,85 @@ func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(subs)
 }
 
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userIDStr, err := h.getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	subID, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid subscription ID", http.StatusBadRequest)
+		return
+	}
+
+	// リクエストボディを読み取り
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	// 生データをパース
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// NextPaymentDateを事前パース
+	if v, ok := raw["nextPaymentDate"].(string); ok {
+		var t time.Time
+		// YYYY-MM-DD
+		t, err = time.Parse("2006-01-02", v)
+		if err != nil {
+			// ISO8601
+			t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
+			if err != nil {
+				http.Error(w, "Invalid nextPaymentDate format", http.StatusBadRequest)
+				return
+			}
+		}
+		raw["nextPaymentDate"] = t
+	}
+
+	// 全体をSubscription構造体に変換
+	jsonData, err := json.Marshal(raw)
+	if err != nil {
+		http.Error(w, "Failed to process data", http.StatusInternalServerError)
+		return
+	}
+
+	var sub Subscription
+	if err := json.Unmarshal(jsonData, &sub); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// IDとユーザーIDを設定
+	sub.ID = subID
+	sub.UserID = userIDStr
+
+	// データベースを更新
+	if err := h.subDB.Update(&sub); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Subscription not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(sub)
+}
+
 func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

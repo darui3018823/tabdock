@@ -160,6 +160,42 @@ func (s *SubscriptionDB) GetUpcoming(userID string) ([]Subscription, error) {
 	return subs, nil
 }
 
+func (s *SubscriptionDB) Update(sub *Subscription) error {
+	query := `
+		UPDATE subscriptions
+		SET service_name = ?, plan_name = ?, amount = ?, currency = ?,
+			billing_cycle = ?, payment_method = ?, payment_details = ?, 
+			next_payment_date = ?
+		WHERE id = ? AND user_id = ?
+	`
+
+	result, err := s.db.Exec(
+		query,
+		sub.ServiceName,
+		sub.PlanName,
+		sub.Amount,
+		sub.Currency,
+		sub.BillingCycle,
+		sub.PaymentMethod,
+		sub.PaymentDetails,
+		sub.NextPaymentDate,
+		sub.ID,
+		sub.UserID,
+	)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (s *SubscriptionDB) UpdateStatus(id int64, userID string, status string) error {
 	query := `
 		UPDATE subscriptions
