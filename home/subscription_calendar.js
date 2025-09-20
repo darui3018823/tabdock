@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.0.0_subsccal-r5
+// This code Version: 5.0.0_subsccal-r6
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -233,42 +233,82 @@ class SubscriptionCalendarManager {
         }
         const detailsHTML = this.formatPaymentDetails(paymentDetails, sub.paymentMethod);
 
-        Swal.fire({
-            title: `${sub.serviceName} - ${sub.planName}`,
-            html: `
-                <div class="text-left">
-                    <div class="mb-3">
-                        <div class="font-semibold">支払い情報</div>
-                        <div>${sub.amount} ${sub.currency} / ${this.formatBillingCycle(sub.billingCycle)}</div>
+        const modalHtml = `
+            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto shadow-lg">
+                <h2 class="text-xl font-bold mb-6">${sub.serviceName} - ${sub.planName}</h2>
+
+                <div class="space-y-6">
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">支払い情報</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-white/70 text-sm">金額</div>
+                                <div class="text-lg">${sub.amount} ${sub.currency}</div>
+                            </div>
+                            <div>
+                                <div class="text-white/70 text-sm">支払いサイクル</div>
+                                <div class="text-lg">${this.formatBillingCycle(sub.billingCycle)}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <div class="font-semibold">次回支払日</div>
-                        <div>${new Date(sub.nextPaymentDate).toLocaleDateString()}</div>
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">次回支払い</h3>
+                        <div class="text-lg">${new Date(sub.nextPaymentDate).toLocaleDateString()}</div>
                     </div>
-                    <div class="mb-3">
-                        <div class="font-semibold">支払い方法</div>
-                        <div>${this.formatPaymentMethod(sub.paymentMethod)}</div>
-                        ${detailsHTML}
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">支払い方法</h3>
+                        <div>
+                            <div class="text-lg">${this.formatPaymentMethod(sub.paymentMethod)}</div>
+                            ${detailsHTML}
+                        </div>
                     </div>
-                    <div>
-                        <div class="font-semibold">ステータス</div>
-                        <div>${this.formatStatus(sub.status)}</div>
+
+                    <div class="bg-black/20 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3">ステータス</h3>
+                        <div class="text-lg ${sub.status === 'active' ? 'text-green-400' : 'text-red-400'}">
+                            ${this.formatStatus(sub.status)}
+                        </div>
                     </div>
                 </div>
-            `,
-            confirmButtonText: '閉じる',
-            showDenyButton: true,
-            denyButtonText: 'キャンセル',
-            denyButtonColor: '#dc3545',
-            showCancelButton: true,
-            cancelButtonText: '編集',
-            cancelButtonColor: '#3085d6'
-        }).then((result) => {
-            if (result.isDenied) {
-                this.handleCancellation(sub);
-            } else if (result.dismiss === Swal.DismissReason.cancel) {
-                this.handleEdit(sub);
-            }
+
+                <div class="flex justify-between mt-6 border-t border-gray-700 pt-4">
+                    <div>
+                        <button id="editSubscription" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded transition-colors mr-2">
+                            編集
+                        </button>
+                        <button id="cancelSubscription" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded transition-colors">
+                            キャンセル
+                        </button>
+                    </div>
+                    <button id="closeSubscriptionDetail" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded transition-colors">
+                        閉じる
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const detailModal = document.createElement('div');
+        detailModal.id = 'subscriptionDetailModal';
+        detailModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[70]';
+        detailModal.innerHTML = modalHtml;
+
+        document.body.appendChild(detailModal);
+
+        // イベントリスナーの設定
+        document.getElementById('closeSubscriptionDetail').addEventListener('click', () => {
+            document.body.removeChild(detailModal);
+        });
+
+        document.getElementById('editSubscription').addEventListener('click', () => {
+            document.body.removeChild(detailModal);
+            this.handleEdit(sub);
+        });
+
+        document.getElementById('cancelSubscription').addEventListener('click', () => {
+            document.body.removeChild(detailModal);
+            this.handleCancellation(sub);
         });
     }
 
