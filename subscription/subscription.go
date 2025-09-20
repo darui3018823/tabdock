@@ -8,7 +8,7 @@ import (
 
 type Subscription struct {
 	ID              int64           `json:"id"`
-	UserID          int64           `json:"userId"`
+	UserID          string          `json:"userId"`
 	ServiceName     string          `json:"serviceName"`
 	PlanName        string          `json:"planName"`
 	Amount          float64         `json:"amount"`
@@ -70,7 +70,7 @@ func (s *SubscriptionDB) Create(sub *Subscription) error {
 	return nil
 }
 
-func (s *SubscriptionDB) GetByUserID(userID int64) ([]Subscription, error) {
+func (s *SubscriptionDB) GetByUserID(userID string) ([]Subscription, error) {
 	query := `
 		SELECT id, user_id, service_name, plan_name, amount, currency,
 			   billing_cycle, payment_method, payment_details, next_payment_date,
@@ -112,7 +112,7 @@ func (s *SubscriptionDB) GetByUserID(userID int64) ([]Subscription, error) {
 	return subs, nil
 }
 
-func (s *SubscriptionDB) GetUpcoming(userID int64) ([]Subscription, error) {
+func (s *SubscriptionDB) GetUpcoming(userID string) ([]Subscription, error) {
 	query := `
 		SELECT id, user_id, service_name, plan_name, amount, currency,
 			   billing_cycle, payment_method, payment_details, next_payment_date,
@@ -156,7 +156,7 @@ func (s *SubscriptionDB) GetUpcoming(userID int64) ([]Subscription, error) {
 	return subs, nil
 }
 
-func (s *SubscriptionDB) UpdateStatus(id int64, userID int64, status string) error {
+func (s *SubscriptionDB) UpdateStatus(id int64, userID string, status string) error {
 	query := `
 		UPDATE subscriptions
 		SET status = ?
@@ -178,7 +178,7 @@ func (s *SubscriptionDB) UpdateStatus(id int64, userID int64, status string) err
 	return nil
 }
 
-func (s *SubscriptionDB) Delete(id int64, userID int64) error {
+func (s *SubscriptionDB) Delete(id int64, userID string) error {
 	query := `
 		DELETE FROM subscriptions
 		WHERE id = ? AND user_id = ?

@@ -9,10 +9,10 @@ import (
 
 type Handler struct {
 	subDB     *SubscriptionDB
-	getUserID func(*http.Request) (int64, error)
+	getUserID func(*http.Request) (string, error)
 }
 
-func NewHandler(db *sql.DB, getUserID func(*http.Request) (int64, error)) *Handler {
+func NewHandler(db *sql.DB, getUserID func(*http.Request) (string, error)) *Handler {
 	return &Handler{
 		subDB:     NewSubscriptionDB(db),
 		getUserID: getUserID,
@@ -57,13 +57,13 @@ func (h *Handler) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// セッション確認
-	userID, err := h.getUserID(r)
+	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	subs, err := h.subDB.GetByUserID(userID)
+	subs, err := h.subDB.GetByUserID(userIDStr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -80,13 +80,13 @@ func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// セッション確認
-	userID, err := h.getUserID(r)
+	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	subs, err := h.subDB.GetUpcoming(userID)
+	subs, err := h.subDB.GetUpcoming(userIDStr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,7 +103,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// セッション確認
-	userID, err := h.getUserID(r)
+	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -128,7 +128,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.subDB.UpdateStatus(subID, userID, statusUpdate.Status); err != nil {
+	if err := h.subDB.UpdateStatus(subID, userIDStr, statusUpdate.Status); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Subscription not found", http.StatusNotFound)
 			return
@@ -147,7 +147,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// セッション確認
-	userID, err := h.getUserID(r)
+	userIDStr, err := h.getUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -159,7 +159,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.subDB.Delete(subID, userID); err != nil {
+	if err := h.subDB.Delete(subID, userIDStr); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Subscription not found", http.StatusNotFound)
 			return

@@ -26,7 +26,7 @@ import (
 )
 
 // const
-const version = "5.0.0-α"
+const version = "5.0.0-α2"
 
 // var
 var fallbackHolidays map[string]string
@@ -852,25 +852,25 @@ func deleteAllShiftsForUser(username string) error {
 	return nil
 }
 
-func getUserIDFromSession(r *http.Request) (int64, error) {
+func getUserIDFromSession(r *http.Request) (string, error) {
 	username := r.Header.Get("X-Username")
 	if username == "" {
-		return 0, fmt.Errorf("unauthorized: no username")
+		return "", fmt.Errorf("unauthorized: no username")
 	}
 
 	db, err := sql.Open("sqlite", "./database/acc.db")
 	if err != nil {
-		return 0, fmt.Errorf("database error: %v", err)
+		return "", fmt.Errorf("database error: %v", err)
 	}
 	defer db.Close()
 
-	var id int64
+	var id string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("unauthorized: user not found")
+			return "", fmt.Errorf("unauthorized: user not found")
 		}
-		return 0, fmt.Errorf("database error: %v", err)
+		return "", fmt.Errorf("database error: %v", err)
 	}
 
 	return id, nil
