@@ -91,8 +91,8 @@
         </div>
 
         <!-- wallpaper-->
-        <div id="wallpaperModal" class="hidden fixed inset-0 bg-black/60 flex justify-center items-center z-50">
-            <div class="bg-white/35 backdrop-blur-md rounded-xl p-6 w-full max-w-xl text-white">
+        <div id="wallpaperModal" class="hidden td-modal-overlay z-50">
+            <div class="td-modal-panel td-modal-md max-h-[85vh]">
                 <h2 class="text-xl font-bold mb-4">壁紙の設定</h2>
                 
                 <div class="mb-4">
@@ -104,7 +104,9 @@
             
                 <div class="mb-4">
                     <label class="block mb-1">既にある画像から選ぶ</label>
-                    <div id="presetWallpapers" class="grid grid-cols-3 gap-2">
+                    <div id="presetWallpapersWrapper" class="max-h-[50vh] overflow-y-auto pr-1">
+                        <div id="presetWallpapers" class="grid grid-cols-3 gap-2">
+                        </div>
                     </div>
                 </div>
             
@@ -115,8 +117,8 @@
         </div>
 
         <!-- アップロード確認モーダル -->
-        <div id="uploadConfirmModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg shadow-lg">
+        <div id="uploadConfirmModal" class="hidden td-modal-overlay z-50">
+            <div class="td-modal-panel td-modal-md">
                 <h2 class="text-lg font-bold mb-4">アップロード時の確認</h2>
                 <p class="mb-4 text-sm leading-relaxed">現在設定されている壁紙をサーバーのローカルへアップロードします。</p>
                 <p class="mb-4 text-sm leading-relaxed">サーバーに保存された画像は公開扱いとなり、すべてのユーザーが利用可能となります。</p>
@@ -134,8 +136,8 @@
         </div>
   
         <!-- 高度な壁紙設定モーダル -->
-        <div id="wallpaperAdvancedModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center">
-            <div class="bg-gray-800 text-white p-6 rounded-xl w-full max-w-md space-y-5 shadow-lg">
+        <div id="wallpaperAdvancedModal" class="hidden td-modal-overlay z-50">
+            <div class="td-modal-panel td-modal-sm space-y-5">
                 <h2 class="text-xl font-bold">壁紙の詳細設定</h2>
 
                 <!-- スライダー：ぼかし -->
@@ -162,20 +164,20 @@
 
 
         <!-- 予定種類選択モーダル -->
-        <div id="scheduleTypeModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md shadow-lg">
-                <h2 class="text-xl font-bold mb-4">予定の種類を選択</h2>
+        <div id="scheduleTypeModal" class="hidden td-modal-overlay z-50">
+            <div class="td-modal-panel td-modal-sm">
+                <h2 class="text-xl font-bold mb-3">予定の種類を選択</h2>
                 
-                <div class="space-y-4">
-                    <button id="openRegularScheduleBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-4 rounded transition-colors flex items-center justify-center space-x-2">
+                <div class="space-y-3">
+                    <button id="openRegularScheduleBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 rounded transition-colors flex items-center justify-center space-x-2">
                         <span>通常予定を追加</span>
                     </button>
                     
-                    <button id="openShiftScheduleBtn" class="w-full bg-green-600 hover:bg-green-500 text-white p-4 rounded transition-colors flex items-center justify-center space-x-2">
+                    <button id="openShiftScheduleBtn" class="w-full bg-green-600 hover:bg-green-500 text-white p-3 rounded transition-colors flex items-center justify-center space-x-2">
                         <span>シフトを追加</span>
                     </button>
 
-                    <button id="openSubscriptionBtn" data-action="add-subscription" class="w-full bg-purple-600 hover:bg-purple-500 text-white p-4 rounded transition-colors flex items-center justify-center space-x-2">
+                    <button id="openSubscriptionBtn" data-action="add-subscription" class="w-full bg-purple-600 hover:bg-purple-500 text-white p-3 rounded transition-colors flex items-center justify-center space-x-2">
                         <span>サブスクリプションスケジュールを追加</span>
                     </button>
                 </div>
@@ -187,47 +189,86 @@
         </div>
 
         <!-- 通常予定モーダル -->
-        <div id="regularScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
+        <div id="regularScheduleModal" class="hidden td-modal-overlay z-50">
+            <div class="td-modal-panel td-modal-lg">
                 <h2 class="text-xl font-bold mb-4">通常予定の追加</h2>
 
-                <input type="date" id="scheduleDate" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
-                <input type="text" id="scheduleTime" placeholder="時間 (例: 12:00~14:00)" class="w-full p-1 rounded bg-gray-700 text-white mb-2">
-                <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full p-1 rounded bg-gray-700 text-white mb-2" required>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                    <div>
+                        <label class="text-sm block mb-1">日付</label>
+                        <input type="date" id="scheduleDate" class="w-full p-2 rounded bg-gray-700 text-white" required>
+                    </div>
+                    <div class="flex items-end gap-3">
+                        <label class="flex items-center gap-2 text-sm select-none">
+                            <input type="checkbox" id="scheduleAllDay" class="accent-blue-500">
+                            終日
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-2" id="timeInputsRow">
+                    <div>
+                        <label class="text-sm block mb-1">開始</label>
+                        <input type="time" id="scheduleStartTime" class="w-full p-2 rounded bg-gray-700 text-white" step="300">
+                    </div>
+                    <div>
+                        <label class="text-sm block mb-1">終了</label>
+                        <input type="time" id="scheduleEndTime" class="w-full p-2 rounded bg-gray-700 text-white" step="300">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-3 text-sm" id="timeQuickPresets">
+                    <span class="text-white/70 mr-1">時間プリセット:</span>
+                    <button type="button" data-range="09:00-10:00" class="bg-white/10 hover:bg-white/20 px-2 py-1 rounded">09:00-10:00</button>
+                    <button type="button" data-range="12:00-13:00" class="bg-white/10 hover:bg-white/20 px-2 py-1 rounded">12:00-13:00</button>
+                    <button type="button" data-range="13:00-14:00" class="bg-white/10 hover:bg-white/20 px-2 py-1 rounded">13:00-14:00</button>
+                    <button type="button" data-range="18:00-19:00" class="bg-white/10 hover:bg-white/20 px-2 py-1 rounded">18:00-19:00</button>
+                    <button type="button" data-range="now+60" class="bg-white/10 hover:bg-white/20 px-2 py-1 rounded">今から+1h</button>
+                </div>
+
+                <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full p-2 rounded bg-gray-700 text-white mb-2" required>
+                <input type="text" id="scheduleTime" class="hidden" aria-hidden="true">
 
                 <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
 
                 <div id="regularDetailSection" class="hidden">
                     <input type="text" id="scheduleLocation"
                         placeholder="場所（例: 会議室 / aタグのみ許可）"
-                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+                        class="w-full p-2 rounded bg-gray-700 text-white mb-2">
                     <small class="text-white/50 block mb-2 ml-1">例: &lt;a href="https://..."&gt;会議室リンク&lt;/a&gt;</small>
 
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="checkbox" id="embedAuto" class="accent-blue-500">
+                        <label for="embedAuto" class="text-sm">リンクから自動で埋め込みURLを生成</label>
+                    </div>
+
                     <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3"
-                        class="w-full p-1 rounded bg-gray-700 text-white mb-2"></textarea>
+                        class="w-full p-2 rounded bg-gray-700 text-white mb-2"></textarea>
 
                     <input type="text" id="scheduleEmbedMap"
                         placeholder="埋め込みマップURL（Google Mapsなど）"
-                        class="w-full p-1 rounded bg-gray-700 text-white mb-2">
+                        class="w-full p-2 rounded bg-gray-700 text-white mb-2">
 
                     <div class="mb-4">
                         <label class="block mb-1 text-sm">添付ファイル（JPG, PNG, PDF）</label>
                         <input type="file" id="scheduleAttachment"
-                        class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                               class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                        <div id="scheduleAttachmentName" class="text-xs text-white/70 mt-1"></div>
                     </div>
                 </div>
 
                 <!-- 操作ボタン -->
-                <div class="flex justify-end space-x-4 mt-4">
+                <div class="flex justify-end space-x-3 mt-4">
                     <button id="closeRegularScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addRegularScheduleAndContinueBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded">追加して続ける</button>
                     <button id="addRegularScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">追加</button>
                 </div>
             </div>
         </div>
 
         <!-- シフト予定モーダル -->
-        <div id="shiftScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
+        <div id="shiftScheduleModal" class="hidden td-modal-overlay z-50">
+            <div class="td-modal-panel td-modal-lg">
                 <h2 class="text-xl font-bold mb-4">シフトの追加</h2>
 
                 <div class="mb-4">
@@ -262,14 +303,16 @@
                             </p>
                         </div>
                     </div>
+                    <div class="text-xs text-white/60 mt-2">ショートカット: Ctrl+Enter で追加（続ける） / Esc で閉じる</div>
                 </div>
 
                 <div class="flex justify-end space-x-4 mt-4">
                     <button id="closeShiftScheduleModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
+                    <button id="addShiftScheduleAndContinueBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded">追加して続ける</button>
                     <button id="addShiftScheduleBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded">シフトを追加</button>
                 </div>
             </div>
-        </div>          
+        </div>         
         
         <!-- main contents-->
         <div id="widgetContainer" class="relative z-10">
@@ -379,8 +422,8 @@
 
                 <!-- 以下はモーダル-->
                 <!-- 天気の詳細モーダル -->
-                <div id="modal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                    <div class="bg-gray-800 text-white rounded-lg p-6 max-w-2xl w-full shadow-lg">
+                <div id="modal" class="hidden td-modal-overlay z-50">
+                    <div class="td-modal-panel td-modal-lg max-h-[85vh] overflow-y-auto">
                         <h2 id="modalTitle" class="text-xl font-bold mb-4">天気の詳細</h2>
                         <div id="modalText" class="text-sm space-y-3">
                             <!-- JavaScriptで内容が挿入されます -->
@@ -392,8 +435,8 @@
                 </div>
 
                 <!-- 地域選択モーダル -->
-                <div id="locationModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                    <div class="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full shadow-lg">
+                <div id="locationModal" class="hidden td-modal-overlay z-50">
+                    <div class="td-modal-panel td-modal-sm">
                         <h2 class="text-lg font-semibold mb-4">地域情報を入力</h2>
                         <input id="prefInput" type="text" placeholder="例：東京都"
                                 class="mb-2 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600" />
@@ -406,8 +449,8 @@
                     </div>
                 </div>
 
-                <div id="allScheduleModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+                <div id="allScheduleModal" class="hidden td-modal-overlay z-50">
+                    <div class="td-modal-panel td-modal-xl max-h-screen overflow-y-auto">
                         <h2 class="text-xl font-bold mb-4">すべての予定</h2>
                         <ul id="allScheduleList" class="text-sm space-y-2 font-mono text-white/90"></ul>
                         <div class="flex justify-end mt-6">
@@ -416,8 +459,8 @@
                     </div>
                 </div>
 
-                <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                    <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+                <div id="scheduleDetailModal" class="hidden td-modal-overlay z-50">
+                    <div class="td-modal-panel td-modal-xl max-h-screen overflow-y-auto">
                         <h2 class="text-xl font-bold mb-4">予定の詳細</h2>
                         <div id="scheduleDetailContent" class="text-sm"></div>
                         <div class="flex justify-end mt-6">
@@ -427,8 +470,8 @@
                 </div>
 
                 <!-- ステータスモーダル -->
-                <div id="statusModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
-                    <div class="bg-gray-900 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg border border-white/10">
+                <div id="statusModal" class="hidden td-modal-overlay z-[60]">
+                    <div class="td-modal-panel td-modal-lg">
                         <h2 class="text-xl font-bold mb-4">Tabdock ステータス</h2>
 
                         <div id="statusList" class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm font-mono bg-black/20 p-4 rounded-md">
@@ -568,8 +611,8 @@
                 </div>
 
                 <!-- About Tabdock -->
-                <div id="aboutModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[60]">
-                    <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/35 mx-auto">
+                <div id="aboutModal" class="hidden td-modal-overlay z-[60]">
+                    <div class="td-modal-panel td-modal-4xl">
                         <h2 class="text-xl font-bold mb-6">Tabdockについて</h2>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -610,8 +653,8 @@
                 </div>
 
                 <!-- 開発者向けモーダル -->
-                <div id="devMenuModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                    <div class="bg-gray-900 text-white rounded-lg p-6 w-full max-w-2xl shadow-lg border border-white/10">
+                <div id="devMenuModal" class="hidden td-modal-overlay z-50">
+                    <div class="td-modal-panel td-modal-lg">
                         <h2 class="text-xl font-bold mb-4">開発者向けメニュー</h2>
 
                         <div class="space-y-4 text-sm font-mono">

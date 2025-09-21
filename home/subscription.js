@@ -289,7 +289,23 @@ class SubscriptionManager {
     // 通知スケジューラー
     async scheduleNotifications() {
         try {
+            // 現在のログインユーザー名を取得
+            let username = null;
+            if (window.getLoggedInUser) {
+                const user = window.getLoggedInUser();
+                if (user && user.username) username = user.username;
+            }
+            if (!username && localStorage.getItem('tabdock_user')) {
+                const user = JSON.parse(localStorage.getItem('tabdock_user'));
+                if (user && user.username) username = user.username;
+            }
+
+            if (!username) {
+                throw new Error('ログインユーザー情報が取得できません。ログインしてください。');
+            }
+
             const response = await fetch('/api/subscriptions/upcoming', {
+                headers: { 'X-Username': username },
                 credentials: 'include'
             });
             if (!response.ok) throw new Error('通知の取得に失敗しました');

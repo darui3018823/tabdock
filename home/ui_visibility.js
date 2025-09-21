@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.2.1_ui-r1
+// This code Version: 5.3.0_ui-r1
 
 function applyVisualSettings() {
     const blur = parseInt(document.getElementById("blurRange")?.value || 0);
@@ -57,6 +57,7 @@ function applyVisualSettings() {
     if (closeBtn) {
         closeBtn.addEventListener("click", () => {
             document.getElementById("wallpaperAdvancedModal")?.classList.add("hidden");
+            document.getElementById("menuModal")?.classList.remove("hidden");
         });
     }
 
@@ -101,10 +102,10 @@ function handleWallpaperUpload(event) {
         handlePresetClick(imageData);  // 背景に適用
 
         // プリセットに追加
-        const img = document.createElement("img");
-        img.src = imageData;
-        img.alt = "uploaded-wallpaper";
-        img.className = "rounded cursor-pointer hover:ring-2 ring-white";
+    const img = document.createElement("img");
+    img.src = imageData;
+    img.alt = "uploaded-wallpaper";
+    img.className = "rounded cursor-pointer hover:ring-2 ring-white";
         img.onclick = () => handlePresetClick(imageData);
 
         const presetContainer = document.getElementById("presetWallpapers");

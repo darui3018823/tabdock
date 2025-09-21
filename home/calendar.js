@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.7.0_calendar-r1
+// This code Version: 5.3.0_calendar-r1
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -229,7 +229,42 @@ document.getElementById("closeScheduleTypeModal").addEventListener("click", () =
 // 通常予定モーダルの制御
 document.getElementById("openRegularScheduleBtn").addEventListener("click", () => {
     document.getElementById("scheduleTypeModal").classList.add("hidden");
-    document.getElementById("regularScheduleModal").classList.remove("hidden");
+    const modal = document.getElementById("regularScheduleModal");
+    modal.classList.remove("hidden");
+
+    // 初期選択日（selectedDate があればそれ、なければ今日）を date に反映
+    const targetDate = selectedDate || (() => {
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    })();
+    const dateEl = document.getElementById("scheduleDate");
+    if (dateEl && !dateEl.value) dateEl.value = targetDate;
+
+    // 詳細セクションは最初閉じる
+    const detail = document.getElementById("regularDetailSection");
+    const toggle = document.getElementById("regularToggleDetail");
+    if (detail && toggle) {
+        detail.classList.add("hidden");
+        toggle.textContent = "▼ 詳細設定を表示";
+    }
+
+    // 軽い初期化（タイトルは維持、説明/場所/時間/添付はクリア）
+    const timeEl = document.getElementById("scheduleTime");
+    if (timeEl) timeEl.value = "";
+    const locEl = document.getElementById("scheduleLocation");
+    if (locEl) locEl.value = "";
+    const descEl = document.getElementById("scheduleDesc");
+    if (descEl) descEl.value = "";
+    const mapEl = document.getElementById("scheduleEmbedMap");
+    if (mapEl) mapEl.value = "";
+    const attachEl = document.getElementById("scheduleAttachment");
+    if (attachEl) attachEl.value = "";
+
+    // タイトルにフォーカス
+    const titleEl = document.getElementById("scheduleTitle");
+    titleEl?.focus();
 });
 
 document.getElementById("closeRegularScheduleModal").addEventListener("click", () => {
@@ -249,9 +284,70 @@ document.getElementById("closeShiftScheduleModal").addEventListener("click", () 
 });
 
 // 通常予定追加
-document.getElementById("addRegularScheduleBtn").addEventListener("click", async () => {
+function assembleTimeString() {
+    const allDay = document.getElementById('scheduleAllDay')?.checked;
+    if (allDay) return '';
+    const start = document.getElementById('scheduleStartTime')?.value || '';
+    const end = document.getElementById('scheduleEndTime')?.value || '';
+    if (start && end) return `${start}~${end}`;
+    if (start) return start;
+    return '';
+}
+
+function applyTimePreset(range) {
+    const startEl = document.getElementById('scheduleStartTime');
+    const endEl = document.getElementById('scheduleEndTime');
+    if (range === 'now+60') {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const start = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        const endDate = new Date(now.getTime() + 60 * 60000);
+        const end = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+        startEl.value = start;
+        endEl.value = end;
+        return;
+    }
+    const [s, e] = range.split('-');
+    startEl.value = s || '';
+    endEl.value = e || '';
+}
+
+// 時間プリセットのイベント設定
+document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-range]');
+    if (!btn) return;
+    applyTimePreset(btn.dataset.range);
+});
+
+// 終日トグルで時間入力の無効化/有効化
+document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
+    const disabled = e.target.checked;
+    document.getElementById('timeInputsRow')?.classList.toggle('opacity-50', disabled);
+    document.getElementById('scheduleStartTime').disabled = disabled;
+    document.getElementById('scheduleEndTime').disabled = disabled;
+});
+
+// 添付名表示
+document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
+    const nameEl = document.getElementById('scheduleAttachmentName');
+    if (!nameEl) return;
+    const file = e.target.files[0];
+    nameEl.textContent = file ? `選択中: ${file.name}` : '';
+});
+
+// ロケーションから埋め込み自動生成
+document.getElementById('scheduleLocation')?.addEventListener('change', () => {
+    const auto = document.getElementById('embedAuto')?.checked;
+    if (!auto) return;
+    const input = document.getElementById('scheduleLocation').value.trim();
+    if (!input) return;
+    const embed = convertToEmbedURL(input);
+    if (embed) document.getElementById('scheduleEmbedMap').value = embed;
+});
+
+async function submitRegularSchedule({ continueAfter = false } = {}) {
     const date = document.getElementById("scheduleDate").value;
-    const time = document.getElementById("scheduleTime").value;
+    const time = assembleTimeString();
     const title = document.getElementById("scheduleTitle").value;
     const rawLocation = document.getElementById("scheduleLocation").value.trim();
     const description = document.getElementById("scheduleDesc").value;
@@ -259,7 +355,7 @@ document.getElementById("addRegularScheduleBtn").addEventListener("click", async
     const attachmentFile = document.getElementById("scheduleAttachment").files[0];
 
     if (!date || !title) {
-        alert("日付とタイトルは必須です");
+        Swal.fire({ icon: 'warning', title: '未入力があります', text: '日付とタイトルは必須です。' });
         return;
     }
 
@@ -282,40 +378,56 @@ document.getElementById("addRegularScheduleBtn").addEventListener("click", async
     });
 
     if (!res.ok) {
-        alert("予定の追加に失敗しました");
+        Swal.fire({ icon: 'error', title: '追加に失敗しました', text: 'しばらくしてから再度お試しください。' });
         return;
     }
 
     schedules.push(scheduleData);
-    document.getElementById("regularScheduleModal").classList.add("hidden");
-    document.getElementById("menuModal").classList.remove("hidden");
-    if (selectedDate === date) renderSchedule(date);
-});
 
-// シフト予定追加
-document.getElementById("addShiftScheduleBtn").addEventListener("click", async () => {
-    const shiftText = document.getElementById("scheduleShiftText").value;
-    
-    if (!shiftText) {
-        alert("シフト情報を入力してください");
-        return;
-    }
-
-    try {
-        const result = await window.parseAndRegisterShifts(shiftText);
-        alert(result);
-        document.getElementById("shiftScheduleModal").classList.add("hidden");
+    if (continueAfter) {
+        // 連続追加: タイトル以外をクリアしてフォーカス維持
+        document.getElementById('scheduleStartTime').value = '';
+        document.getElementById('scheduleEndTime').value = '';
+        document.getElementById('scheduleLocation').value = '';
+        document.getElementById('scheduleDesc').value = '';
+        document.getElementById('scheduleEmbedMap').value = '';
+        const attach = document.getElementById('scheduleAttachment');
+        if (attach) attach.value = '';
+        const nameEl = document.getElementById('scheduleAttachmentName');
+        if (nameEl) nameEl.textContent = '';
+        Toast?.fire({ icon: 'success', title: '追加しました（続けて入力できます）' });
+        document.getElementById('scheduleTitle')?.focus();
+    } else {
+        document.getElementById("regularScheduleModal").classList.add("hidden");
         document.getElementById("menuModal").classList.remove("hidden");
-        
-        // カレンダーを更新（最初のシフトの日付を表示）
-        const shifts = parseShiftText(shiftText);
-        if (shifts.length > 0) {
-            renderSchedule(shifts[0].date);
-        }
-    } catch (error) {
-        alert(error.message);
+        Toast?.fire({ icon: 'success', title: '予定を追加しました' });
+    }
+
+    if (selectedDate === date) renderSchedule(date);
+}
+
+document.getElementById("addRegularScheduleBtn").addEventListener("click", () => submitRegularSchedule({ continueAfter: false }));
+document.getElementById("addRegularScheduleAndContinueBtn")?.addEventListener("click", () => submitRegularSchedule({ continueAfter: true }));
+
+// Enter（textarea除く）で追加、Escでキャンセル
+document.addEventListener('keydown', (e) => {
+    const modalOpen = !document.getElementById('regularScheduleModal')?.classList.contains('hidden');
+    if (!modalOpen) return;
+
+    const active = document.activeElement;
+    const isTextArea = active && active.tagName === 'TEXTAREA';
+
+    if ((e.key === 'Enter' && !isTextArea) || (e.key === 'Enter' && e.ctrlKey)) {
+        e.preventDefault();
+        const cont = e.ctrlKey; // Ctrl+Enter で連続追加
+        submitRegularSchedule({ continueAfter: cont });
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        document.getElementById('closeRegularScheduleModal')?.click();
     }
 });
+
+// シフト予定追加は shift_modal.js 側で実装（Swal/Toast・連続追加対応）
 
 
 async function loadSchedules() {

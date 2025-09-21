@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.2.1_subsccal-r1
+// This code Version: 5.3.0_subsccal-r1
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -175,7 +175,7 @@ class SubscriptionCalendarManager {
             .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
 
         const modalHtml = `
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto shadow-lg">
+            <div class="td-modal-panel td-modal-4xl max-h-screen overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold">サブスクリプション一覧</h2>
                     <div class="flex gap-4">
@@ -212,7 +212,7 @@ class SubscriptionCalendarManager {
                                 <div class="text-right">
                                     <div class="text-lg font-semibold">${sub.amount || 0} ${sub.currency || 'JPY'}</div>
                                     <div class="text-sm text-white/70">${this.formatBillingCycle(sub.billingCycle || 'monthly')}</div>
-                                    <button class="mt-2 px-3 py-1 text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-400/10 rounded-full">
+                                    <button class="mt-2 px-3 py-1 text-xs text-blue-400 hover:bg-blue-400/10 rounded-full">
                                         詳細を表示 →
                                     </button>
                                 </div>
@@ -237,7 +237,7 @@ class SubscriptionCalendarManager {
 
         const subscriptionListModal = document.createElement('div');
         subscriptionListModal.id = 'subscriptionListModal';
-        subscriptionListModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[70]';
+    subscriptionListModal.className = 'td-modal-overlay z-[70]';
         subscriptionListModal.innerHTML = modalHtml;
 
         document.body.appendChild(subscriptionListModal);
@@ -256,6 +256,16 @@ class SubscriptionCalendarManager {
 
         const subscriptionItems = subscriptionListModal.querySelectorAll('.subscription-item');
         subscriptionItems.forEach(item => {
+            // カード全体クリックで詳細（一覧は閉じない）
+            item.addEventListener('click', () => {
+                const subId = item.dataset.id;
+                const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
+                if (subscription) {
+                    this.showSubscriptionDetail(subscription);
+                }
+            });
+
+            // 詳細ボタン（クリック伝播を止めるが、動作は同じ）
             const detailButton = item.querySelector('.text-blue-400');
             if (detailButton) {
                 detailButton.addEventListener('click', (e) => {
@@ -263,7 +273,6 @@ class SubscriptionCalendarManager {
                     const subId = item.dataset.id;
                     const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
                     if (subscription) {
-                        document.body.removeChild(subscriptionListModal);
                         this.showSubscriptionDetail(subscription);
                     }
                 });
@@ -292,7 +301,7 @@ class SubscriptionCalendarManager {
         const detailsHTML = this.formatPaymentDetails(paymentDetails, sub.paymentMethod);
 
         const modalHtml = `
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto shadow-lg">
+            <div class="td-modal-panel td-modal-lg max-h-screen overflow-y-auto">
                 <h2 class="text-xl font-bold mb-6">${sub.serviceName} - ${sub.planName}</h2>
 
                 <div class="space-y-6">
@@ -351,7 +360,7 @@ class SubscriptionCalendarManager {
 
         const detailModal = document.createElement('div');
         detailModal.id = 'subscriptionDetailModal';
-        detailModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[70]';
+    detailModal.className = 'td-modal-overlay z-[80]';
         detailModal.innerHTML = modalHtml;
 
         document.body.appendChild(detailModal);
@@ -365,9 +374,6 @@ class SubscriptionCalendarManager {
             this.handleEdit(sub);
         });
 
-        // キャンセル（解約）ボタンは削除しました
-
-        // 削除ボタンのイベント
         const deleteBtn = document.getElementById('deleteSubscription');
         if (deleteBtn) {
             deleteBtn.addEventListener('click', async () => {
@@ -554,7 +560,7 @@ class SubscriptionCalendarManager {
                     <div class="text-right">
                         <div class="text-lg font-semibold">${sub.amount || 0} ${sub.currency || 'JPY'}</div>
                         <div class="text-sm text-white/70">${this.formatBillingCycle(sub.billingCycle || 'monthly')}</div>
-                        <button class="mt-2 px-3 py-1 text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-400/10 rounded-full">
+                        <button class="mt-2 px-3 py-1 text-xs text-blue-400 hover:bg-blue-400/10 rounded-full">
                             詳細を表示 →
                         </button>
                     </div>
@@ -565,6 +571,16 @@ class SubscriptionCalendarManager {
         // 詳細ボタンの再バインド
         const subscriptionItems = listModal.querySelectorAll('.subscription-item');
         subscriptionItems.forEach(item => {
+            // カード全体クリックでも詳細（一覧は閉じない）
+            item.addEventListener('click', () => {
+                const subId = item.dataset.id;
+                const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
+                if (subscription) {
+                    this.showSubscriptionDetail(subscription);
+                }
+            });
+
+            // ボタン側も同様（クリック伝播は止める）
             const detailButton = item.querySelector('.text-blue-400');
             if (detailButton) {
                 detailButton.addEventListener('click', (e) => {
@@ -572,7 +588,6 @@ class SubscriptionCalendarManager {
                     const subId = item.dataset.id;
                     const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
                     if (subscription) {
-                        document.body.removeChild(listModal);
                         this.showSubscriptionDetail(subscription);
                     }
                 });
@@ -582,7 +597,7 @@ class SubscriptionCalendarManager {
 
     async handleEdit(sub) {
         const modalHtml = `
-            <div class="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto shadow-lg">
+            <div class="td-modal-panel td-modal-lg max-h-screen overflow-y-auto">
                 <h2 class="text-xl font-bold mb-6">サブスクリプション編集</h2>
                 
                 <form id="editSubscriptionForm" class="space-y-6">
@@ -666,9 +681,9 @@ class SubscriptionCalendarManager {
             </div>
         `;
 
-        const editModal = document.createElement('div');
+    const editModal = document.createElement('div');
         editModal.id = 'subscriptionEditModal';
-        editModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[70]';
+    editModal.className = 'td-modal-overlay z-[80]';
         editModal.innerHTML = modalHtml;
 
         document.body.appendChild(editModal);

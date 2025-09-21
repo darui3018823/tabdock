@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 4.4.0_acc-r3
+// This code Version: 5.3.0-acc_r1
 
 document.addEventListener("DOMContentLoaded", () => {
     window.onPasskeyLoginSuccess = function(user) {
@@ -177,7 +177,7 @@ function setupLoggedInModal(modal) {
                     </div>
 
                     <div class="bg-black/20 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold mb-3">アカウントデータ</h3>
+                        <h3 class="text-lg font-semibold mb-3">詳細管理</h3>
                         <div class="space-y-2">
                             <button class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
                                 データエクスポート
