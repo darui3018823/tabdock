@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_subsccal-r1
+// This code Version: 5.3.0_subsccal-r2
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -47,7 +47,7 @@ class SubscriptionCalendarManager {
             if (!username) return;
 
             const response = await fetch('/api/subscriptions/list', {
-                headers: { 'X-Username': username }
+                headers: { 'X-Username': encodeURIComponent(username) }
             });
             
             if (!response.ok) throw new Error('サブスクリプション取得エラー');
@@ -475,7 +475,7 @@ class SubscriptionCalendarManager {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Username': this.getUsername()
+                        'X-Username': encodeURIComponent(this.getUsername())
                     },
                     body: JSON.stringify({ status: 'cancelled' })
                 });
@@ -507,7 +507,7 @@ class SubscriptionCalendarManager {
             const response = await fetch(`/api/subscriptions/delete?id=${sub.id}`, {
                 method: 'DELETE',
                 headers: {
-                    'X-Username': this.getUsername()
+                    'X-Username': encodeURIComponent(this.getUsername())
                 }
             });
 
@@ -922,7 +922,7 @@ class SubscriptionCalendarManager {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Username': this.getUsername()
+                        'X-Username': encodeURIComponent(this.getUsername())
                     },
                     body: JSON.stringify(updatedData)
                 });
@@ -951,7 +951,7 @@ class SubscriptionCalendarManager {
     async checkUpcomingPayments() {
         try {
             const response = await fetch('/api/subscriptions/upcoming', {
-                headers: { 'X-Username': this.getUsername() }
+                headers: { 'X-Username': encodeURIComponent(this.getUsername()) }
             });
             if (!response.ok) return;
 
@@ -985,4 +985,14 @@ class SubscriptionCalendarManager {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.subscriptionCalendarManager = new SubscriptionCalendarManager();
+    
+    // 完全同期から呼び出せるようにグローバル関数として登録
+    window.loadSubscriptions = async function() {
+        if (window.subscriptionCalendarManager) {
+            await window.subscriptionCalendarManager.loadSubscriptions();
+            console.log('サブスクリプション予定の同期が完了しました');
+        } else {
+            console.warn('subscriptionCalendarManager が初期化されていません');
+        }
+    };
 });

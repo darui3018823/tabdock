@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 3.7.0_devtools-r1
+// This code Version: 5.3.0_devtools-r1
 
 let debugLog = [];
 let maxLogEntries = 100;
@@ -78,6 +78,7 @@ async function performFullSync() {
             { name: '天気データ', func: 'fetchWeather' },
             { name: 'スケジュール読み込み', func: 'loadSchedules' },
             { name: '祝日データ', func: 'fetchHolidayData' },
+            { name: 'サブスクリプション予定更新', func: 'loadSubscriptions' },
             { name: 'カレンダー再描画', func: 'renderCalendar' }
         ];
         
@@ -1060,7 +1061,7 @@ async function deleteAllShiftsForUser() {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Username': username
+                    'X-Username': encodeURIComponent(username)
                 }
             });
 

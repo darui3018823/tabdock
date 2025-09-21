@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -733,7 +734,7 @@ func handleShift(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		handleShiftGet(w, r)
 	case http.MethodDelete:
-		username := r.Header.Get("X-Username")
+		username := getHeaderUsername(r)
 		if username == "" {
 			http.Error(w, "認証が必要です", http.StatusUnauthorized)
 			return
@@ -760,7 +761,7 @@ func handleShift(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleShiftPost(w http.ResponseWriter, r *http.Request) {
-	username := r.Header.Get("X-Username")
+	username := getHeaderUsername(r)
 	if username == "" {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
@@ -856,7 +857,7 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleShiftGet(w http.ResponseWriter, r *http.Request) {
-	username := r.Header.Get("X-Username")
+	username := getHeaderUsername(r)
 	if username == "" {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
@@ -897,8 +898,22 @@ func deleteAllShiftsForUser(username string) error {
 	return nil
 }
 
+// getHeaderUsername は X-Username ヘッダーを取得し、URLデコードして返します（未設定時は空文字）。
+func getHeaderUsername(r *http.Request) string {
+	raw := r.Header.Get("X-Username")
+	if raw == "" {
+		return ""
+	}
+	// フロントエンド側で encodeURIComponent された値を復元
+	if decoded, err := url.QueryUnescape(raw); err == nil {
+		return decoded
+	}
+	// デコードに失敗した場合は生の値を返す（後方互換）
+	return raw
+}
+
 func getUserIDFromSession(r *http.Request) (string, error) {
-	username := r.Header.Get("X-Username")
+	username := getHeaderUsername(r)
 	if username == "" {
 		return "", fmt.Errorf("unauthorized: no username")
 	}
