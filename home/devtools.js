@@ -227,6 +227,19 @@ function formatBytes(bytes) {
 }
 
 function getSystemDiagnostics() {
+    const basicMemory = performance.memory ? {
+        used: formatBytes(performance.memory.usedJSHeapSize),
+        total: formatBytes(performance.memory.totalJSHeapSize),
+        limit: formatBytes(performance.memory.jsHeapSizeLimit)
+    } : null;
+
+    const deviceMemory = typeof navigator.deviceMemory === 'number'
+        ? `${navigator.deviceMemory} GB`
+        : 'Unknown';
+
+    const uasSupported = typeof performance.measureUserAgentSpecificMemory === 'function';
+    const coi = typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : false;
+
     return {
         userAgent: navigator.userAgent,
         language: navigator.language,
@@ -242,11 +255,13 @@ function getSystemDiagnostics() {
             width: window.innerWidth,
             height: window.innerHeight
         },
-        memory: performance.memory ? {
-            used: formatBytes(performance.memory.usedJSHeapSize),
-            total: formatBytes(performance.memory.totalJSHeapSize),
-            limit: formatBytes(performance.memory.jsHeapSizeLimit)
-        } : 'Not available',
+        memory: basicMemory || 'Not available',
+        memorySource: basicMemory ? 'performance.memory' : 'unavailable',
+        deviceMemory: deviceMemory,
+        uasMemoryApi: {
+            supported: uasSupported,
+            crossOriginIsolated: coi
+        },
         timing: performance.timing ? {
             domLoading: performance.timing.domLoading - performance.timing.navigationStart,
             domComplete: performance.timing.domComplete - performance.timing.navigationStart
@@ -258,79 +273,217 @@ function getSystemDiagnostics() {
 async function runPerformanceTest() {
     addDebugLog('info', 'パフォーマンステスト開始');
     const tests = [];
-    
     console.log('=== パフォーマンステスト実行開始 ===');
-    
-    console.log('DOM操作テストを実行中...');
-    const domStart = performance.now();
-    const testDiv = document.createElement('div');
-    for (let i = 0; i < 1000; i++) {
-        testDiv.innerHTML = `<span>Test ${i}</span>`;
-    }
-    const domTime = performance.now() - domStart;
-    const domResult = { 
-        name: 'DOM操作速度 (1000回のinnerHTML更新)', 
-        time: Math.round(domTime),
-        description: 'ブラウザのDOM要素更新処理の速度を測定'
-    };
-    tests.push(domResult);
-    console.log(`DOM操作テスト完了: ${domResult.time}ms`);
-    
-    console.log('ネットワーク速度テストを実行中...');
+
+    const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    console.log('DOM構築テストを実行中...');
     try {
-        const pingStart = performance.now();
-        const response = await fetch('/api/ping', { method: 'HEAD' });
-        const pingTime = performance.now() - pingStart;
-        const networkResult = { 
-            name: 'ネットワーク応答速度 (Ping)', 
-            time: Math.round(pingTime),
-            description: `サーバーとの通信速度を測定 (ステータス: ${response.status})`,
-            status: response.status
+        const domStart = performance.now();
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-99999px;top:-99999px;';
+        const frag = document.createDocumentFragment();
+        const COUNT = 5000;
+        for (let i = 0; i < COUNT; i++) {
+            const el = document.createElement('div');
+            el.className = 'perf-item';
+            el.textContent = `Item ${i}`;
+            el.style.cssText = 'padding:2px;margin:1px;border:1px solid #ccc';
+            frag.appendChild(el);
+        }
+        container.appendChild(frag);
+        document.body.appendChild(container);
+        const height = container.offsetHeight;
+        document.body.removeChild(container);
+        const domTime = performance.now() - domStart;
+        const domResult = {
+            name: 'DOM構築/レイアウト (5000要素)',
+            time: Math.round(domTime),
+            description: '大量要素の生成・追加とレイアウト計算の速度を測定',
+            result: `レイアウト高さ: ${height}px`
         };
-        tests.push(networkResult);
-        console.log(`ネットワークテスト完了: ${networkResult.time}ms (ステータス: ${response.status})`);
+        tests.push(domResult);
+        console.log(`DOM構築テスト完了: ${domResult.time}ms`);
     } catch (error) {
-        const networkError = { 
-            name: 'ネットワーク応答速度 (Ping)', 
-            error: error.message,
-            description: 'サーバーとの通信でエラーが発生'
-        };
-        tests.push(networkError);
-        console.log(`ネットワークテストエラー: ${error.message}`);
+        tests.push({ name: 'DOM構築/レイアウト (5000要素)', error: error.message, description: 'DOM操作テストでエラー' });
     }
-    
-    console.log('ローカルストレージ速度テストを実行中...');
-    const storageStart = performance.now();
-    const testData = 'test'.repeat(1000); // 4000文字のテストデータ
-    localStorage.setItem('perfTest', testData);
-    const readData = localStorage.getItem('perfTest');
-    localStorage.removeItem('perfTest');
-    const storageTime = performance.now() - storageStart;
-    const storageResult = { 
-        name: 'ローカルストレージ処理速度', 
-        time: Math.round(storageTime),
-        description: `4KB のデータ保存・読み込み・削除処理の速度を測定`,
-        dataSize: `${testData.length} 文字 (約 ${Math.round(testData.length / 1024)}KB)`
-    };
-    tests.push(storageResult);
-    console.log(`ローカルストレージテスト完了: ${storageResult.time}ms`);
-    
-    console.log('JavaScript計算処理テストを実行中...');
-    const calcStart = performance.now();
-    let sum = 0;
-    for (let i = 0; i < 100000; i++) {
-        sum += Math.sqrt(i) * Math.random();
+
+    await yieldToUI();
+
+    console.log('ネットワーク(並列Ping x5)テストを実行中...');
+    try {
+        const attempts = 5;
+        const reqs = [];
+        const t0 = performance.now();
+        for (let i = 0; i < attempts; i++) {
+            const s = performance.now();
+            reqs.push(
+                fetch('/api/ping', { method: 'HEAD' })
+                    .then(r => ({ status: r.status, t: performance.now() - s }))
+                    .catch(e => ({ error: e.message, t: performance.now() - s }))
+            );
+        }
+        const results = await Promise.all(reqs);
+        const total = performance.now() - t0;
+        const times = results.map(r => r.t);
+        const okTimes = results.filter(r => !r.error).map(r => r.t);
+        const avg = okTimes.length ? Math.round(okTimes.reduce((a, b) => a + b, 0) / okTimes.length) : NaN;
+        const min = okTimes.length ? Math.round(Math.min(...okTimes)) : NaN;
+        const max = okTimes.length ? Math.round(Math.max(...okTimes)) : NaN;
+        tests.push({
+            name: 'ネットワーク応答(並列Ping x5)',
+            time: Math.round(total),
+            description: '5リクエストを同時送信して応答性能を測定',
+            result: `平均${avg}ms / 最小${min}ms / 最大${max}ms`,
+        });
+        console.log(`ネットワーク(並列)テスト完了: total=${Math.round(total)}ms, avg=${avg}ms`);
+    } catch (error) {
+        tests.push({ name: 'ネットワーク応答(並列Ping x5)', error: error.message, description: 'ネットワークテストでエラー' });
     }
-    const calcTime = performance.now() - calcStart;
-    const calcResult = { 
-        name: 'JavaScript計算処理速度', 
-        time: Math.round(calcTime),
-        description: '10万回の数学計算処理でCPU性能を測定',
-        result: `計算結果: ${Math.round(sum)}`
-    };
-    tests.push(calcResult);
-    console.log(`JavaScript計算テスト完了: ${calcResult.time}ms`);
-    
+
+    await yieldToUI();
+
+    console.log('ローカルストレージ(256KB)テストを実行中...');
+    try {
+        const storageStart = performance.now();
+        const SIZE = 256 * 1024; // 256KB
+        const testData = 'A'.repeat(SIZE);
+        localStorage.setItem('perfTestBig', testData);
+        const readData = localStorage.getItem('perfTestBig');
+        localStorage.removeItem('perfTestBig');
+        const storageTime = performance.now() - storageStart;
+        tests.push({
+            name: 'ローカルストレージ処理速度(256KB)',
+            time: Math.round(storageTime),
+            description: '256KBの保存・読み込み・削除の速度を測定',
+            dataSize: formatBytes(SIZE)
+        });
+        void readData;
+        console.log(`ローカルストレージ(256KB)完了: ${Math.round(storageTime)}ms`);
+    } catch (error) {
+        tests.push({ name: 'ローカルストレージ処理速度(256KB)', error: error.message, description: 'ストレージテストでエラー' });
+    }
+
+    await yieldToUI();
+
+    console.log('計算負荷テストを実行中...');
+    try {
+        const calcStart = performance.now();
+        let sum = 0;
+        const N = 500_000;
+        for (let i = 0; i < N; i++) {
+            sum += Math.sin(i) * Math.sqrt(i + 1);
+        }
+        const arr = new Float64Array(100_000);
+        for (let i = 0; i < arr.length; i++) arr[i] = Math.random();
+        const rsum = arr.reduce((a, b) => a + Math.log1p(b), 0);
+        const calcTime = performance.now() - calcStart;
+        tests.push({
+            name: 'JavaScript計算処理(ヘビー)',
+            time: Math.round(calcTime),
+            description: '50万回の数学計算 + 10万要素のreduce',
+            result: `合計: ${Math.round(sum + rsum)}`
+        });
+        console.log(`計算負荷テスト完了: ${Math.round(calcTime)}ms`);
+    } catch (error) {
+        tests.push({ name: 'JavaScript計算処理(ヘビー)', error: error.message, description: '計算テストでエラー' });
+    }
+
+    await yieldToUI();
+
+    console.log('JSONシリアライズ/デシリアライズを実行中...');
+    try {
+        const buildStart = performance.now();
+        const ITEMS = 10_000;
+        const list = [];
+        for (let i = 0; i < ITEMS; i++) {
+            list.push({
+                id: i,
+                name: `name_${i}`,
+                value: Math.floor(Math.random() * 1000000),
+                flag: i % 2 === 0,
+                tags: ['a', 'b', 'c', String(i % 10)]
+            });
+        }
+        const buildTime = performance.now() - buildStart;
+        const sStart = performance.now();
+        const json = JSON.stringify(list);
+        const sTime = performance.now() - sStart;
+        const pStart = performance.now();
+        const parsed = JSON.parse(json);
+        const pTime = performance.now() - pStart;
+        void parsed;
+        tests.push({
+            name: 'JSONシリアライズ/デシリアライズ',
+            time: Math.round(buildTime + sTime + pTime),
+            description: '1万件のオブジェクト生成 + 文字列化 + 解析',
+            result: `生成${Math.round(buildTime)}ms / stringify ${Math.round(sTime)}ms / parse ${Math.round(pTime)}ms`
+        });
+        console.log(`JSONテスト完了`);
+    } catch (error) {
+        tests.push({ name: 'JSONシリアライズ/デシリアライズ', error: error.message, description: 'JSONテストでエラー' });
+    }
+
+    await yieldToUI();
+
+    console.log('WebCrypto(1MB SHA-256)を実行中...');
+    try {
+        if (window.crypto && window.crypto.subtle && window.crypto.getRandomValues) {
+            const SIZE = 1 * 1024 * 1024;
+            const data = new Uint8Array(SIZE);
+            const MAX_CHUNK = 65536;
+            for (let i = 0; i < SIZE; i += MAX_CHUNK) {
+                const end = Math.min(i + MAX_CHUNK, SIZE);
+                window.crypto.getRandomValues(data.subarray(i, end));
+            }
+            const cStart = performance.now();
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            const cTime = performance.now() - cStart;
+            void digest;
+            tests.push({
+                name: 'SHA-256ハッシュ(1MB)',
+                time: Math.round(cTime),
+                description: '1MBのランダムデータをハッシュ化',
+                dataSize: formatBytes(SIZE)
+            });
+            console.log(`WebCryptoテスト完了: ${Math.round(cTime)}ms`);
+        } else {
+            tests.push({ name: 'SHA-256ハッシュ(1MB)', error: 'SubtleCrypto非対応', description: 'この環境ではWebCryptoが利用できません' });
+        }
+    } catch (error) {
+        tests.push({ name: 'SHA-256ハッシュ(1MB)', error: error.message, description: 'WebCryptoテストでエラー' });
+    }
+
+    await yieldToUI();
+
+    console.log('Canvas描画テストを実行中...');
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('2Dコンテキストが取得できません');
+        const cStart = performance.now();
+        for (let i = 0; i < 1000; i++) {
+            ctx.fillStyle = `hsl(${i % 360} 80% 60%)`;
+            ctx.fillRect((i * 7) % 512, (i * 11) % 512, 50, 50);
+            ctx.strokeStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo((i * 13) % 512, (i * 17) % 512);
+            ctx.lineTo((i * 19) % 512, (i * 23) % 512);
+            ctx.stroke();
+        }
+        const cTime = performance.now() - cStart;
+        tests.push({
+            name: 'Canvas描画(1000回)',
+            time: Math.round(cTime),
+            description: '512x512キャンバスに矩形と線分を描画'
+        });
+        console.log(`Canvas描画テスト完了: ${Math.round(cTime)}ms`);
+    } catch (error) {
+        tests.push({ name: 'Canvas描画(1000回)', error: error.message, description: 'Canvasテストでエラー' });
+    }
+
     if (performance.memory) {
         const memoryInfo = {
             name: 'メモリ使用状況',
@@ -342,7 +495,7 @@ async function runPerformanceTest() {
         tests.push(memoryInfo);
         console.log(`メモリ使用量: ${memoryInfo.used} / ${memoryInfo.total}`);
     }
-    
+
     console.log('=== パフォーマンステスト完了 ===');
     addDebugLog('info', 'パフォーマンステスト完了', tests);
     return tests;
@@ -359,6 +512,7 @@ if (!forceSyncButton) {
 }
 
 let isFullSyncRunning = false;
+let isPerfTestRunning = false;
 
 function setFullSyncRunning(value, reason = '') {
     console.log(`実行中フラグを ${isFullSyncRunning} から ${value} に変更 ${reason ? `(理由: ${reason})` : ''}`);
@@ -614,6 +768,7 @@ document.getElementById("showDebugLogBtn").addEventListener("click", async () =>
     logHtml += `<div>ブラウザ: ${diagnostics.userAgent.split(' ').pop()}</div>`;
     logHtml += `<div>画面: ${diagnostics.screen.width}x${diagnostics.screen.height}</div>`;
     logHtml += `<div>メモリ使用量: ${typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory}</div>`;
+    logHtml += `<div>デバイスメモリ(概算): ${diagnostics.deviceMemory}</div>`;
     logHtml += `<div>最終同期: ${lastFullSync || '未実行'}</div>`;
     logHtml += `</div>`;
     
@@ -656,6 +811,28 @@ document.getElementById("deleteAllShiftsBtn").addEventListener("click", async ()
 
 document.getElementById("runPerfTestBtn").addEventListener("click", async () => {
     console.log('=== パフォーマンステストボタンが押されました ===');
+    if (isPerfTestRunning) {
+        console.log('⚠️ パフォーマンステストは既に実行中です。重複起動をスキップします。');
+        if (typeof Swal !== 'undefined') {
+            await Swal.fire({
+                icon: 'info',
+                title: 'テスト実行中',
+                text: '現在テストを実行中です。完了までお待ちください。',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+        return;
+    }
+    isPerfTestRunning = true;
+    const perfBtn = document.getElementById("runPerfTestBtn");
+    if (perfBtn) {
+        if (!perfBtn.dataset.originalLabel) {
+            perfBtn.dataset.originalLabel = perfBtn.innerHTML;
+        }
+        perfBtn.disabled = true;
+        perfBtn.innerHTML = 'テスト中...';
+    }
     
     Swal.fire({
         title: 'パフォーマンステスト実行中...',
@@ -716,16 +893,19 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
             resultHtml += `</div>`;
         });
         
-        resultHtml += `<div class="mt-4 p-2 bg-blue-50 rounded text-xs">`;
-        resultHtml += `<h5 class="font-bold text-blue-800 mb-1">📝 テスト内容説明:</h5>`;
-        resultHtml += `<ul class="text-blue-700 space-y-1">`;
-        resultHtml += `<li>• DOM操作: ブラウザの画面描画処理速度</li>`;
-        resultHtml += `<li>• ネットワーク: サーバーとの通信速度</li>`;
-        resultHtml += `<li>• ストレージ: データ保存・読み込み速度</li>`;
-        resultHtml += `<li>• 計算処理: JavaScript実行速度</li>`;
-        resultHtml += `<li>• メモリ: 現在のメモリ使用状況</li>`;
-        resultHtml += `</ul>`;
-        resultHtml += `</div>`;
+    resultHtml += `<div class="mt-4 p-2 bg-blue-50 rounded text-xs">`;
+    resultHtml += `<h5 class="font-bold text-blue-800 mb-1">📝 テスト内容説明(ヘビー):</h5>`;
+    resultHtml += `<ul class="text-blue-700 space-y-1">`;
+    resultHtml += `<li>• DOM構築/レイアウト: 大量要素追加とレイアウト計算</li>`;
+    resultHtml += `<li>• ネットワーク(並列): 5本の同時Ping平均/分散</li>`;
+    resultHtml += `<li>• ストレージ: 256KBの保存・読み込み・削除</li>`;
+    resultHtml += `<li>• 計算処理(ヘビー): 50万回の数学計算 + 10万要素reduce</li>`;
+    resultHtml += `<li>• JSON: 1万件のシリアライズ/デシリアライズ</li>`;
+    resultHtml += `<li>• ハッシュ: 1MBのSHA-256</li>`;
+    resultHtml += `<li>• Canvas: 512x512への1000回描画</li>`;
+    resultHtml += `<li>• メモリ: 現在の使用量/上限</li>`;
+    resultHtml += `</ul>`;
+    resultHtml += `</div>`;
         
         resultHtml += `</div>`;
         
@@ -759,6 +939,16 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
         } catch (swalErr) {
             console.error('エラーダイアログの表示でもエラー:', swalErr);
             alert('パフォーマンステストでエラーが発生しました: ' + (error.message || error));
+        }
+    } finally {
+        isPerfTestRunning = false;
+        const btn = document.getElementById("runPerfTestBtn");
+        if (btn) {
+            btn.disabled = false;
+            if (btn.dataset.originalLabel) {
+                btn.innerHTML = btn.dataset.originalLabel;
+                delete btn.dataset.originalLabel;
+            }
         }
     }
 });
