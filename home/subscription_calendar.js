@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_subsccal-r2
+// This code Version: 5.3.0_subsccal-r3
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -99,9 +99,18 @@ class SubscriptionCalendarManager {
         header.textContent = 'サブスクリプション支払い予定';
         scheduleList.appendChild(header);
 
-        subscriptionsForDate.forEach(sub => {
+        const needsToggle = subscriptionsForDate.length >= 4;
+        const groupAttr = `subsc-${dateStr}`;
+        const createdLis = [];
+
+        subscriptionsForDate.forEach((sub, index) => {
             const li = document.createElement('li');
             li.classList.add('mb-2', 'subscription-item');
+            li.dataset.subscGroup = groupAttr;
+
+            if (needsToggle && index >= 2) {
+                li.classList.add('hidden');
+            }
 
             const content = document.createElement('div');
             content.className = 'flex justify-between items-start';
@@ -125,7 +134,36 @@ class SubscriptionCalendarManager {
 
             li.appendChild(content);
             scheduleList.appendChild(li);
+            createdLis.push(li);
         });
+
+        if (needsToggle) {
+            const moreLi = document.createElement('li');
+            moreLi.className = 'mb-2';
+            moreLi.dataset.subscGroup = groupAttr;
+            const btn = document.createElement('button');
+            btn.className = 'text-blue-400 hover:underline text-left text-xs';
+            btn.textContent = '+ もっと見る...';
+
+            let expanded = false;
+            btn.addEventListener('click', () => {
+                expanded = !expanded;
+                const groupItems = Array.from(scheduleList.querySelectorAll(`li.subscription-item[data-subsc-group="${groupAttr}"]`));
+                groupItems.forEach((el, idx) => {
+                    if (idx >= 2) el.classList.toggle('hidden', !expanded);
+                });
+                btn.textContent = expanded ? '▲ 一部のみ表示' : '+ もっと見る...';
+            });
+
+            moreLi.appendChild(btn);
+
+            const second = createdLis[1];
+            if (second && second.nextSibling) {
+                scheduleList.insertBefore(moreLi, second.nextSibling);
+            } else {
+                scheduleList.appendChild(moreLi);
+            }
+        }
     }
 
     setupSubscriptionList() {
@@ -175,7 +213,7 @@ class SubscriptionCalendarManager {
             .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
 
         const modalHtml = `
-            <div class="td-modal-panel td-modal-4xl max-h-screen overflow-y-auto">
+            <div class="td-modal-panel td-modal-4xl max-h-screen overflow-hidden flex flex-col">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold">サブスクリプション一覧</h2>
                     <div class="flex gap-4">
@@ -190,7 +228,7 @@ class SubscriptionCalendarManager {
                     </div>
                 </div>
                 
-                <div id="subscriptionListContent" class="space-y-3 mb-6">
+                <div id="subscriptionListContent" class="space-y-3 mb-6 flex-1">
                     ${this.subscriptions.map(sub => `
                         <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item group" data-id="${sub.id || ''}">
                             <div class="flex justify-between items-start">
@@ -241,6 +279,7 @@ class SubscriptionCalendarManager {
         subscriptionListModal.innerHTML = modalHtml;
 
         document.body.appendChild(subscriptionListModal);
+        this.applyListScrollLimit(subscriptionListModal);
 
         document.getElementById('closeSubscriptionList').addEventListener('click', () => {
             document.body.removeChild(subscriptionListModal);
@@ -256,7 +295,6 @@ class SubscriptionCalendarManager {
 
         const subscriptionItems = subscriptionListModal.querySelectorAll('.subscription-item');
         subscriptionItems.forEach(item => {
-            // カード全体クリックで詳細（一覧は閉じない）
             item.addEventListener('click', () => {
                 const subId = item.dataset.id;
                 const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
@@ -265,7 +303,6 @@ class SubscriptionCalendarManager {
                 }
             });
 
-            // 詳細ボタン（クリック伝播を止めるが、動作は同じ）
             const detailButton = item.querySelector('.text-blue-400');
             if (detailButton) {
                 detailButton.addEventListener('click', (e) => {
@@ -518,7 +555,6 @@ class SubscriptionCalendarManager {
 
             await Swal.fire('削除完了', 'サブスクリプションを削除しました', 'success');
 
-            // データとUI更新
             await this.loadSubscriptions();
             await this.updateSubscriptionList();
             if (detailModalEl && document.body.contains(detailModalEl)) {
@@ -529,12 +565,11 @@ class SubscriptionCalendarManager {
         }
     }
 
-    // サブスクリプション一覧モーダルが開いていれば、その内容を最新のデータで更新する
     async updateSubscriptionList() {
         await this.loadSubscriptions();
 
         const listModal = document.getElementById('subscriptionListModal');
-        if (!listModal) return; // モーダルが出ていなければ何もしない
+        if (!listModal) return;
 
         const container = listModal.querySelector('#subscriptionListContent');
         if (!container) return;
@@ -568,10 +603,8 @@ class SubscriptionCalendarManager {
             </div>
         `).join('');
 
-        // 詳細ボタンの再バインド
         const subscriptionItems = listModal.querySelectorAll('.subscription-item');
         subscriptionItems.forEach(item => {
-            // カード全体クリックでも詳細（一覧は閉じない）
             item.addEventListener('click', () => {
                 const subId = item.dataset.id;
                 const subscription = this.subscriptions.find(s => String(s.id) === String(subId));
@@ -593,6 +626,34 @@ class SubscriptionCalendarManager {
                 });
             }
         });
+
+        this.applyListScrollLimit(listModal);
+    }
+
+    applyListScrollLimit(rootEl) {
+        try {
+            const listEl = rootEl.querySelector('#subscriptionListContent');
+            const items = listEl ? Array.from(listEl.querySelectorAll('.subscription-item')) : [];
+            if (!listEl) return;
+
+            listEl.style.maxHeight = '';
+            listEl.classList.remove('overflow-y-auto');
+
+            if (items.length > 3) {
+                const firstTop = items[0].offsetTop;
+                const fourthTop = items[3].offsetTop;
+                let desired = fourthTop - firstTop;
+                if (!desired || desired <= 0) {
+                    desired = items.slice(0, 3).reduce((sum, el) => sum + el.getBoundingClientRect().height, 0);
+                }
+                listEl.style.maxHeight = `${Math.max(120, Math.round(desired))}px`;
+                listEl.classList.add('overflow-y-auto');
+            } else {
+                listEl.classList.add('overflow-y-auto');
+            }
+        } catch (e) {
+            console.warn('サブスクリプションリストの高さ計算に失敗:', e);
+        }
     }
 
     async handleEdit(sub) {
@@ -715,23 +776,18 @@ class SubscriptionCalendarManager {
             const method = paymentMethodSelect.value;
             const details = paymentDetails || {};
 
-            // 既存の備考フィールドがあれば値を保持
             let existingNoteValue = '';
             const existingNoteInput = document.querySelector('input[name="label"]');
             if (existingNoteInput) existingNoteValue = existingNoteInput.value;
 
-            // 次回支払い日の値も保持
             let existingNextDateValue = '';
             const existingNextDateInput = nextPaymentDateContainer.querySelector('input[name="nextPaymentDate"]');
             if (existingNextDateInput) existingNextDateValue = existingNextDateInput.value;
 
-            // 追加フィールドを一旦クリア
             additionalFields.innerHTML = '';
 
-            // デフォルトは1カラム
             paymentFieldsGrid.className = 'grid gap-4';
 
-            // 次回支払い日コンテナを通常状態に戻す
             nextPaymentDateContainer.className = '';
             nextPaymentDateContainer.innerHTML = `
                 <label class="block text-white/70 text-sm mb-1">次回支払い日</label>
@@ -739,7 +795,6 @@ class SubscriptionCalendarManager {
                     class="w-full bg-gray-700 text-white rounded px-3 py-2">
             `;
 
-            // 既存の備考コンテナがあれば一旦削除（Other以外）
             const existingNoteContainer = document.getElementById('noteFieldContainer');
             if (existingNoteContainer && method !== 'Other') {
                 existingNoteContainer.remove();
@@ -787,10 +842,8 @@ class SubscriptionCalendarManager {
                     break;
                 }
                 case 'Other': {
-                    // 親グリッドを2カラムに切替（1行目: 支払い方法 | 支払い方法名、2行目: 次回支払い日 | 備考）
                     paymentFieldsGrid.className = 'grid grid-cols-2 gap-4';
 
-                    // 1行目右: 支払い方法名
                     const methodDiv = document.createElement('div');
                     const methodLabel = document.createElement('label');
                     methodLabel.className = 'block text-white/70 text-sm mb-1';
@@ -805,7 +858,6 @@ class SubscriptionCalendarManager {
                     methodDiv.appendChild(methodInput);
                     additionalFields.appendChild(methodDiv);
 
-                    // 2行目右: 備考（次回支払い日の兄弟要素として配置）
                     let noteDiv = document.getElementById('noteFieldContainer');
                     if (!noteDiv) {
                         noteDiv = document.createElement('div');
@@ -825,7 +877,6 @@ class SubscriptionCalendarManager {
                     noteDiv.appendChild(noteLabel);
                     noteDiv.appendChild(noteInput);
 
-                    // 次回支払い日コンテナの直後に備考を追加（順序: select, method, nextDate, note）
                     if (!noteDiv.parentElement) {
                         paymentFieldsGrid.insertBefore(noteDiv, nextPaymentDateContainer.nextSibling);
                     } else if (noteDiv.parentElement !== paymentFieldsGrid) {
@@ -841,23 +892,18 @@ class SubscriptionCalendarManager {
             document.body.removeChild(editModal);
         });
 
-        // 解約（キャンセル）ボタン: 成功時のみモーダルを閉じる
         const cancelBtn = document.getElementById('cancelSubscriptionFromEdit');
         if (cancelBtn) {
             cancelBtn.addEventListener('click', async () => {
-                // 編集モーダルは残したまま解約確認を表示。成功時のみ閉じる
                 const beforeStatus = sub.status;
                 await this.handleCancellation(sub);
-                // handleCancellation 内で一覧更新が走る想定。状態が変わっていれば閉じる
                 try {
-                    // 最新のサブスク情報を取り直して対象を確認
                     await this.loadSubscriptions();
                     const latest = this.subscriptions.find(s => s.id === sub.id);
                     if (latest && latest.status === 'cancelled' && beforeStatus !== 'cancelled') {
                         if (document.body.contains(editModal)) {
                             document.body.removeChild(editModal);
                         }
-                        // 解約後の詳細を表示（任意）
                         this.showSubscriptionDetail(latest);
                     }
                 } catch (e) {
@@ -930,7 +976,7 @@ class SubscriptionCalendarManager {
                 if (!response.ok) throw new Error('更新に失敗しました');
 
                 await Swal.fire('完了', 'サブスクリプション情報を更新しました', 'success');
-                await this.loadSubscriptions(); // サブスクリプション一覧を更新
+                await this.loadSubscriptions();
                 document.body.removeChild(editModal);
                 
                 const updatedSub = this.subscriptions.find(s => s.id === sub.id);
