@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_subsccal-r3
+// This code Version: 5.4.0_subsccal-r1
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -39,6 +39,7 @@ class SubscriptionCalendarManager {
         await this.loadSubscriptions();
         this.integrateWithCalendar();
         this.setupSubscriptionList();
+        this.setupAutoPaymentDateUpdate();
     }
 
     async loadSubscriptions() {
@@ -1026,6 +1027,123 @@ class SubscriptionCalendarManager {
         } catch (error) {
             console.error('支払い予定チェックエラー:', error);
         }
+    }
+
+    // カレンダーの日付監視機能をカスタマイズして、過去になった支払い日の自動更新を組み込み
+    setupAutoPaymentDateUpdate() {
+        // calendar.js の monitorDateChange 関数を拡張
+        if (typeof window.monitorDateChange === 'function') {
+            const originalMonitorDateChange = window.monitorDateChange;
+            
+            window.monitorDateChange = () => {
+                originalMonitorDateChange();
+                
+                // 日付変更時に支払い日の自動更新もチェック
+                this.updateOverduePaymentDates();
+            };
+        } else {
+            // calendar.js がまだ読み込まれていない場合は、DOMContentLoaded で再試行
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => this.setupAutoPaymentDateUpdate(), 1000);
+            });
+        }
+    }
+
+    // 過去になった支払い日を次の課金サイクルに自動更新
+    async updateOverduePaymentDates() {
+        try {
+            const username = this.getUsername();
+            if (!username) return;
+
+            // 現在のサブスクリプション一覧を取得
+            await this.loadSubscriptions();
+            
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            for (const sub of this.subscriptions) {
+                if (!sub.nextPaymentDate || sub.status !== 'active') continue;
+                
+                const paymentDate = new Date(sub.nextPaymentDate);
+                if (paymentDate >= today) continue; // まだ過去になっていない
+
+                // 次の支払い日を計算
+                const nextPaymentDate = this.calculateNextPaymentDate(paymentDate, sub.billingCycle);
+                
+                if (!nextPaymentDate) continue;
+
+                // サーバーに更新リクエストを送信
+                try {
+                    const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Username': encodeURIComponent(username)
+                        },
+                        body: JSON.stringify({
+                            ...sub,
+                            nextPaymentDate: nextPaymentDate.toISOString().split('T')[0]
+                        })
+                    });
+
+                    if (response.ok) {
+                        console.log(`${sub.serviceName}の次回支払い日を${nextPaymentDate.toISOString().split('T')[0]}に更新しました`);
+                        
+                        // ローカルデータも更新
+                        sub.nextPaymentDate = nextPaymentDate.toISOString().split('T')[0];
+                        
+                        // 更新通知（控えめに）
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: '支払い日を更新',
+                                text: `${sub.serviceName}の次回支払い日が更新されました`,
+                                icon: 'info',
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 3000,
+                                timerProgressBar: true
+                            });
+                        }
+                    }
+                } catch (updateError) {
+                    console.error(`${sub.serviceName}の支払い日更新に失敗:`, updateError);
+                }
+            }
+        } catch (error) {
+            console.error('支払い日自動更新処理でエラー:', error);
+        }
+    }
+
+    // 課金サイクルに基づいて次の支払い日を計算
+    calculateNextPaymentDate(currentDate, billingCycle) {
+        const nextDate = new Date(currentDate);
+        
+        switch (billingCycle) {
+            case 'monthly':
+                // 次月の同じ日
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                // 月末処理（例: 1/31 → 2/28）
+                if (nextDate.getDate() !== currentDate.getDate()) {
+                    nextDate.setDate(0); // 前月末に設定
+                }
+                break;
+                
+            case 'yearly':
+                // 次年の同じ月日
+                nextDate.setFullYear(nextDate.getFullYear() + 1);
+                // うるう年処理（2/29 → 2/28）
+                if (nextDate.getDate() !== currentDate.getDate()) {
+                    nextDate.setDate(0); // 前月末（2/28）に設定
+                }
+                break;
+                
+            default:
+                console.warn(`未対応の課金サイクル: ${billingCycle}`);
+                return null;
+        }
+        
+        return nextDate;
     }
 }
 

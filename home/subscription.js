@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_subsc-r1
+// This code Version: 5.4.0_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -130,11 +130,8 @@ class SubscriptionManager {
 
         // フォームの送信処理
         this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-
-        // キャンセルボタンの処理
         document.getElementById('cancelSubscription').addEventListener('click', () => this.hideModal());
 
-        // モーダルの外側をクリックした時の処理
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) {
                 this.hideModal();
