@@ -7,12 +7,17 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,12 +29,77 @@ var ipScores = map[string]int{}
 var ipScoresMutex sync.RWMutex
 var blockedDirectIPs = []string{""}
 
+var rateLimitMap = map[string]*RateLimit{}
+var rateLimitMutex sync.RWMutex
+
+var dynamicBlockMap = map[string]time.Time{}
+var dynamicBlockMutex sync.RWMutex
+
+var sqlInjectionPattern = regexp.MustCompile(`(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|<script|onload|onerror|alert|confirm|prompt|document\.cookie)`)
+var xssPattern = regexp.MustCompile(`(?i)(<script|javascript:|onload|onerror|alert\(|confirm\(|prompt\(|document\.|window\.|eval\()`)
+var pathTraversalPattern = regexp.MustCompile(`(\.\./|\.\.\\|%2e%2e%2f|%2e%2e\\)`)
+
+type RateLimit struct {
+	Count     int
+	LastReset time.Time
+	Mutex     sync.Mutex
+}
+
+type SecurityConfig struct {
+	MaxRequestSize   int64
+	RateLimitPerMin  int
+	AllowedMethods   []string
+	BlockedCountries []string
+	DynamicBlockTime time.Duration
+}
+
+var secConfig = SecurityConfig{
+	MaxRequestSize:   10 * 1024 * 1024,
+	RateLimitPerMin:  60,
+	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"},
+	BlockedCountries: []string{"CN", "RU", "KP"},
+	DynamicBlockTime: 30 * time.Minute,
+}
+
 func init() {
 	err := loadTrustedIPs("./json/trusted_ips.json")
 	if err != nil {
 		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
 		os.Exit(1)
 	}
+
+	go startCleanupRoutine()
+}
+
+func startCleanupRoutine() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		cleanupMaps()
+	}
+}
+
+func cleanupMaps() {
+	now := time.Now()
+
+	rateLimitMutex.Lock()
+	for ip, rateLimit := range rateLimitMap {
+		rateLimit.Mutex.Lock()
+		if now.Sub(rateLimit.LastReset) > 5*time.Minute {
+			delete(rateLimitMap, ip)
+		}
+		rateLimit.Mutex.Unlock()
+	}
+	rateLimitMutex.Unlock()
+
+	dynamicBlockMutex.Lock()
+	for ip, blockTime := range dynamicBlockMap {
+		if now.Sub(blockTime) > secConfig.DynamicBlockTime {
+			delete(dynamicBlockMap, ip)
+		}
+	}
+	dynamicBlockMutex.Unlock()
 }
 
 func loadTrustedIPs(filepath string) error {
@@ -133,47 +203,233 @@ func isFromCloudflare(r *http.Request) bool {
 
 func detectSuspiciousUA(ua string) string {
 	lower := strings.ToLower(ua)
-	if ua == "" || strings.Contains(lower, "sqlmap") || strings.Contains(lower, "nessus") || strings.Contains(lower, "acunetix") {
+
+	if ua == "" || len(ua) < 10 {
 		return "deny"
 	}
-	if strings.Contains(lower, "curl") || strings.Contains(lower, "python") || strings.Contains(lower, "bot") {
+
+	maliciousPatterns := []string{
+		"sqlmap", "nessus", "acunetix", "nikto", "dirb", "gobuster",
+		"masscan", "zmap", "nmap", "burpsuite", "metasploit",
+		"havij", "pangolin", "sqlninja", "beef", "w3af",
+	}
+
+	for _, pattern := range maliciousPatterns {
+		if strings.Contains(lower, pattern) {
+			return "deny"
+		}
+	}
+
+	suspiciousPatterns := []string{
+		"curl", "wget", "python", "perl", "ruby", "php", "java",
+		"bot", "crawler", "spider", "scraper", "scanner",
+		"test", "check", "monitor", "probe", "audit",
+	}
+
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(lower, pattern) {
+			return "warn"
+		}
+	}
+
+	if len(ua) > 512 {
 		return "warn"
 	}
+
+	if sqlInjectionPattern.MatchString(ua) || xssPattern.MatchString(ua) {
+		return "deny"
+	}
+
 	return "ok"
 }
 
 func isSuspiciousPath(path string) bool {
 	lower := strings.ToLower(path)
-	attackPatterns := []string{".php", ".env", ".bak", ".old", ".git", ".htaccess", "wp-", "admin", "login"}
+	attackPatterns := []string{
+		".php", ".env", ".bak", ".old", ".git", ".htaccess", "wp-", "admin", "login",
+		".config", ".ini", ".conf", ".log", ".sql", ".db", ".backup", ".tmp",
+		"phpmyadmin", "cpanel", "webmail", ".aws", ".ssh", "id_rsa", "passwd",
+		"shadow", "etc/", "proc/", "var/log", "boot.ini", "web.config",
+	}
 	for _, pattern := range attackPatterns {
 		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+
+	if sqlInjectionPattern.MatchString(path) {
+		return true
+	}
+
+	if xssPattern.MatchString(path) {
+		return true
+	}
+
+	if pathTraversalPattern.MatchString(path) {
+		return true
+	}
+
+	return false
+}
+
+func checkRateLimit(ip string) bool {
+	rateLimitMutex.Lock()
+	defer rateLimitMutex.Unlock()
+
+	if rateLimit, exists := rateLimitMap[ip]; exists {
+		rateLimit.Mutex.Lock()
+		defer rateLimit.Mutex.Unlock()
+
+		if time.Since(rateLimit.LastReset) > time.Minute {
+			rateLimit.Count = 0
+			rateLimit.LastReset = time.Now()
+		}
+
+		rateLimit.Count++
+		return rateLimit.Count <= secConfig.RateLimitPerMin
+	} else {
+		rateLimitMap[ip] = &RateLimit{
+			Count:     1,
+			LastReset: time.Now(),
+		}
+		return true
+	}
+}
+
+func isDynamicallyBlocked(ip string) bool {
+	dynamicBlockMutex.RLock()
+	defer dynamicBlockMutex.RUnlock()
+
+	if blockTime, exists := dynamicBlockMap[ip]; exists {
+		if time.Since(blockTime) < secConfig.DynamicBlockTime {
+			return true
+		}
+		delete(dynamicBlockMap, ip)
+	}
+	return false
+}
+
+func addDynamicBlock(ip string) {
+	dynamicBlockMutex.Lock()
+	defer dynamicBlockMutex.Unlock()
+	dynamicBlockMap[ip] = time.Now()
+}
+
+func isAllowedMethod(method string) bool {
+	for _, allowed := range secConfig.AllowedMethods {
+		if method == allowed {
 			return true
 		}
 	}
 	return false
 }
 
+func addSecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+}
+
+func detectAdvancedThreats(r *http.Request) string {
+	if r.Method == "POST" || r.Method == "PUT" {
+		if r.ContentLength > secConfig.MaxRequestSize {
+			return "oversized"
+		}
+	}
+
+	suspiciousHeaders := []string{
+		"X-Forwarded-For", "X-Real-IP", "X-Originating-IP",
+		"Client-IP", "True-Client-IP", "X-Client-IP",
+	}
+
+	headerCount := 0
+	for _, header := range suspiciousHeaders {
+		if r.Header.Get(header) != "" {
+			headerCount++
+		}
+	}
+
+	if headerCount > 2 {
+		return "header_manipulation"
+	}
+
+	for key, values := range r.Header {
+		for _, value := range values {
+			if len(value) > 8192 {
+				return "long_header"
+			}
+		}
+		if len(key) > 256 {
+			return "long_header_name"
+		}
+	}
+
+	return "clean"
+}
+
 func logRequest(r *http.Request, ip, level string) {
 	now := time.Now().Format("[2006/01/02 15:04:05]")
-	msg := fmt.Sprintf("%s [%s] %s %s UA: %s ReqIP: %s\n", now, strings.ToUpper(level), r.Method, r.URL.Path, r.UserAgent(), ip)
-	dir := fmt.Sprintf("./log/%s/%s", level, ip)
-	_ = os.MkdirAll(dir, fs.ModePerm)
-	path := fmt.Sprintf("%s/%s.log", dir, time.Now().Format("2006-01-02"))
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	reqData := fmt.Sprintf("%s%s%s%s", r.Method, r.URL.Path, r.UserAgent(), ip)
+	hasher := sha256.Sum256([]byte(reqData))
+	reqHash := hex.EncodeToString(hasher[:])[:16]
+
+	msg := fmt.Sprintf("%s [%s] %s %s UA: %s ReqIP: %s Hash: %s\n",
+		now, strings.ToUpper(level), r.Method, r.URL.Path, r.UserAgent(), ip, reqHash)
+
+	switch level {
+	case "info", "warn", "attack", "error", "block":
+	default:
+		level = "info"
+	}
+
+	safeIP := sanitizeIP(ip)
+
+	baseDir := "./log"
+	dir := filepath.Join(baseDir, level, safeIP)
+	dir = filepath.Clean(dir)
+
+	if !strings.HasPrefix(dir, filepath.Clean(baseDir)) {
+		return
+	}
+
+	if err := os.MkdirAll(dir, fs.ModePerm); err != nil {
+		return
+	}
+
+	logFile := filepath.Join(dir, time.Now().Format("2006-01-02")+".log")
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer f.Close()
 		f.WriteString(msg)
 	}
-	if level == "warn" || level == "attack" {
+
+	if level == "warn" || level == "attack" || level == "block" {
 		if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
 			return
 		}
-		go sendDiscordWebhook(ip, level, r.Method, r.URL.Path, r.UserAgent())
+		go sendDiscordWebhook(ip, level, r.Method, r.URL.Path, r.UserAgent(), reqHash)
 	}
+}
+
+func sanitizeIP(ip string) string {
+	var sb strings.Builder
+	for _, r := range ip {
+		if (r >= '0' && r <= '9') || r == '.' || r == ':' || r == '-' || r == '_' {
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
 }
 
 func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		addSecurityHeaders(w)
+
 		ip := getIPAddress(r)
 		ua := r.UserAgent()
 		loadScores()
@@ -183,18 +439,36 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// /api/webauthn/ へのアクセスは完全スルー
 		if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
 			next(w, r)
 			return
 		}
 
-		// プライベートIPやトラステッドIPはスコア加算なしでログのみ
+		if !isAllowedMethod(r.Method) {
+			incrementScore(ip, 10)
+			logRequest(r, ip, "attack")
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if !checkRateLimit(ip) {
+			incrementScore(ip, 5)
+			logRequest(r, ip, "block")
+			addDynamicBlock(ip)
+			http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+			return
+		}
+
+		if isDynamicallyBlocked(ip) {
+			logRequest(r, ip, "block")
+			http.Error(w, "Access Denied", http.StatusForbidden)
+			return
+		}
+
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
 
 		if isPrivateIP || isTrusted {
-			// プライベート/トラステッドIPはログのみでスコア加算なし
 			if isSuspiciousPath(r.URL.Path) {
 				logRequest(r, ip, "attack")
 			} else {
@@ -209,7 +483,20 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// 以下はパブリックIPのみの処理
+		threatLevel := detectAdvancedThreats(r)
+		switch threatLevel {
+		case "oversized":
+			incrementScore(ip, 8)
+			logRequest(r, ip, "attack")
+			http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
+			return
+		case "header_manipulation", "long_header", "long_header_name":
+			incrementScore(ip, 7)
+			logRequest(r, ip, "attack")
+			http.Redirect(w, r, "/error/403", http.StatusFound)
+			return
+		}
+
 		internalLevelBoost := 0
 		if !isFromCloudflare(r) {
 			internalLevelBoost += 2
@@ -223,8 +510,14 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if isSuspiciousPath(r.URL.Path) {
-			incrementScore(ip, 5+internalLevelBoost)
+			incrementScore(ip, 8+internalLevelBoost)
 			logRequest(r, ip, "attack")
+
+			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
+				strings.Contains(strings.ToLower(r.URL.Path), "script") {
+				addDynamicBlock(ip)
+			}
+
 			http.Redirect(w, r, "/error/403", http.StatusFound)
 			return
 		}
@@ -232,12 +525,13 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		uaStatus := detectSuspiciousUA(ua)
 		switch uaStatus {
 		case "deny":
-			incrementScore(ip, 5+internalLevelBoost)
-			logRequest(r, ip, "warn")
+			incrementScore(ip, 8+internalLevelBoost)
+			logRequest(r, ip, "attack")
+			addDynamicBlock(ip)
 			http.Redirect(w, r, "/error/403", http.StatusFound)
 			return
 		case "warn":
-			incrementScore(ip, 3+internalLevelBoost)
+			incrementScore(ip, 4+internalLevelBoost)
 			logRequest(r, ip, "warn")
 		default:
 			logRequest(r, ip, getLevel(ip))
@@ -246,6 +540,14 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		if strings.HasPrefix(ip, "60.") {
 			incrementScore(ip, 3+internalLevelBoost)
 			logRequest(r, ip, "warn")
+		}
+
+		currentLevel := getLevel(ip)
+		if currentLevel == "block" {
+			addDynamicBlock(ip)
+			logRequest(r, ip, "block")
+			http.Redirect(w, r, "/error/503", http.StatusFound)
+			return
 		}
 
 		next(w, r)
@@ -263,7 +565,7 @@ func getIPAddress(r *http.Request) string {
 	return ip
 }
 
-func sendDiscordWebhook(ip, level, method, path, ua string) {
+func sendDiscordWebhook(ip, level, method, path, ua, reqHash string) {
 	webhookURL := os.Getenv("DISCORD_WEBHOOK_URL") // 環境変数から取得
 	if webhookURL == "" {
 		fmt.Println("DISCORD_WEBHOOK_URL が設定されていません")
@@ -271,11 +573,35 @@ func sendDiscordWebhook(ip, level, method, path, ua string) {
 	}
 
 	color := 0xFFCC00
-	if level == "attack" {
+	switch level {
+	case "attack":
 		color = 0xFF0000
+	case "block":
+		color = 0x800080
+	case "warn":
+		color = 0xFFCC00
 	}
 
-	content := fmt.Sprintf("```%s %s %s\nUA: %s\nIP: %s```", strings.ToUpper(level), method, path, ua, ip)
+	timestamp := time.Now().Format("2006/01/02 15:04:05")
+	content := fmt.Sprintf("```%s %s %s\nUA: %s\nIP: %s\nTime: %s\nHash: %s```",
+		strings.ToUpper(level), method, path, ua, ip, timestamp, reqHash)
+
+	ipScoresMutex.RLock()
+	currentScore := ipScores[ip]
+	ipScoresMutex.RUnlock()
+
+	fields := []map[string]interface{}{
+		{
+			"name":   "Current IP Score",
+			"value":  strconv.Itoa(currentScore),
+			"inline": true,
+		},
+		{
+			"name":   "Request Hash",
+			"value":  reqHash,
+			"inline": true,
+		},
+	}
 
 	payload := map[string]interface{}{
 		"embeds": []map[string]interface{}{
@@ -283,10 +609,14 @@ func sendDiscordWebhook(ip, level, method, path, ua string) {
 				"title":       fmt.Sprintf("[ALERT] %s アクセス検出", strings.ToUpper(level)),
 				"description": content,
 				"color":       color,
+				"fields":      fields,
+				"timestamp":   time.Now().Format(time.RFC3339),
 			},
 		},
 	}
 
 	jsonPayload, _ := json.Marshal(payload)
-	http.Post(webhookURL, "application/json", bytes.NewBuffer(jsonPayload))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	client.Post(webhookURL, "application/json", bytes.NewBuffer(jsonPayload))
 }
