@@ -108,12 +108,10 @@ class SubscriptionManager {
     }
 
     setupEventListeners() {
-            // メニューから開くためのイベントリスナー
             document.addEventListener('DOMContentLoaded', () => {
                 const addButton = document.querySelector('[data-action="add-subscription"]');
                 if (addButton) {
                     addButton.addEventListener('click', () => {
-                        // 予定種類選択モーダルを閉じる
                         const scheduleTypeModal = document.getElementById('scheduleTypeModal');
                         if (scheduleTypeModal) {
                             scheduleTypeModal.classList.add('hidden');
@@ -124,11 +122,9 @@ class SubscriptionManager {
                 }
             });
 
-        // 決済方法の変更時の処理
         const paymentMethodSelect = this.form.querySelector('[name="paymentMethod"]');
         paymentMethodSelect.addEventListener('change', (e) => this.handlePaymentMethodChange(e));
 
-        // フォームの送信処理
         this.form.addEventListener('submit', (e) => this.handleSubmit(e));
         document.getElementById('cancelSubscription').addEventListener('click', () => this.hideModal());
 
@@ -142,7 +138,7 @@ class SubscriptionManager {
     showModal() {
         this.modal.classList.remove('hidden');
         this.modal.classList.add('flex');
-        this.modal.style.zIndex = '1000'; // 最前面に
+        this.modal.style.zIndex = '1000';
         requestAnimationFrame(() => {
             const modalContent = this.modal.querySelector('.bg-gray-900');
             if (modalContent) {
@@ -209,7 +205,6 @@ class SubscriptionManager {
             paymentDetails: {}
         };
 
-        // 決済方法に応じた追加情報の設定
         switch (data.paymentMethod) {
             case 'CC':
                 if (formData.get('cardLastFour')) {
@@ -247,7 +242,6 @@ class SubscriptionManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // ヘッダーはISO-8859-1制約のため、非ASCIIを避ける
                     'X-Username': encodeURIComponent(username)
                 },
                 body: JSON.stringify(data),
@@ -266,11 +260,9 @@ class SubscriptionManager {
             });
 
             this.hideModal();
-            // カレンダーの更新
             if (window.calendarManager) {
                 window.calendarManager.refreshCalendar();
             }
-            // アカウント管理画面の更新（実装予定）
             if (window.accountManager) {
                 window.accountManager.refreshSubscriptions();
             }
@@ -284,10 +276,8 @@ class SubscriptionManager {
         }
     }
 
-    // 通知スケジューラー
     async scheduleNotifications() {
         try {
-            // 現在のログインユーザー名を取得
             let username = null;
             if (window.getLoggedInUser) {
                 const user = window.getLoggedInUser();
@@ -317,7 +307,6 @@ class SubscriptionManager {
                 const oneDayBefore = new Date(paymentDate);
                 oneDayBefore.setDate(paymentDate.getDate() - 1);
 
-                // 3日前の通知
                 if (new Date() < threeDaysBefore) {
                     setTimeout(() => {
                         Swal.fire({
@@ -330,7 +319,6 @@ class SubscriptionManager {
                     }, threeDaysBefore - new Date());
                 }
 
-                // 前日の通知
                 if (new Date() < oneDayBefore) {
                     setTimeout(() => {
                         Swal.fire({
@@ -349,11 +337,9 @@ class SubscriptionManager {
     }
 }
 
-// インスタンスの作成とエクスポート
 const subscriptionManager = new SubscriptionManager();
 export { subscriptionManager };
 
-// 定期的な通知チェック（1時間ごと）
 setInterval(() => {
     subscriptionManager.scheduleNotifications();
 }, 3600000);

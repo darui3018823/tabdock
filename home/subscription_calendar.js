@@ -205,13 +205,8 @@ class SubscriptionCalendarManager {
     async showSubscriptionListModal() {
         await this.loadSubscriptions();
 
-        const monthlyTotal = this.subscriptions
-            .filter(sub => sub.billingCycle === 'monthly' && sub.status === 'active')
-            .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
-        
-        const yearlyTotal = this.subscriptions
-            .filter(sub => sub.billingCycle === 'yearly' && sub.status === 'active')
-            .reduce((sum, sub) => sum + (parseFloat(sub.amount) || 0), 0);
+        const monthlyCurrencies = this.calculateCurrencyTotals('monthly');
+        const yearlyCurrencies = this.calculateCurrencyTotals('yearly');
 
         const modalHtml = `
             <div class="td-modal-panel td-modal-4xl max-h-screen overflow-hidden flex flex-col">
@@ -220,11 +215,15 @@ class SubscriptionCalendarManager {
                     <div class="flex gap-4">
                         <div class="text-right">
                             <div class="text-sm text-white/70">月額合計</div>
-                            <div class="font-semibold text-lg text-green-400">${monthlyTotal.toLocaleString()} JPY</div>
+                            <div class="font-semibold text-lg text-green-400">
+                                ${this.formatCurrencyTotals(monthlyCurrencies)}
+                            </div>
                         </div>
                         <div class="text-right">
                             <div class="text-sm text-white/70">年額合計</div>
-                            <div class="font-semibold text-lg text-green-400">${yearlyTotal.toLocaleString()} JPY</div>
+                            <div class="font-semibold text-lg text-green-400">
+                                ${this.formatCurrencyTotals(yearlyCurrencies)}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -323,6 +322,42 @@ class SubscriptionCalendarManager {
             'monthly': '月額',
             'yearly': '年額'
         }[cycle] || cycle;
+    }
+
+    calculateCurrencyTotals(billingCycle) {
+        const currencyTotals = {};
+        
+        this.subscriptions
+            .filter(sub => sub.billingCycle === billingCycle && sub.status === 'active')
+            .forEach(sub => {
+                const currency = sub.currency || 'JPY';
+                const amount = parseFloat(sub.amount) || 0;
+                
+                if (!currencyTotals[currency]) {
+                    currencyTotals[currency] = 0;
+                }
+                currencyTotals[currency] += amount;
+            });
+        
+        return currencyTotals;
+    }
+
+    formatCurrencyTotals(currencyTotals) {
+        const currencies = Object.keys(currencyTotals);
+        
+        if (currencies.length === 0) {
+            return '0 JPY';
+        }
+        
+        if (currencies.length === 1) {
+            const currency = currencies[0];
+            return `${currencyTotals[currency].toLocaleString()} ${currency}`;
+        }
+        
+        return currencies
+            .sort()
+            .map(currency => `${currencyTotals[currency].toLocaleString()} ${currency}`)
+            .join('   ');
     }
 
     showSubscriptionDetail(sub) {
@@ -614,7 +649,6 @@ class SubscriptionCalendarManager {
                 }
             });
 
-            // ボタン側も同様（クリック伝播は止める）
             const detailButton = item.querySelector('.text-blue-400');
             if (detailButton) {
                 detailButton.addEventListener('click', (e) => {
@@ -1029,33 +1063,27 @@ class SubscriptionCalendarManager {
         }
     }
 
-    // カレンダーの日付監視機能をカスタマイズして、過去になった支払い日の自動更新を組み込み
     setupAutoPaymentDateUpdate() {
-        // calendar.js の monitorDateChange 関数を拡張
         if (typeof window.monitorDateChange === 'function') {
             const originalMonitorDateChange = window.monitorDateChange;
             
             window.monitorDateChange = () => {
                 originalMonitorDateChange();
                 
-                // 日付変更時に支払い日の自動更新もチェック
                 this.updateOverduePaymentDates();
             };
         } else {
-            // calendar.js がまだ読み込まれていない場合は、DOMContentLoaded で再試行
             document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => this.setupAutoPaymentDateUpdate(), 1000);
             });
         }
     }
 
-    // 過去になった支払い日を次の課金サイクルに自動更新
     async updateOverduePaymentDates() {
         try {
             const username = this.getUsername();
             if (!username) return;
 
-            // 現在のサブスクリプション一覧を取得
             await this.loadSubscriptions();
             
             const today = new Date();
@@ -1065,14 +1093,12 @@ class SubscriptionCalendarManager {
                 if (!sub.nextPaymentDate || sub.status !== 'active') continue;
                 
                 const paymentDate = new Date(sub.nextPaymentDate);
-                if (paymentDate >= today) continue; // まだ過去になっていない
+                if (paymentDate >= today) continue;
 
-                // 次の支払い日を計算
                 const nextPaymentDate = this.calculateNextPaymentDate(paymentDate, sub.billingCycle);
                 
                 if (!nextPaymentDate) continue;
 
-                // サーバーに更新リクエストを送信
                 try {
                     const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
                         method: 'PUT',
@@ -1089,10 +1115,8 @@ class SubscriptionCalendarManager {
                     if (response.ok) {
                         console.log(`${sub.serviceName}の次回支払い日を${nextPaymentDate.toISOString().split('T')[0]}に更新しました`);
                         
-                        // ローカルデータも更新
                         sub.nextPaymentDate = nextPaymentDate.toISOString().split('T')[0];
                         
-                        // 更新通知（控えめに）
                         if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 title: '支払い日を更新',
@@ -1115,26 +1139,21 @@ class SubscriptionCalendarManager {
         }
     }
 
-    // 課金サイクルに基づいて次の支払い日を計算
     calculateNextPaymentDate(currentDate, billingCycle) {
         const nextDate = new Date(currentDate);
         
         switch (billingCycle) {
             case 'monthly':
-                // 次月の同じ日
                 nextDate.setMonth(nextDate.getMonth() + 1);
-                // 月末処理（例: 1/31 → 2/28）
                 if (nextDate.getDate() !== currentDate.getDate()) {
-                    nextDate.setDate(0); // 前月末に設定
+                    nextDate.setDate(0);
                 }
                 break;
                 
             case 'yearly':
-                // 次年の同じ月日
                 nextDate.setFullYear(nextDate.getFullYear() + 1);
-                // うるう年処理（2/29 → 2/28）
                 if (nextDate.getDate() !== currentDate.getDate()) {
-                    nextDate.setDate(0); // 前月末（2/28）に設定
+                    nextDate.setDate(0);
                 }
                 break;
                 
@@ -1150,7 +1169,6 @@ class SubscriptionCalendarManager {
 document.addEventListener('DOMContentLoaded', () => {
     window.subscriptionCalendarManager = new SubscriptionCalendarManager();
     
-    // 完全同期から呼び出せるようにグローバル関数として登録
     window.loadSubscriptions = async function() {
         if (window.subscriptionCalendarManager) {
             await window.subscriptionCalendarManager.loadSubscriptions();
