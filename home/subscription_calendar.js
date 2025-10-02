@@ -357,7 +357,7 @@ class SubscriptionCalendarManager {
         return currencies
             .sort()
             .map(currency => `${currencyTotals[currency].toLocaleString()} ${currency}`)
-            .join('   ');
+            .join('   /   ');
     }
 
     showSubscriptionDetail(sub) {
