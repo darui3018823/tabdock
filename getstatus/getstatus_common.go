@@ -32,27 +32,3 @@ func runPS(cmd string) string {
 		return "N/A"
 	}
 }
-
-func GetStatus() (*PCStatus, error) {
-	switch runtime.GOOS {
-	case "windows":
-		return getWindowsStatus()
-	case "linux":
-		return getLinuxStatus()
-	case "darwin":
-		return getDarwinStatus()
-	default:
-		return &PCStatus{
-			PC:         "Unknown",
-			Battery:    "N/A",
-			WAN:        "N/A",
-			Uptime:     "N/A",
-			CPU:        "N/A",
-			Mem:        "N/A",
-			GPU0:       "N/A",
-			VRAM:       "N/A",
-			DriveC:     "N/A",
-			MainWindow: "N/A",
-		}, nil
-	}
-}
