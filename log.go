@@ -179,6 +179,10 @@ func saveScores() {
 }
 
 func incrementScore(ip string, amount int) {
+	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
+		return
+	}
+
 	ipScoresMutex.Lock()
 	ipScores[ip] += amount
 	ipScoresMutex.Unlock()
@@ -273,6 +277,10 @@ func isSuspiciousPath(path string) bool {
 }
 
 func checkRateLimit(ip string) bool {
+	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
+		return true
+	}
+
 	rateLimitMutex.Lock()
 	defer rateLimitMutex.Unlock()
 
@@ -297,6 +305,10 @@ func checkRateLimit(ip string) bool {
 }
 
 func isDynamicallyBlocked(ip string) bool {
+	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
+		return false
+	}
+
 	dynamicBlockMutex.RLock()
 	defer dynamicBlockMutex.RUnlock()
 
@@ -310,6 +322,10 @@ func isDynamicallyBlocked(ip string) bool {
 }
 
 func addDynamicBlock(ip string) {
+	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
+		return
+	}
+
 	dynamicBlockMutex.Lock()
 	defer dynamicBlockMutex.Unlock()
 	dynamicBlockMap[ip] = time.Now()
@@ -444,6 +460,34 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		isPrivateIP := isPrivateOrLoopback(ip)
+		isTrusted := isTrustedIP(ip)
+
+		if isPrivateIP || isTrusted {
+			if !isAllowedMethod(r.Method) {
+				logRequest(r, ip, "warn")
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
+
+			if !checkRateLimit(ip) {
+				logRequest(r, ip, "warn")
+			}
+
+			if isSuspiciousPath(r.URL.Path) {
+				logRequest(r, ip, "warn")
+			} else {
+				uaStatus := detectSuspiciousUA(ua)
+				if uaStatus == "deny" || uaStatus == "warn" {
+					logRequest(r, ip, "info")
+				} else {
+					logRequest(r, ip, "info")
+				}
+			}
+			next(w, r)
+			return
+		}
+
 		if !isAllowedMethod(r.Method) {
 			incrementScore(ip, 10)
 			logRequest(r, ip, "attack")
@@ -462,24 +506,6 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		if isDynamicallyBlocked(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
-			return
-		}
-
-		isPrivateIP := isPrivateOrLoopback(ip)
-		isTrusted := isTrustedIP(ip)
-
-		if isPrivateIP || isTrusted {
-			if isSuspiciousPath(r.URL.Path) {
-				logRequest(r, ip, "attack")
-			} else {
-				uaStatus := detectSuspiciousUA(ua)
-				if uaStatus == "deny" || uaStatus == "warn" {
-					logRequest(r, ip, "warn")
-				} else {
-					logRequest(r, ip, "info")
-				}
-			}
-			next(w, r)
 			return
 		}
 
