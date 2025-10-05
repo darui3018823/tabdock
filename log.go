@@ -345,9 +345,14 @@ func addSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1; mode=block")
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdn.daruks.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+	// CORS headers for cross-origin requests
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Username")
 }
 
 func detectAdvancedThreats(r *http.Request) string {
@@ -446,34 +451,47 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		addSecurityHeaders(w)
 
+		// CORS プリフライトリクエストの処理
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		ip := getIPAddress(r)
 		ua := r.UserAgent()
 		loadScores()
 
+		// 最優先: localhost系のアクセスは常に許可
 		if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 			next(w, r)
 			return
 		}
 
+		// WebAuthn APIは常に許可
 		if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
 			next(w, r)
 			return
 		}
 
+		// 信頼できるIPアドレスかどうかを早期に判定
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
 
+		// 信頼できるIPの場合、スコアやブロック状態に関係なく基本的なチェックのみで通す
 		if isPrivateIP || isTrusted {
+			// 基本的なメソッドチェックのみ実行
 			if !isAllowedMethod(r.Method) {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, "warn") // 信頼できるIPなのでスコア増加は行わない
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
 
+			// レート制限は信頼できるIPには適用しない（ログのみ）
 			if !checkRateLimit(ip) {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, "warn") // ログは残すがブロックはしない
 			}
 
+			// 疑わしいパスでもログのみでブロックしない
 			if isSuspiciousPath(r.URL.Path) {
 				logRequest(r, ip, "warn")
 			} else {
@@ -488,6 +506,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// 信頼できないIPに対する通常のセキュリティチェック
 		if !isAllowedMethod(r.Method) {
 			incrementScore(ip, 10)
 			logRequest(r, ip, "attack")
