@@ -4,6 +4,7 @@ Put your spare tablets to good use.<br>
 [日本語](README_ja.md)
 
 # Recommended Environment
+
 This application has been tested and confirmed to work in the following environments:
 
 ## Verified Devices
@@ -58,7 +59,14 @@ The host machine must meet the following requirements:
 On Linux systems, it is strongly recommended to use `systemd` instead of PowerShell, as it is generally more practical and powerful for this context.<br>
 We assume that most users familiar with Linux will already understand how to configure and use `systemd`, so detailed instructions are omitted.
 
-## Third-Party Licenses
+<br>
+
+---
+
+<br>
+<br>
+
+# Third-Party Licenses
 
 This project uses third-party materials under the following licenses:
 
