@@ -8,7 +8,7 @@ require (
 	github.com/duo-labs/webauthn v0.0.0-20221205164246-ebaf9b74c6ec
 	github.com/google/uuid v1.6.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	golang.org/x/sys v0.36.0
+	golang.org/x/sys v0.37.0
 	modernc.org/sqlite v1.39.0
 )
 
