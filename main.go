@@ -27,7 +27,7 @@ import (
 )
 
 // const
-const version = "5.4.1"
+const version = "v5.5.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -99,7 +99,7 @@ func serve(mux http.Handler) {
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
 
-	log.Println("Tabdock Version: v" + version)
+        log.Println("Tabdock Version:", version)
 	log.Println("==== Updates ====")
 	log.Println(update1)
 	log.Println(update2)
