@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.4.0_subsc-r1
+// This code Version: 5.4.1_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -126,7 +126,15 @@ class SubscriptionManager {
         paymentMethodSelect.addEventListener('change', (e) => this.handlePaymentMethodChange(e));
 
         this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-        document.getElementById('cancelSubscription').addEventListener('click', () => this.hideModal());
+        document.getElementById('cancelSubscription').addEventListener('click', () => {
+            // scheduleTypeModalを閉じる
+            const scheduleTypeModal = document.getElementById('scheduleTypeModal');
+            if (scheduleTypeModal) {
+                scheduleTypeModal.classList.add('hidden');
+                scheduleTypeModal.classList.remove('flex');
+            }
+            this.hideModal();
+        });
 
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) {
@@ -153,6 +161,7 @@ class SubscriptionManager {
         if (modalContent) {
             modalContent.classList.remove('scale-100', 'opacity-100');
             modalContent.classList.add('scale-95', 'opacity-0');
+
         }
         setTimeout(() => {
             this.modal.classList.remove('flex');
