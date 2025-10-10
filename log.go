@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.4.0_log-r1
+// This code Version: 5.5.0_log-r1
 
 package main
 
@@ -24,6 +24,30 @@ import (
 )
 
 var trustedCIDRs []*net.IPNet
+var trustedProxyCIDRs = parseCIDRs([]string{
+	"173.245.48.0/20",
+	"103.21.244.0/22",
+	"103.22.200.0/22",
+	"103.31.4.0/22",
+	"141.101.64.0/18",
+	"108.162.192.0/18",
+	"190.93.240.0/20",
+	"188.114.96.0/20",
+	"197.234.240.0/22",
+	"198.41.128.0/17",
+	"162.158.0.0/15",
+	"104.16.0.0/13",
+	"104.24.0.0/14",
+	"172.64.0.0/13",
+	"131.0.72.0/22",
+	"2400:cb00::/32",
+	"2405:8100::/32",
+	"2405:b500::/32",
+	"2606:4700::/32",
+	"2803:f800::/32",
+	"2c0f:f248::/32",
+	"2a06:98c0::/29",
+})
 var scoreFile = "./json/ip_scores.json"
 var ipScores = map[string]int{}
 var ipScoresMutex sync.RWMutex
@@ -600,14 +624,77 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func getIPAddress(r *http.Request) string {
-	if cf := r.Header.Get("CF-Connecting-IP"); cf != "" {
-		return cf
-	}
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		remoteIP = r.RemoteAddr
 	}
-	return ip
+
+	if shouldTrustForwardedIP(remoteIP) {
+		if cf := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); cf != "" {
+			if parsed := net.ParseIP(cf); parsed != nil {
+				return parsed.String()
+			}
+		}
+
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			for _, part := range parts {
+				candidate := strings.TrimSpace(part)
+				if parsed := net.ParseIP(candidate); parsed != nil {
+					return parsed.String()
+				}
+			}
+		}
+	}
+
+	return remoteIP
+}
+
+func shouldTrustForwardedIP(remoteIP string) bool {
+	if remoteIP == "" {
+		return false
+	}
+
+	if isPrivateOrLoopback(remoteIP) {
+		return true
+	}
+
+	ip := net.ParseIP(remoteIP)
+	if ip == nil {
+		return false
+	}
+
+	for _, cidr := range trustedProxyCIDRs {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func parseCIDRs(cidrs []string) []*net.IPNet {
+	networks := make([]*net.IPNet, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		cidr = strings.TrimSpace(cidr)
+		if cidr == "" {
+			continue
+		}
+		if !strings.Contains(cidr, "/") {
+			if ip := net.ParseIP(cidr); ip != nil {
+				bits := 32
+				if ip.To4() == nil {
+					bits = 128
+				}
+				networks = append(networks, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+			}
+			continue
+		}
+		if _, network, err := net.ParseCIDR(cidr); err == nil {
+			networks = append(networks, network)
+		}
+	}
+	return networks
 }
 
 func sendDiscordWebhook(ip, level, method, path, ua, reqHash string) {
