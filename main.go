@@ -99,7 +99,7 @@ func serve(mux http.Handler) {
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
 
-        log.Println("Tabdock Version:", version)
+	log.Println("Tabdock Version:", version)
 	log.Println("==== Updates ====")
 	log.Println(update1)
 	log.Println(update2)
@@ -378,7 +378,7 @@ func handleStatusAPI(w http.ResponseWriter, r *http.Request) {
 	case err := <-errCh:
 		log.Println("status error:", err)
 		http.Error(w, "Failed to get status", http.StatusInternalServerError)
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		http.Error(w, "Timeout getting status", http.StatusGatewayTimeout)
 	}
 }
