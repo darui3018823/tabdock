@@ -1,3 +1,11 @@
+"""
+This script is not longer in use.
+Everything here has been replaced by the Golang version.
+-----
+このスクリプトはもう利用されていません。
+すべてGolangによって置き換えられています。
+"""
+
 import json
 import socket
 from httpx import get
