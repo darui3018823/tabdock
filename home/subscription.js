@@ -1,12 +1,13 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.4.1_subsc-r1
+// This code Version: 5.5.0_subsc-r2
 
 class SubscriptionManager {
     constructor() {
         this.modal = null;
         this.form = null;
+        this.notificationTimers = new Set();
         this.initialize();
     }
 
@@ -285,7 +286,16 @@ class SubscriptionManager {
         }
     }
 
+    clearNotificationTimers() {
+        if (!this.notificationTimers.size) return;
+        for (const timerId of this.notificationTimers) {
+            clearTimeout(timerId);
+        }
+        this.notificationTimers.clear();
+    }
+
     async scheduleNotifications() {
+        this.clearNotificationTimers();
         try {
             let username = null;
             if (window.getLoggedInUser) {
@@ -311,13 +321,18 @@ class SubscriptionManager {
             
             subscriptions.forEach(sub => {
                 const paymentDate = new Date(sub.nextPaymentDate);
+                if (Number.isNaN(paymentDate.getTime())) {
+                    return;
+                }
+
+                const now = new Date();
                 const threeDaysBefore = new Date(paymentDate);
                 threeDaysBefore.setDate(paymentDate.getDate() - 3);
                 const oneDayBefore = new Date(paymentDate);
                 oneDayBefore.setDate(paymentDate.getDate() - 1);
 
-                if (new Date() < threeDaysBefore) {
-                    setTimeout(() => {
+                if (now < threeDaysBefore) {
+                    const timeout = setTimeout(() => {
                         Swal.fire({
                             title: 'サブスクリプション支払い予定',
                             html: `<p>${sub.serviceName}の支払いが3日後に予定されています。</p>
@@ -325,11 +340,13 @@ class SubscriptionManager {
                             icon: 'info',
                             confirmButtonText: '了解'
                         });
-                    }, threeDaysBefore - new Date());
+                        this.notificationTimers.delete(timeout);
+                    }, threeDaysBefore - now);
+                    this.notificationTimers.add(timeout);
                 }
 
-                if (new Date() < oneDayBefore) {
-                    setTimeout(() => {
+                if (now < oneDayBefore) {
+                    const timeout = setTimeout(() => {
                         Swal.fire({
                             title: 'サブスクリプション支払い予定',
                             html: `<p>${sub.serviceName}の支払いが明日予定されています。</p>
@@ -337,7 +354,9 @@ class SubscriptionManager {
                             icon: 'warning',
                             confirmButtonText: '了解'
                         });
-                    }, oneDayBefore - new Date());
+                        this.notificationTimers.delete(timeout);
+                    }, oneDayBefore - now);
+                    this.notificationTimers.add(timeout);
                 }
             });
         } catch (error) {
@@ -347,7 +366,12 @@ class SubscriptionManager {
 }
 
 const subscriptionManager = new SubscriptionManager();
+if (typeof window !== 'undefined') {
+    window.subscriptionManager = subscriptionManager;
+}
 export { subscriptionManager };
+
+subscriptionManager.scheduleNotifications();
 
 setInterval(() => {
     subscriptionManager.scheduleNotifications();

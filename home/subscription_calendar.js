@@ -1013,10 +1013,14 @@ class SubscriptionCalendarManager {
                 await Swal.fire('完了', 'サブスクリプション情報を更新しました', 'success');
                 await this.loadSubscriptions();
                 document.body.removeChild(editModal);
-                
+
                 const updatedSub = this.subscriptions.find(s => s.id === sub.id);
                 if (updatedSub) {
                     this.showSubscriptionDetail(updatedSub);
+                }
+
+                if (window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
+                    await window.subscriptionManager.scheduleNotifications();
                 }
             } catch (error) {
                 Swal.fire('エラー', error.message, 'error');
@@ -1085,13 +1089,12 @@ class SubscriptionCalendarManager {
             if (!username) return;
 
             await this.loadSubscriptions();
-            
+
             const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            
+            let updatedAny = false;
             for (const sub of this.subscriptions) {
                 if (!sub.nextPaymentDate || sub.status !== 'active') continue;
-                
+
                 const paymentDate = new Date(sub.nextPaymentDate);
                 if (paymentDate >= today) continue;
 
@@ -1114,9 +1117,10 @@ class SubscriptionCalendarManager {
 
                     if (response.ok) {
                         console.log(`${sub.serviceName}の次回支払い日を${nextPaymentDate.toISOString().split('T')[0]}に更新しました`);
-                        
+
                         sub.nextPaymentDate = nextPaymentDate.toISOString().split('T')[0];
-                        
+                        updatedAny = true;
+
                         if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 title: '支払い日を更新',
@@ -1133,6 +1137,10 @@ class SubscriptionCalendarManager {
                 } catch (updateError) {
                     console.error(`${sub.serviceName}の支払い日更新に失敗:`, updateError);
                 }
+            }
+
+            if (updatedAny && window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
+                await window.subscriptionManager.scheduleNotifications();
             }
         } catch (error) {
             console.error('支払い日自動更新処理でエラー:', error);

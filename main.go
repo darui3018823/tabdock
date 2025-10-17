@@ -27,7 +27,7 @@ import (
 )
 
 // const
-const version = "5.4.1"
+const version = "v5.5.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -99,7 +99,7 @@ func serve(mux http.Handler) {
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
 
-	log.Println("Tabdock Version: v" + version)
+        log.Println("Tabdock Version:", version)
 	log.Println("==== Updates ====")
 	log.Println(update1)
 	log.Println(update2)
@@ -424,7 +424,15 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(10 << 20) // 最大10MB
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
+		return
+	}
 
 	file, handler, err := r.FormFile("wallpaper")
 	if err != nil {
@@ -433,17 +441,67 @@ func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	filename := handler.Filename
-	filepath := "home/wallpapers/" + filename
+	if handler.Size <= 0 || handler.Size > 10<<20 {
+		http.Error(w, "許可されていないファイルサイズです", http.StatusBadRequest)
+		return
+	}
 
-	out, err := os.Create(filepath)
+	ext := strings.ToLower(filepath.Ext(handler.Filename))
+	allowedExts := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	}
+	if !allowedExts[ext] {
+		http.Error(w, "対応していないファイル形式です", http.StatusBadRequest)
+		return
+	}
+
+	sniffBuf := make([]byte, 512)
+	n, err := file.Read(sniffBuf)
+	if err != nil && err != io.EOF {
+		http.Error(w, "ファイルの読み込みに失敗しました", http.StatusBadRequest)
+		return
+	}
+
+	contentType := http.DetectContentType(sniffBuf[:n])
+	allowedMIMEs := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+		"image/webp": true,
+	}
+	if !allowedMIMEs[contentType] {
+		http.Error(w, "対応していないファイル形式です", http.StatusBadRequest)
+		return
+	}
+
+	filename := uuid.New().String() + ext
+	wallpaperDir := filepath.Clean("home/wallpapers")
+	if err := os.MkdirAll(wallpaperDir, 0755); err != nil {
+		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	destPath := filepath.Join(wallpaperDir, filename)
+	destPath = filepath.Clean(destPath)
+	if !strings.HasPrefix(destPath, wallpaperDir+string(os.PathSeparator)) {
+		http.Error(w, "不正なファイルパスです", http.StatusBadRequest)
+		return
+	}
+
+	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
 		return
 	}
 	defer out.Close()
-	io.Copy(out, file)
 
+	reader := io.MultiReader(bytes.NewReader(sniffBuf[:n]), file)
+	if _, err := io.Copy(out, reader); err != nil {
+		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":   "success",
 		"filename": filename,
