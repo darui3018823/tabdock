@@ -206,13 +206,31 @@ function initWallpaperUploadHandlers() {
                     method: "POST",
                     body: formData,
                 });
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    if (res.status === 413 || errorText.includes("exceeds")) { // 413: Payload Too Large
+                        Toast?.fire?.({
+                            icon: 'error',
+                            title: 'ファイルサイズが大きすぎます',
+                            text: '50MB以下のファイルを選択してください。'
+                        }) ?? alert("ファイルサイズが50MBを超えています。");
+                    } else {
+                        throw new Error(`サーバーエラー: ${res.status} ${errorText}`);
+                    }
+                    return; 
+                }
+
                 const result = await res.json();
                 console.log("アップロード完了:", result);
 
                 handlePresetClick(`wallpapers/${result.filename}`);
                 document.getElementById("uploadConfirmModal")?.classList.add("hidden");
             } catch (e) {
-                alert("アップロードに失敗しました。");
+                Toast?.fire?.({
+                    icon: 'error',
+                    title: 'アップロードに失敗しました',
+                }) ?? alert("アップロードに失敗しました。");
                 console.error(e);
             }
         });

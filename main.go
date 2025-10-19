@@ -429,8 +429,12 @@ func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		if err.Error() == "http: request body too large" {
+			http.Error(w, "File size exceeds 50MB limit", http.StatusRequestEntityTooLarge)
+		} else {
+			http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
+		}
 		return
 	}
 
@@ -441,8 +445,8 @@ func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	if handler.Size <= 0 || handler.Size > 10<<20 {
-		http.Error(w, "許可されていないファイルサイズです", http.StatusBadRequest)
+	if handler.Size > 50<<20 {
+		http.Error(w, "File size exceeds 50MB limit", http.StatusRequestEntityTooLarge)
 		return
 	}
 
