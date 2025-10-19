@@ -258,6 +258,12 @@ class SubscriptionManager {
 
             const subscriptions = await response.json();
 
+            // 空配列や不正データに対するガード
+            if (!Array.isArray(subscriptions) || subscriptions.length === 0) {
+                console.info('通知対象のサブスクリプションが見つかりませんでした。');
+                return;
+            }
+
             subscriptions.forEach((sub) => {
                 const paymentDate = new Date(sub.nextPaymentDate);
                 if (Number.isNaN(paymentDate.getTime())) {

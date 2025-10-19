@@ -126,6 +126,17 @@ body {
     overflow-y: auto;
 }
 
+#menuModal.hidden,
+#devMenuModal.hidden,
+#wallpaperModal.hidden,
+#wallpaperAdvancedModal.hidden,
+#uploadConfirmModal.hidden,
+#burnInOverlay.hidden,
+#accountModal.hidden,
+.hidden {
+    display: none !important;
+}
+
 /* Burn-in protection overlay */
 #burnInOverlay {
     position: fixed;
