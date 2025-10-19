@@ -257,6 +257,8 @@ class SubscriptionManager {
             if (!response.ok) throw new Error('通知の取得に失敗しました');
 
             const subscriptions = await response.json();
+
+            // 空配列や不正データに対するガード
             if (!Array.isArray(subscriptions) || subscriptions.length === 0) {
                 console.info('通知対象のサブスクリプションが見つかりませんでした。');
                 return;
