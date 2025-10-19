@@ -10,6 +10,10 @@ let today = new Date();
 let currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
 let selectedDate = null;
 
+if (typeof window !== 'undefined') {
+    window.selectedDate = selectedDate;
+}
+
 let holidayMap = {};
 
 function isHoliday(year, month, day) {
@@ -70,22 +74,56 @@ const schedules = [
     { date: "2025-06-10", title: "通院", time: "09:30", description: "歯医者" },
 ];
 
+function getLoggedInUsername() {
+    try {
+        if (typeof window.getLoggedInUser === 'function') {
+            const user = window.getLoggedInUser();
+            if (user?.username) return user.username;
+        }
+        const stored = localStorage.getItem('tabdock_user');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.username) return parsed.username;
+        }
+    } catch (error) {
+        console.warn('ユーザー情報の取得に失敗しました:', error);
+    }
+    return null;
+}
+
 function renderSchedule(dateStr) {
     selectedDate = dateStr;
+    if (typeof window !== 'undefined') {
+        window.selectedDate = selectedDate;
+    }
     const filtered = schedules.filter(e => e.date === dateStr);
     scheduleList.innerHTML = "";
+
+    const holidayName = holidayMap[dateStr];
+    if (holidayName) {
+        const holidayItem = document.createElement('li');
+        holidayItem.className = 'mb-2 rounded border border-red-400/40 bg-red-500/20 px-3 py-2 text-sm text-red-100 shadow';
+        holidayItem.dataset.calendarFixed = 'holiday';
+        holidayItem.innerHTML = `<div class="font-semibold text-red-200">祝日: ${holidayName}</div>`;
+        scheduleList.appendChild(holidayItem);
+    }
 
     if (filtered.length === 0) {
         const li = document.createElement("li");
         li.textContent = "この日には予定がありません";
         li.className = "text-white/50";
         scheduleList.appendChild(li);
+        window.dispatchEvent(new CustomEvent('calendar:schedule-rendered', {
+            detail: { date: dateStr, container: scheduleList }
+        }));
         return;
     }
 
-    for (const sched of filtered) {
+    filtered.forEach((sched, index) => {
         const li = document.createElement("li");
         li.classList.add("mb-2");
+        li.dataset.scheduleItem = 'true';
+        li.dataset.schedulePos = String(index);
 
         const line1 = sched.time
             ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
@@ -107,9 +145,13 @@ function renderSchedule(dateStr) {
         li.appendChild(content);
         li.appendChild(detailBtn);
         scheduleList.appendChild(li);
-    }
+    });
 
     trimScheduleListForPreview();
+
+    window.dispatchEvent(new CustomEvent('calendar:schedule-rendered', {
+        detail: { date: dateStr, container: scheduleList }
+    }));
 }
 
 
@@ -213,6 +255,54 @@ function monitorDateChange() {
             });
         }
     }, 60 * 1000);
+}
+
+class CalendarManager {
+    async refreshCalendar({ keepSelection = false, forceReload = false, reloadHolidays = false, reloadSchedules = true } = {}) {
+        const tasks = [];
+        if (forceReload || reloadHolidays) {
+            tasks.push(fetchHolidayData());
+        }
+        if (forceReload || reloadSchedules) {
+            tasks.push(loadSchedules());
+        }
+
+        if (tasks.length) {
+            try {
+                await Promise.all(tasks);
+            } catch (error) {
+                console.warn('カレンダー再生成中にエラーが発生しました:', error);
+            }
+        }
+
+        renderCalendar();
+
+        const targetDate = keepSelection && window.selectedDate
+            ? window.selectedDate
+            : this.getTodayString();
+        renderSchedule(targetDate);
+    }
+
+    async reloadSchedules({ keepSelection = true } = {}) {
+        try {
+            await loadSchedules();
+        } catch (error) {
+            console.warn('予定の再読み込みに失敗しました:', error);
+        }
+        renderCalendar();
+        if (keepSelection && window.selectedDate) {
+            renderSchedule(window.selectedDate);
+        }
+    }
+
+    getTodayString() {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+
+    getSelectedDate() {
+        return window.selectedDate || null;
+    }
 }
 
 // 予定種類選択モーダルの制御
@@ -434,7 +524,19 @@ async function loadSchedules() {
     try {
         const res = await fetch("/api/schedule");
         const data = await res.json();
-        schedules.splice(0, schedules.length, ...data);
+        const username = getLoggedInUsername();
+
+        const filtered = Array.isArray(data) ? data.filter((entry) => {
+            if (!entry || typeof entry.title !== 'string') return true;
+            if (!entry.title.startsWith('[シフト]')) return true;
+
+            const match = entry.title.match(/^\[シフト\]\s([^:]+):/);
+            if (!match) return true;
+            if (!username) return false;
+            return match[1] === username;
+        }) : [];
+
+        schedules.splice(0, schedules.length, ...(Array.isArray(data) ? filtered : []));
     } catch (e) {
         console.warn("予定読み込み失敗:", e);
     }
@@ -525,8 +627,11 @@ function trimScheduleListForPreview() {
     const existingMore = document.getElementById("moreScheduleItem");
     if (existingMore) existingMore.remove();
 
-    if (items.length > 3) {
-        items.forEach((el, index) => {
+    const hideableItems = items.filter((el) => !el.dataset.calendarFixed);
+    hideableItems.forEach((el) => el.classList.remove('hidden'));
+
+    if (hideableItems.length > 2) {
+        hideableItems.forEach((el, index) => {
             el.classList.toggle("hidden", index >= 2);
         });
 
@@ -534,7 +639,7 @@ function trimScheduleListForPreview() {
         moreItem.id = "moreScheduleItem";
         moreItem.innerHTML = `<button class="text-blue-400 hover:underline text-left">+ もっと見る...</button>`;
         moreItem.querySelector("button").addEventListener("click", openAllScheduleModal);
-        list.insertBefore(moreItem, items[2]);
+        list.insertBefore(moreItem, hideableItems[2]);
     }
 }
 
@@ -551,11 +656,11 @@ function openAllScheduleModal() {
         copy.classList.remove("hidden");
 
         const detailBtn = copy.querySelector("button");
-        if (detailBtn && detailBtn.textContent.includes("詳細")) {
-            const index = cloned.indexOf(el);
-            const dateStr = selectedDate;
+        const pos = el.dataset.schedulePos;
+        if (detailBtn && detailBtn.textContent.includes("詳細") && pos !== undefined) {
+            const dateStr = window.selectedDate || selectedDate;
             const filtered = schedules.filter(e => e.date === dateStr);
-            const sched = filtered[index];
+            const sched = filtered[Number(pos)];
             if (sched) {
                 detailBtn.addEventListener("click", () => showScheduleDetail(sched));
             }
@@ -578,4 +683,13 @@ document.getElementById("regularToggleDetail").addEventListener("click", () => {
   const isOpen = !section.classList.contains("hidden");
   section.classList.toggle("hidden", isOpen);
   btn.textContent = isOpen ? "▲ 詳細設定を隠す" : "▼ 詳細設定を表示";
+});
+
+const calendarManager = new CalendarManager();
+if (typeof window !== 'undefined') {
+    window.calendarManager = calendarManager;
+}
+
+window.addEventListener('auth:state-changed', () => {
+    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => {});
 });

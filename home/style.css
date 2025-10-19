@@ -125,3 +125,73 @@ body {
     max-height: 50vh; /* 元の挙動に近い高さ管理 */
     overflow-y: auto;
 }
+
+/* Burn-in protection overlay */
+#burnInOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: radial-gradient(circle at 20% 20%, rgba(20, 20, 20, 0.95), #000 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    animation: burnin-drift 20s ease-in-out infinite alternate;
+}
+
+.burnin-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.burnin-pulse {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    animation: burnin-pulse 3.2s ease-in-out infinite;
+}
+
+.burnin-text {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 12px rgba(255,255,255,0.35);
+}
+
+.burnin-sub {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+}
+
+.burnin-exit {
+    padding: 0.6rem 2.4rem;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.burnin-exit:hover {
+    background: rgba(255,255,255,0.22);
+    transform: scale(1.05);
+}
+
+@keyframes burnin-pulse {
+    0%, 100% { transform: scale(0.9); opacity: 0.6; }
+    50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes burnin-drift {
+    0% { background-position: 30% 30%; }
+    100% { background-position: 70% 70%; }
+}
