@@ -16,6 +16,11 @@ function bufferToBase64url(buffer) {
 }
 
 async function handlePasskeyRegistration(usernameParam = null) {
+    if (!window.PublicKeyCredential) {
+        Swal.fire('エラー', 'このブラウザはパスキーに対応していません。', 'error');
+        return;
+    }
+
     const username = usernameParam || document.getElementById("username")?.value.trim() || document.getElementById("registerUsername")?.value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
@@ -55,7 +60,13 @@ async function startRegistration(options, username) {
     options.publicKey.challenge = Uint8Array.from(atob(options.publicKey.challenge), c => c.charCodeAt(0));
     options.publicKey.user.id = Uint8Array.from(atob(options.publicKey.user.id), c => c.charCodeAt(0));
 
-    const credential = await navigator.credentials.create({ publicKey: options.publicKey });
+    let credential;
+    try {
+        credential = await navigator.credentials.create({ publicKey: options.publicKey });
+    } catch (err) {
+        Swal.fire('エラー', err.message || 'パスキーの登録に失敗しました。', 'error');
+        throw err;
+    }
 
     const body = {
         username: username,
@@ -81,6 +92,11 @@ async function startRegistration(options, username) {
 }
 
 async function startLogin(usernameParam = null) {
+    if (!window.PublicKeyCredential) {
+        Swal.fire('エラー', 'このブラウザはパスキーに対応していません。', 'error');
+        return;
+    }
+
     const username = usernameParam || document.getElementById("username")?.value.trim() || document.getElementById("loginUsername")?.value.trim();
     if (!username) {
         Swal.fire("エラー", "ユーザー名が必要です", "error");
@@ -117,7 +133,13 @@ async function startLogin(usernameParam = null) {
         id: Uint8Array.from(atob(cred.id), c => c.charCodeAt(0))
     }));
 
-    const assertion = await navigator.credentials.get({ publicKey: options.publicKey });
+    let assertion;
+    try {
+        assertion = await navigator.credentials.get({ publicKey: options.publicKey });
+    } catch (err) {
+        Swal.fire('エラー', err.message || 'パスキー認証に失敗しました。', 'error');
+        throw err;
+    }
 
     const response = {
         id: assertion.id,

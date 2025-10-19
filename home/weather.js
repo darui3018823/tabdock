@@ -207,7 +207,20 @@ function showDetail(key, label, detail, overview) {
     const rainHtml = Object.entries(rain)
         .map(([time, percent]) => {
             const label = time.replace("T", "").replace("_", "–");
-            return `<div class="inline-block mr-4">${label}時: ${percent}</div>`;
+            const numeric = parseInt(String(percent || '').replace('%', ''), 10);
+            const safeValue = Number.isFinite(numeric) ? Math.max(0, Math.min(100, numeric)) : 0;
+            const intensityClass = safeValue >= 70 ? 'bg-red-500' : safeValue >= 40 ? 'bg-yellow-400' : 'bg-blue-400';
+            const textClass = safeValue >= 70 ? 'text-red-200' : safeValue >= 40 ? 'text-yellow-200' : 'text-blue-200';
+
+            return `
+                <div class="flex items-center gap-3">
+                    <div class="w-20 text-xs text-white/80">${label}時</div>
+                    <div class="flex-1 bg-white/10 rounded-full h-2 overflow-hidden">
+                        <div class="h-full ${intensityClass}" style="width:${safeValue}%"></div>
+                    </div>
+                    <div class="w-12 text-xs text-right ${textClass}">${percent || '--%'}</div>
+                </div>
+            `;
         }).join("");
 
     modalTitle.textContent = `${label} の天気の詳細`;
@@ -215,7 +228,10 @@ function showDetail(key, label, detail, overview) {
         <p><strong>天気:</strong> ${detail.weather}</p>
         <p><strong>風:</strong> ${detail.wind}</p>
         <p><strong>波:</strong> ${detail.wave}</p>
-        <p><strong>降水確率:</strong><br>${rainHtml}</p>
+        <div class="mt-2">
+            <div class="font-semibold text-sm mb-1">降水確率</div>
+            <div class="space-y-1">${rainHtml}</div>
+        </div>
         <hr class="my-2 border-gray-600" />
         <p><strong>概況:</strong><br>${overview || "情報なし"}</p>
     `;

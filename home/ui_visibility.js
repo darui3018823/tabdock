@@ -3,6 +3,8 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 5.3.0_ui-r1
 
+let wallpaperStorageWarningShown = false;
+
 function applyVisualSettings() {
     const blur = parseInt(document.getElementById("blurRange")?.value || 0);
     const brightness = parseInt(document.getElementById("brightnessRange")?.value || 100);
@@ -31,9 +33,10 @@ function applyVisualSettings() {
 }
 
 (function initVisibilitySettings() {
-    const savedWallpaper = localStorage.getItem("tabdock_wallpaper");
+    const savedWallpaper = localStorage.getItem("tabdock_wallpaper")
+        ?? sessionStorage.getItem("tabdock_wallpaper_session");
     if (savedWallpaper) {
-        handlePresetClick(savedWallpaper);
+        handlePresetClick(savedWallpaper, { persist: false });
     }
 
     const sliders = ["blurRange", "brightnessRange", "opacityRange"];
@@ -79,7 +82,12 @@ function initializeSliders() {
     applyVisualSettings();
 }
 
-function handlePresetClick(imgSrc) {
+function isQuotaExceeded(error) {
+    if (!error) return false;
+    return error.code === 22 || error.code === 1014 || error.name === 'QuotaExceededError';
+}
+
+function handlePresetClick(imgSrc, { persist = true } = {}) {
     const wallpaper = document.getElementById("wallpaper");
     if (wallpaper) {
         wallpaper.style.backgroundImage = `url('${imgSrc}')`;
@@ -87,7 +95,25 @@ function handlePresetClick(imgSrc) {
         wallpaper.style.backgroundPosition = "center";
         wallpaper.style.backgroundRepeat = "no-repeat";
 
-        localStorage.setItem("tabdock_wallpaper", imgSrc);
+        if (persist) {
+            try {
+                localStorage.setItem("tabdock_wallpaper", imgSrc);
+                sessionStorage.removeItem("tabdock_wallpaper_session");
+            } catch (error) {
+                if (isQuotaExceeded(error)) {
+                    sessionStorage.setItem("tabdock_wallpaper_session", imgSrc);
+                    if (!wallpaperStorageWarningShown) {
+                        wallpaperStorageWarningShown = true;
+                        Toast?.fire?.({
+                            icon: 'warning',
+                            title: '壁紙の保存領域がいっぱいです'
+                        }) ?? alert("壁紙を保存できませんでした。容量を確認してください。");
+                    }
+                } else {
+                    console.error("壁紙設定の保存に失敗しました:", error);
+                }
+            }
+        }
     }
 }
 
@@ -99,14 +125,14 @@ function handleWallpaperUpload(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const imageData = e.target.result;
-        handlePresetClick(imageData);  // 背景に適用
+        handlePresetClick(imageData, { persist: false });  // 背景に適用
 
         // プリセットに追加
     const img = document.createElement("img");
     img.src = imageData;
     img.alt = "uploaded-wallpaper";
     img.className = "rounded cursor-pointer hover:ring-2 ring-white";
-        img.onclick = () => handlePresetClick(imageData);
+        img.onclick = () => handlePresetClick(imageData, { persist: false });
 
         const presetContainer = document.getElementById("presetWallpapers");
         presetContainer.appendChild(img);

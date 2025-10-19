@@ -53,6 +53,10 @@ document.addEventListener("DOMContentLoaded", () => {
             setupAccountModal();
         });
     };
+
+    if (isLoggedIn()) {
+        notifyAuthState(getLoggedInUser());
+    }
 });
 
 document.getElementById("openAccManage").addEventListener("click", () => {
@@ -72,12 +76,18 @@ function getLoggedInUser() {
 
 function saveLoginState(user) {
     localStorage.setItem("tabdock_user", JSON.stringify(user));
+    notifyAuthState(user);
 }
 
 function logout() {
     localStorage.removeItem("tabdock_user");
     Swal.fire("ログアウト", "正常にログアウトしました。", "success");
+    notifyAuthState(null);
     setupAccountModal();
+}
+
+function notifyAuthState(user) {
+    window.dispatchEvent(new CustomEvent('auth:state-changed', { detail: { user } }));
 }
 
 function setupAccountModal() {
@@ -179,6 +189,9 @@ function setupLoggedInModal(modal) {
                     <div class="bg-black/20 rounded-lg p-4">
                         <h3 class="text-lg font-semibold mb-3">詳細管理</h3>
                         <div class="space-y-2">
+                            <button id="subscriptionManageBtn" class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
+                                サブスクリプション管理
+                            </button>
                             <button class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
                                 データエクスポート
                             </button>
@@ -197,6 +210,8 @@ function setupLoggedInModal(modal) {
             </div>
         </div>
     `;
+
+    window.dispatchEvent(new CustomEvent('account:modal-ready'));
     
     setupLoggedInEventListeners();
 }
@@ -286,7 +301,9 @@ function setupLoginModal(modal) {
             </div>
         </div>
     `;
-    
+
+    window.dispatchEvent(new CustomEvent('account:modal-ready'));
+
     setupAccountEventListeners();
 }
 

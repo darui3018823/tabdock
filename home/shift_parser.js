@@ -3,6 +3,23 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 3.7.0_shift-parser-r2
 
+function getLoggedInUsername() {
+    try {
+        if (typeof window.getLoggedInUser === 'function') {
+            const user = window.getLoggedInUser();
+            if (user?.username) return user.username;
+        }
+        const stored = localStorage.getItem('tabdock_user');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.username) return parsed.username;
+        }
+    } catch (error) {
+        console.warn('ユーザー情報の取得に失敗しました:', error);
+    }
+    return null;
+}
+
 function parseShiftText(text) {
     const lines = text.trim().split('\n');
     const shifts = [];
@@ -50,7 +67,11 @@ function parseShiftText(text) {
     return shifts;
 }
 
-async function registerShifts(shifts) {
+async function registerShifts(shifts, username) {
+    if (!username) {
+        throw new Error('シフトを登録するにはログインが必要です');
+    }
+
     const scheduleData = shifts.map(shift => ({
         date: shift.date,
         time: shift.startTime,
@@ -63,9 +84,11 @@ async function registerShifts(shifts) {
         const res = await fetch('/api/shift', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-Username': encodeURIComponent(username)
             },
-            body: JSON.stringify(scheduleData)
+            body: JSON.stringify(scheduleData),
+            credentials: 'include'
         });
 
         if (!res.ok) {
@@ -93,6 +116,17 @@ window.parseAndRegisterShifts = async function(text) {
             throw new Error('シフト情報を認識できませんでした');
         }
 
+        const username = getLoggedInUsername();
+        if (!username) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'ログインが必要です',
+                text: 'シフトの登録にはログインが必要です。',
+                confirmButtonText: '閉じる'
+            });
+            throw new Error('ログインが必要です');
+        }
+
         // 登録中の表示
         const loadingAlert = Swal.fire({
             title: '処理中...',
@@ -105,7 +139,7 @@ window.parseAndRegisterShifts = async function(text) {
             }
         });
 
-        await registerShifts(shifts);
+        await registerShifts(shifts, username);
 
         // 登録完了の表示
         await loadingAlert.close();

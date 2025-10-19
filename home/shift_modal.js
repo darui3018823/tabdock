@@ -57,7 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // カレンダーの再取得
-            if (typeof loadSchedules === 'function') {
+            if (window.calendarManager && typeof window.calendarManager.reloadSchedules === 'function') {
+                await window.calendarManager.reloadSchedules({ keepSelection: true });
+            } else if (typeof loadSchedules === 'function') {
                 await loadSchedules();
             }
 
