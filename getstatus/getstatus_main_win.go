@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -31,16 +32,63 @@ var (
 
 func getWindowsStatus() (*PCStatus, error) {
 	status := &PCStatus{}
-	status.PC = getPCName()
-	status.Battery = getBattery()
-	status.WAN = getWAN()
-	status.Uptime = getUptime()
-	status.CPU = getCPU()
-	status.Mem = getMem()
-	status.GPU0 = getGPU()
-	status.VRAM = getVRAM()
-	status.DriveC = getDriveC()
-	status.MainWindow = getMainWindow()
+	type fieldResult struct {
+		field string
+		value string
+	}
+
+	tasks := map[string]func() string{
+		"PC":         getPCName,
+		"Battery":    getBattery,
+		"WAN":        getWAN,
+		"Uptime":     getUptime,
+		"CPU":        getCPU,
+		"Mem":        getMem,
+		"GPU0":       getGPU,
+		"VRAM":       getVRAM,
+		"DriveC":     getDriveC,
+		"MainWindow": getMainWindow,
+	}
+
+	results := make(chan fieldResult, len(tasks))
+	var wg sync.WaitGroup
+
+	for field, fn := range tasks {
+		wg.Add(1)
+		go func(field string, fn func() string) {
+			defer wg.Done()
+			results <- fieldResult{field: field, value: fn()}
+		}(field, fn)
+	}
+
+	wg.Wait()
+	close(results)
+
+	for res := range results {
+		switch res.field {
+		case "PC":
+			status.PC = res.value
+		case "Battery":
+			status.Battery = res.value
+		case "WAN":
+			status.WAN = res.value
+		case "Uptime":
+			status.Uptime = res.value
+		case "CPU":
+			status.CPU = res.value
+		case "Mem":
+			status.Mem = res.value
+		case "GPU0":
+			status.GPU0 = res.value
+		case "VRAM":
+			status.VRAM = res.value
+		case "DriveC":
+			status.DriveC = res.value
+		case "MainWindow":
+			status.MainWindow = res.value
+		}
+	}
+
 	return status, nil
 }
 

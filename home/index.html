@@ -167,7 +167,7 @@
         <div id="scheduleTypeModal" class="hidden td-modal-overlay z-50">
             <div class="td-modal-panel td-modal-sm">
                 <h2 class="text-xl font-bold mb-3">予定の種類を選択</h2>
-                
+
                 <div class="space-y-3">
                     <button id="openRegularScheduleBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 rounded transition-colors flex items-center justify-center space-x-2">
                         <span>通常予定を追加</span>
@@ -185,6 +185,91 @@
                 <div class="text-right mt-4">
                     <button id="closeScheduleTypeModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">キャンセル</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- サブスクリプション追加モーダル -->
+        <div id="subscriptionModal" class="hidden td-modal-overlay z-[70]">
+            <div class="td-modal-panel td-modal-md max-h-[90vh] overflow-y-auto">
+                <h2 class="text-2xl font-bold mb-4 text-white">サブスクリプションスケジュールを追加</h2>
+                <form id="subscriptionForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-200">サービス名</label>
+                        <input type="text" name="serviceName" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-200">プラン名</label>
+                        <input type="text" name="planName" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-200">金額</label>
+                            <input type="number" name="amount" step="0.01" min="0" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-200">通貨</label>
+                            <select name="currency" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="" selected disabled>選択してください</option>
+                                <option value="JPY">JPY</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-200">課金サイクル</label>
+                        <select name="billingCycle" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="" selected disabled>選択してください</option>
+                            <option value="monthly">月額</option>
+                            <option value="yearly">年額</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-200">決済方法</label>
+                        <select name="paymentMethod" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="" selected disabled>選択してください</option>
+                            <option value="CC">クレジットカード</option>
+                            <option value="PayPal">PayPal</option>
+                            <option value="GooglePay">Google Pay</option>
+                            <option value="ApplePay">Apple Pay</option>
+                            <option value="PayPay">PayPay</option>
+                            <option value="AmazonPay">Amazon Pay</option>
+                            <option value="Other">その他</option>
+                        </select>
+                    </div>
+                    <div id="paymentDetails" class="hidden space-y-4">
+                        <div id="ccDetails" class="hidden">
+                            <label class="block text-sm font-medium text-gray-200">カード末尾4桁（任意）</label>
+                            <input type="text" name="cardLastFour" pattern="[0-9]{4}" maxlength="4" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div id="paypalDetails" class="hidden space-y-1">
+                            <label class="block text-sm font-medium text-gray-200">PayPalメールアドレス（任意）</label>
+                            <input type="email" name="paypalEmail" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div id="otherDetails" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-200">決済方法名</label>
+                                <input type="text" name="otherPaymentMethod" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-200">ラベル（任意）</label>
+                                <input type="text" name="otherPaymentLabel" class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-200">次回支払日</label>
+                        <input type="date" name="nextPaymentDate" required class="mt-1 block w-full rounded-md bg-gray-800 text-white border-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" id="cancelSubscription" class="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
+                            キャンセル
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -668,6 +753,11 @@
                             </div>
 
                             <div class="flex justify-between">
+                                <span>カレンダーを再生成</span>
+                                <button id="regenerateCalendarBtn" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1 rounded">再生成</button>
+                            </div>
+
+                            <div class="flex justify-between">
                                 <span>JavaScriptロード状態確認</span>
                                 <button id="checkJsStatusBtn" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded">確認</button>
                             </div>
@@ -698,6 +788,11 @@
                             </div>
 
                             <div class="flex justify-between">
+                                <span>画面焼け防止モード</span>
+                                <button id="toggleBurnInProtectionBtn" class="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded">起動</button>
+                            </div>
+
+                            <div class="flex justify-between">
                                 <span>ページ再読み込み</span>
                                 <button id="reloadPageBtn" class="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded">再読込</button>
                             </div>
@@ -713,6 +808,15 @@
                 <!-- アカウント管理 -->
                 <div id="accountModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
                     <!-- 動的生成 -->
+                </div>
+
+                <!-- 画面焼け防止オーバーレイ -->
+                <div id="burnInOverlay" class="hidden">
+                    <div class="burnin-content">
+                        <div class="burnin-pulse"></div>
+                        <p class="burnin-text">画面焼け防止モード<br><span class="burnin-sub">画面をタップ、または ESC で終了します</span></p>
+                        <button id="exitBurnInBtn" class="burnin-exit">終了する</button>
+                    </div>
                 </div>
 
             </div>

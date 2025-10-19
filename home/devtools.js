@@ -6,6 +6,61 @@
 let debugLog = [];
 let maxLogEntries = 100;
 let lastFullSync = null;
+let burnInOverlayCleanup = null;
+
+function openBurnInOverlay() {
+    const overlay = document.getElementById('burnInOverlay');
+    if (!overlay) {
+        console.warn('burnInOverlay が見つかりません');
+        return;
+    }
+
+    if (!overlay.classList.contains('hidden')) {
+        return;
+    }
+
+    const exitButton = document.getElementById('exitBurnInBtn');
+    const content = overlay.querySelector('.burnin-content');
+    const stopPropagation = (event) => event.stopPropagation();
+
+    const close = () => {
+        overlay.classList.add('hidden');
+        overlay.removeEventListener('click', handleOverlayClick);
+        exitButton?.removeEventListener('click', handleExitButton);
+        document.removeEventListener('keydown', escHandler);
+        content?.removeEventListener('click', stopPropagation);
+        burnInOverlayCleanup = null;
+        Toast?.fire({ icon: 'info', title: '画面焼け防止モードを終了しました' });
+    };
+
+    const handleExitButton = (event) => {
+        event.stopPropagation();
+        close();
+    };
+
+    const handleOverlayClick = () => close();
+    const escHandler = (event) => {
+        if (event.key === 'Escape') {
+            close();
+        }
+    };
+
+    burnInOverlayCleanup = close;
+
+    overlay.classList.remove('hidden');
+    Toast?.fire({ icon: 'success', title: '画面焼け防止モードを開始しました' });
+
+    overlay.addEventListener('click', handleOverlayClick);
+    exitButton?.addEventListener('click', handleExitButton);
+    content?.addEventListener('click', stopPropagation);
+    document.addEventListener('keydown', escHandler);
+}
+
+function closeBurnInOverlay() {
+    if (typeof burnInOverlayCleanup === 'function') {
+        burnInOverlayCleanup();
+    }
+}
 
 function addDebugLog(level, message, data = null) {
     const timestamp = new Date().toISOString();
@@ -75,48 +130,89 @@ async function performFullSync() {
         addDebugLog('info', '完全同期開始');
         
         const syncTasks = [
-            { name: '天気データ', func: 'fetchWeather' },
-            { name: 'スケジュール読み込み', func: 'loadSchedules' },
-            { name: '祝日データ', func: 'fetchHolidayData' },
-            { name: 'サブスクリプション予定更新', func: 'loadSubscriptions' },
-            { name: 'カレンダー再描画', func: 'renderCalendar' }
+            {
+                name: '天気データ',
+                run: () => typeof window.fetchWeather === 'function' ? window.fetchWeather() : 'skip'
+            },
+            {
+                name: '祝日データ',
+                run: () => typeof window.fetchHolidayData === 'function' ? window.fetchHolidayData() : 'skip'
+            },
+            {
+                name: '予定データ',
+                run: () => {
+                    if (window.calendarManager && typeof window.calendarManager.reloadSchedules === 'function') {
+                        return window.calendarManager.reloadSchedules({ keepSelection: true });
+                    }
+                    if (typeof window.loadSchedules === 'function') {
+                        return window.loadSchedules();
+                    }
+                    return 'skip';
+                }
+            },
+            {
+                name: 'サブスクリプション予定更新',
+                run: () => {
+                    if (window.subscriptionCalendarManager && typeof window.subscriptionCalendarManager.handleSubscriptionsUpdated === 'function') {
+                        return window.subscriptionCalendarManager.handleSubscriptionsUpdated();
+                    }
+                    if (typeof window.loadSubscriptions === 'function') {
+                        return window.loadSubscriptions();
+                    }
+                    return 'skip';
+                }
+            },
+            {
+                name: 'カレンダー再描画',
+                run: () => {
+                    if (window.calendarManager && typeof window.calendarManager.refreshCalendar === 'function') {
+                        return window.calendarManager.refreshCalendar({ keepSelection: true });
+                    }
+                    if (typeof window.renderCalendar === 'function') {
+                        window.renderCalendar();
+                        if (typeof window.renderSchedule === 'function') {
+                            const date = window.selectedDate || new Date().toISOString().split('T')[0];
+                            window.renderSchedule(date);
+                        }
+                        return Promise.resolve();
+                    }
+                    return 'skip';
+                }
+            }
         ];
-        
+
         console.log('同期タスク一覧:', syncTasks);
-        
+
         const results = [];
-        
-        console.log('=== 利用可能な関数をチェック ===');
-        syncTasks.forEach(task => {
-            const isAvailable = typeof window[task.func] === 'function';
-            console.log(`${task.func}: ${isAvailable ? '利用可能' : '利用不可'} (type: ${typeof window[task.func]})`);
-        });
-        
-        console.log('関数チェック完了、同期処理を開始します');
-        
-        console.log('=== グローバル関数の同期開始 ===');
-    for (const task of syncTasks) {
-        console.log(`${task.name} (${task.func}) の同期を開始...`);
-        try {
-            if (typeof window[task.func] === 'function') {
+
+        for (const task of syncTasks) {
+            console.log(`${task.name} の同期を開始...`);
+            try {
+                if (typeof task.run !== 'function') {
+                    results.push({ name: task.name, status: 'skipped', reason: 'ハンドラー未定義' });
+                    console.log(`⚠️ ${task.name}同期スキップ: ハンドラーが未定義です`);
+                    continue;
+                }
+
                 const taskStart = performance.now();
-                console.log(`${task.func}() を実行中...`);
-                await window[task.func]();
+                const outcome = await task.run();
+                if (outcome === 'skip') {
+                    results.push({ name: task.name, status: 'skipped', reason: '依存関数が見つかりません' });
+                    console.log(`⚠️ ${task.name}同期スキップ: 依存関数が見つかりません`);
+                    addDebugLog('warn', `${task.name}同期スキップ: 依存関数が見つかりません`);
+                    continue;
+                }
+
                 const taskTime = Math.round(performance.now() - taskStart);
                 results.push({ name: task.name, status: 'success', time: taskTime });
                 console.log(`✅ ${task.name}同期完了 (${taskTime}ms)`);
                 addDebugLog('info', `${task.name}同期完了 (${taskTime}ms)`);
-            } else {
-                results.push({ name: task.name, status: 'skipped', reason: '関数が見つかりません' });
-                console.log(`⚠️ ${task.name}同期スキップ: 関数が見つかりません`);
-                addDebugLog('warn', `${task.name}同期スキップ: 関数が見つかりません`);
+            } catch (error) {
+                results.push({ name: task.name, status: 'error', error: error.message });
+                console.error(`❌ ${task.name}同期エラー:`, error);
+                addDebugLog('error', `${task.name}同期エラー`, error);
             }
-        } catch (error) {
-            results.push({ name: task.name, status: 'error', error: error.message });
-            console.error(`❌ ${task.name}同期エラー:`, error);
-            addDebugLog('error', `${task.name}同期エラー`, error);
         }
-    }
     
     console.log('=== 時計・日付更新開始 ===');
     try {
@@ -181,6 +277,14 @@ async function performFullSync() {
         addDebugLog('error', 'APIステータス確認エラー', error);
     }
     
+    if (window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
+        try {
+            await window.subscriptionManager.scheduleNotifications();
+        } catch (notifyError) {
+            console.warn('通知スケジュール更新でエラー:', notifyError);
+        }
+    }
+
     const totalTime = Math.round(performance.now() - startTime);
     lastFullSync = new Date().toISOString();
     console.log(`=== 完全同期完了 (合計${totalTime}ms) ===`);
@@ -636,6 +740,38 @@ forceSyncButton?.addEventListener("click", async (event) => {
             Swal.close();
         }
     }
+});
+
+document.getElementById("regenerateCalendarBtn")?.addEventListener("click", async () => {
+    addDebugLog('info', 'カレンダー再生成を開始');
+    try {
+        if (window.calendarManager && typeof window.calendarManager.refreshCalendar === 'function') {
+            await window.calendarManager.refreshCalendar({ keepSelection: true, forceReload: true });
+        } else {
+            await Promise.all([
+                typeof window.fetchHolidayData === 'function' ? window.fetchHolidayData() : Promise.resolve(),
+                typeof window.loadSchedules === 'function' ? window.loadSchedules() : Promise.resolve()
+            ]);
+            if (typeof window.renderCalendar === 'function') {
+                window.renderCalendar();
+            }
+            if (typeof window.renderSchedule === 'function') {
+                const dateStr = window.selectedDate || new Date().toISOString().split('T')[0];
+                window.renderSchedule(dateStr);
+            }
+        }
+
+        Toast?.fire({ icon: 'success', title: 'カレンダーを再生成しました' });
+        addDebugLog('info', 'カレンダー再生成完了');
+    } catch (error) {
+        console.error('カレンダー再生成エラー:', error);
+        addDebugLog('error', 'カレンダー再生成中にエラー', error);
+        Swal.fire('エラー', error.message || 'カレンダー再生成に失敗しました', 'error');
+    }
+});
+
+document.getElementById("toggleBurnInProtectionBtn")?.addEventListener("click", () => {
+    openBurnInOverlay();
 });
 
 document.getElementById("openDevMenuBtn").addEventListener("click", () => {

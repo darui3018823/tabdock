@@ -37,7 +37,7 @@ class SubscriptionCalendarManager {
 
     async initialize() {
         await this.loadSubscriptions();
-        this.integrateWithCalendar();
+        this.registerGlobalListeners();
         this.setupSubscriptionList();
         this.setupAutoPaymentDateUpdate();
     }
@@ -73,15 +73,22 @@ class SubscriptionCalendarManager {
         return null;
     }
 
-    integrateWithCalendar() {
-        const originalRenderSchedule = window.renderSchedule;
-        window.renderSchedule = (dateStr) => {
-            originalRenderSchedule(dateStr);
-            this.addSubscriptionToSchedule(dateStr);
-        };
+    registerGlobalListeners() {
+        window.addEventListener('calendar:schedule-rendered', (event) => {
+            const { date, container } = event.detail || {};
+            this.addSubscriptionToSchedule(date, container);
+        });
+
+        window.addEventListener('subscription:data-changed', () => {
+            this.handleSubscriptionsUpdated();
+        });
+
+        window.addEventListener('account:modal-ready', () => {
+            this.attachManageButton();
+        });
     }
 
-    addSubscriptionToSchedule(dateStr) {
+    addSubscriptionToSchedule(dateStr, container) {
         if (!Array.isArray(this.subscriptions) || this.subscriptions.length === 0) return;
         const subscriptionsForDate = this.subscriptions.filter(sub => {
             if (!sub || !sub.nextPaymentDate) return false;
@@ -92,16 +99,20 @@ class SubscriptionCalendarManager {
 
         if (subscriptionsForDate.length === 0) return;
 
-        const scheduleList = document.getElementById('scheduleList');
+        const scheduleList = container || document.getElementById('scheduleList');
         if (!scheduleList) return;
+
+        const groupAttr = `subsc-${dateStr}`;
+        scheduleList.querySelectorAll(`[data-subsc-group="${groupAttr}"]`).forEach((el) => el.remove());
+        scheduleList.querySelectorAll(`[data-subsc-header="${groupAttr}"]`).forEach((el) => el.remove());
 
         const header = document.createElement('div');
         header.className = 'mt-4 mb-2 font-semibold text-sm text-white/70';
         header.textContent = 'サブスクリプション支払い予定';
+        header.dataset.subscHeader = groupAttr;
         scheduleList.appendChild(header);
 
         const needsToggle = subscriptionsForDate.length >= 4;
-        const groupAttr = `subsc-${dateStr}`;
         const createdLis = [];
 
         subscriptionsForDate.forEach((sub, index) => {
@@ -168,38 +179,35 @@ class SubscriptionCalendarManager {
     }
 
     setupSubscriptionList() {
-        this.addSubscriptionButton();
+        this.attachManageButton();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.attachManageButton(), { once: true });
+        }
     }
 
-    addSubscriptionButton() {
-        const observer = new MutationObserver((mutations, obs) => {
-            const accountModal = document.getElementById('accountModal');
-            if (!accountModal) return;
+    attachManageButton() {
+        const button = document.getElementById('subscriptionManageBtn');
+        if (!button || button.dataset.bound === 'true') return;
 
-            const accountDataSection = accountModal.querySelector('.bg-black\\/20:nth-of-type(3)');
-            if (!accountDataSection) return;
-
-            const buttonContainer = accountDataSection.querySelector('.space-y-2');
-            if (!buttonContainer) return;
-
-            obs.disconnect();
-
-            const existingButton = buttonContainer.querySelector('#subscriptionManageBtn');
-            if (existingButton) {
-                existingButton.remove();
-            }
-
-            const button = document.createElement('button');
-            button.id = 'subscriptionManageBtn';
-            button.className = 'w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors';
-            button.textContent = 'サブスクリプション管理';
-            button.addEventListener('click', () => this.showSubscriptionListModal());
-
-            const exportButton = buttonContainer.firstChild;
-            buttonContainer.insertBefore(button, exportButton);
+        button.dataset.bound = 'true';
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.showSubscriptionListModal();
         });
+    }
 
-        observer.observe(document.body, { childList: true, subtree: true });
+    async handleSubscriptionsUpdated() {
+        await this.loadSubscriptions();
+
+        const listModal = document.getElementById('subscriptionListModal');
+        if (listModal) {
+            await this.updateSubscriptionList();
+        }
+
+        const selectedDate = window.selectedDate;
+        if (selectedDate && typeof window.renderSchedule === 'function') {
+            window.renderSchedule(selectedDate);
+        }
     }
 
     async showSubscriptionListModal() {
