@@ -351,6 +351,10 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
     if (mapEl) mapEl.value = "";
     const attachEl = document.getElementById("scheduleAttachment");
     if (attachEl) attachEl.value = "";
+    const icsEl = document.getElementById("scheduleIcsFile");
+    if (icsEl) icsEl.value = "";
+    const icsInfo = document.getElementById("scheduleIcsInfo");
+    if (icsInfo) icsInfo.textContent = "";
 
     // タイトルにフォーカス
     const titleEl = document.getElementById("scheduleTitle");
@@ -435,6 +439,255 @@ document.getElementById('scheduleLocation')?.addEventListener('change', () => {
     if (embed) document.getElementById('scheduleEmbedMap').value = embed;
 });
 
+function unfoldIcsLines(raw) {
+    if (typeof raw !== 'string') return [];
+    const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n');
+    const result = [];
+    for (const line of lines) {
+        if (/^[ \t]/.test(line)) {
+            if (result.length === 0) continue;
+            result[result.length - 1] += line.slice(1);
+        } else {
+            result.push(line);
+        }
+    }
+    return result;
+}
+
+function parseIcsProperty(line) {
+    if (!line || !line.includes(':')) return null;
+    const colonIndex = line.indexOf(':');
+    const propPart = line.slice(0, colonIndex);
+    const value = line.slice(colonIndex + 1);
+    const segments = propPart.split(';');
+    const name = segments.shift();
+    if (!name) return null;
+    const params = {};
+    for (const segment of segments) {
+        const [paramName, paramValue] = segment.split('=');
+        if (paramName && paramValue) {
+            params[paramName.toUpperCase()] = paramValue;
+        }
+    }
+    return { name: name.toUpperCase(), value, params };
+}
+
+function decodeIcsText(text = '') {
+    return text
+        .replace(/\\n/g, '\n')
+        .replace(/\\,/g, ',')
+        .replace(/\\;/g, ';')
+        .replace(/\\\\/g, '\\');
+}
+
+function parseIcsDateValue(prop) {
+    if (!prop || !prop.value) return null;
+    const rawValue = prop.value.trim();
+    if (!rawValue) return null;
+
+    const isDateOnly = prop.params?.VALUE === 'DATE' || /^\d{8}$/.test(rawValue);
+    if (isDateOnly) {
+        const y = rawValue.slice(0, 4);
+        const m = rawValue.slice(4, 6);
+        const d = rawValue.slice(6, 8);
+        return { date: `${y}-${m}-${d}`, allDay: true };
+    }
+
+    const match = rawValue.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z|([+\-]\d{2})(\d{2}))?$/);
+    if (!match) return null;
+
+    const [, y, m, d, hh, mm, ss, tz, tzHour, tzMin] = match;
+    let dateObj;
+    if (tz === 'Z' || tzHour) {
+        let iso = `${y}-${m}-${d}T${hh}:${mm}:${ss}`;
+        if (tz === 'Z') {
+            iso += 'Z';
+        } else if (tzHour) {
+            iso += `${tzHour}:${tzMin}`;
+        }
+        dateObj = new Date(iso);
+    } else {
+        const year = Number(y);
+        const month = Number(m) - 1;
+        const day = Number(d);
+        const hour = Number(hh);
+        const minute = Number(mm);
+        const second = Number(ss);
+        dateObj = new Date(year, month, day, hour, minute, second);
+    }
+
+    if (Number.isNaN(dateObj.getTime())) {
+        return {
+            date: `${y}-${m}-${d}`,
+            time: `${hh}:${mm}`,
+            allDay: false
+        };
+    }
+
+    const formattedDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    const formattedTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+
+    return { date: formattedDate, time: formattedTime, allDay: false };
+}
+
+function parseIcsEvent(text) {
+    const lines = unfoldIcsLines(text);
+    let inEvent = false;
+    const props = {};
+
+    for (const line of lines) {
+        const upper = line.toUpperCase();
+        if (upper.startsWith('BEGIN:VEVENT')) {
+            inEvent = true;
+            continue;
+        }
+        if (upper.startsWith('END:VEVENT')) {
+            break;
+        }
+        if (!inEvent) continue;
+
+        const prop = parseIcsProperty(line);
+        if (!prop || !prop.name) continue;
+        if (!(prop.name in props)) {
+            props[prop.name] = prop;
+        }
+    }
+
+    if (!inEvent || !props.DTSTART) {
+        return null;
+    }
+
+    const start = parseIcsDateValue(props.DTSTART);
+    const end = parseIcsDateValue(props.DTEND);
+
+    if (!start || !start.date) {
+        return null;
+    }
+
+    const event = {
+        title: decodeIcsText(props.SUMMARY?.value || ''),
+        location: decodeIcsText(props.LOCATION?.value || ''),
+        description: decodeIcsText(props.DESCRIPTION?.value || ''),
+        date: start.date,
+        allDay: !!start.allDay,
+        startTime: start.time || ''
+    };
+
+    if (end) {
+        if (event.allDay) {
+            if (end.date && end.date !== event.date) {
+                event.endDate = end.date;
+            }
+        } else {
+            if (end.time) {
+                event.endTime = end.time;
+            }
+            if (end.date && end.date !== event.date) {
+                event.endDate = end.date;
+            }
+        }
+    }
+
+    return event;
+}
+
+function applyIcsEventToForm(event) {
+    if (!event) return;
+    const dateEl = document.getElementById('scheduleDate');
+    if (dateEl && event.date) {
+        dateEl.value = event.date;
+    }
+
+    const allDayEl = document.getElementById('scheduleAllDay');
+    if (allDayEl) {
+        allDayEl.checked = !!event.allDay;
+        allDayEl.dispatchEvent(new Event('change'));
+    }
+
+    const startEl = document.getElementById('scheduleStartTime');
+    const endEl = document.getElementById('scheduleEndTime');
+
+    if (event.allDay) {
+        if (startEl) startEl.value = '';
+        if (endEl) endEl.value = '';
+    } else {
+        if (startEl) startEl.value = event.startTime || '';
+        if (endEl) endEl.value = event.endTime || '';
+    }
+
+    const titleEl = document.getElementById('scheduleTitle');
+    if (titleEl && event.title) {
+        titleEl.value = event.title;
+    }
+
+    const locationEl = document.getElementById('scheduleLocation');
+    if (locationEl) {
+        locationEl.value = event.location || '';
+        const autoEmbed = document.getElementById('embedAuto');
+        if (autoEmbed?.checked && event.location) {
+            const embed = convertToEmbedURL(event.location);
+            if (embed) {
+                const embedEl = document.getElementById('scheduleEmbedMap');
+                if (embedEl) embedEl.value = embed;
+            }
+        }
+    }
+
+    const descEl = document.getElementById('scheduleDesc');
+    if (descEl) {
+        descEl.value = event.description || '';
+    }
+}
+
+document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    const infoEl = document.getElementById('scheduleIcsInfo');
+    if (infoEl) infoEl.textContent = '';
+
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const event = parseIcsEvent(text);
+        if (!event) {
+            throw new Error('VEVENT not found');
+        }
+        applyIcsEventToForm(event);
+
+        if (infoEl) {
+            const parts = [];
+            if (event.title) parts.push(`件名: ${event.title}`);
+            if (event.allDay) {
+                let label = `日付: ${event.date} (終日)`;
+                if (event.endDate) {
+                    label += ` → ${event.endDate}`;
+                }
+                parts.push(label);
+            } else {
+                const times = [event.startTime, event.endTime].filter(Boolean).join(' ~ ');
+                const datePart = times ? `${event.date} ${times}` : `${event.date}`;
+                parts.push(`日時: ${datePart}`);
+                if (event.endDate && event.endDate !== event.date) {
+                    parts.push(`終了日: ${event.endDate}`);
+                }
+            }
+            infoEl.textContent = parts.join(' / ') || `${file.name} を読み込みました`;
+        }
+
+        if (typeof Toast !== 'undefined' && typeof Toast.fire === 'function') {
+            Toast.fire({ icon: 'success', title: 'ICSファイルを読み込みました' });
+        } else {
+            Swal.fire({ icon: 'success', title: 'ICSファイルを読み込みました', showConfirmButton: false, timer: 2000 });
+        }
+    } catch (error) {
+        console.error('ICS読み込み失敗:', error);
+        Swal.fire({ icon: 'error', title: 'ICSの読み込みに失敗しました', text: 'ファイルの内容を確認してください。' });
+    } finally {
+        e.target.value = '';
+    }
+});
+
 async function submitRegularSchedule({ continueAfter = false } = {}) {
     const date = document.getElementById("scheduleDate").value;
     const time = assembleTimeString();
@@ -485,6 +738,10 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
         if (attach) attach.value = '';
         const nameEl = document.getElementById('scheduleAttachmentName');
         if (nameEl) nameEl.textContent = '';
+        const icsInfoEl = document.getElementById('scheduleIcsInfo');
+        if (icsInfoEl) icsInfoEl.textContent = '';
+        const icsInput = document.getElementById('scheduleIcsFile');
+        if (icsInput) icsInput.value = '';
         Toast?.fire({ icon: 'success', title: '追加しました（続けて入力できます）' });
         document.getElementById('scheduleTitle')?.focus();
     } else {
