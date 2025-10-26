@@ -314,6 +314,14 @@
                 <input type="text" id="scheduleTitle" placeholder="タイトル" class="w-full p-2 rounded bg-gray-700 text-white mb-2" required>
                 <input type="text" id="scheduleTime" class="hidden" aria-hidden="true">
 
+                <div class="mb-3">
+                    <label class="block text-sm mb-1">ICSファイルから読み込む</label>
+                    <input type="file" id="scheduleIcsFile" accept=".ics,text/calendar"
+                        class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                    <p class="text-xs text-white/60 mt-1">ICSファイルの内容をもとに日付や時間などを自動入力します。</p>
+                    <div id="scheduleIcsInfo" class="text-xs text-white/70 mt-1"></div>
+                </div>
+
                 <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
 
                 <div id="regularDetailSection" class="hidden">
