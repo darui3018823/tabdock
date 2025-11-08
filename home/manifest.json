@@ -2,7 +2,7 @@
     "name": "Home | Tabdock",
     "short_name": "Tabdock",
     "description": "Put your spare tablets to good use.",
-    "start_url": "/",
+    "start_url": "/home/?source=pwa",
     "display": "standalone",
     "background_color": "#111827",
     "theme_color": "#111827",
