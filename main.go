@@ -147,9 +147,6 @@ func main() {
 
 	// PWA manifest
 	mux.Handle("/manifest.json", secureHandler(serveStaticJSON("./home/manifest.json")))
-	mux.Handle("/assets/icon/pwa/tabdock_logobeta-192.png", secureHandler(serveStaticPNG("./home/assets/icon/pwa/tabdock_logobeta-192.png")))
-	mux.Handle("/assets/icon/pwa/tabdock_logobeta-512.png", secureHandler(serveStaticPNG("./home/assets/icon/pwa/tabdock_logobeta-512.png")))
-	mux.Handle("/assets/icon/pwa/tabdock_logobeta.png", secureHandler(serveStaticPNG("./home/assets/icon/pwa/tabdock_logobeta.png")))
 
 	// Error Pages
 	mux.Handle("/error/404/", secureHandler(http.StripPrefix("/error/404/", http.FileServer(http.Dir("./error/404"))).ServeHTTP)) // Not Found
