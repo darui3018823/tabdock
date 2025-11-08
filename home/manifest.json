@@ -10,7 +10,7 @@
 		{
 			"src": "/assets/icon/pwa/tabdock_logobeta-192.png",
 			"type": "image/png",
-			"sizes": "192x192z"
+			"sizes": "192x192"
 		},
 		{
 			"src": "/assets/icon/pwa/tabdock_logobeta-512.png",
