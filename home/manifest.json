@@ -1,0 +1,10 @@
+{
+  "name": "Home | Tabdock",
+  "icons": [
+    {
+      "src": "assets/icon/pwa/tabdock_logobeta.png",
+      "type": "image/png",
+      "sizes": "700x700"
+    }
+  ]
+}

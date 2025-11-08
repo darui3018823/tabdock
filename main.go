@@ -27,7 +27,7 @@ import (
 )
 
 // const
-const version = "5.7.0"
+const version = "5.8.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -95,6 +95,7 @@ func serve(mux http.Handler) {
 	update2 := "We will continue to apply optimizations and improvements in v5."
 	update3 := "For performance improvements, we reduced the dependency on PowerShell Core and now use Windows PowerShell."
 	update4 := "Since Core is still required outside Windows, we would appreciate your code contributions."
+	update5 := "PWA is now supported (v5.8 and later). It may not be available on iOS."
 
 	port := os.Getenv("DOCKER_PORT")
 	useDocker := port != ""
@@ -105,6 +106,7 @@ func serve(mux http.Handler) {
 	log.Println(update2)
 	log.Println(update3)
 	log.Println(update4)
+	log.Println(update5)
 	log.Println("=================")
 
 	if useDocker {
