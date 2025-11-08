@@ -27,7 +27,7 @@ import (
 )
 
 // const
-const version = "5.8.0"
+const version = "5.8.1"
 
 // var
 var fallbackHolidays map[string]string
@@ -144,6 +144,12 @@ func main() {
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
 	mux.Handle("/home/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/home/", http.FileServer(http.Dir("./home")))).ServeHTTP))
+
+	// PWA manifest
+	mux.Handle("/manifest.json", secureHandler(serveStaticJSON("./home/manifest.json")))
+	mux.Handle("/assets/icon/pwa/tabdock_logobeta-192.png", secureHandler(serveStaticPNG("./home/assets/icon/pwa/tabdock_logobeta-192.png")))
+	mux.Handle("/assets/icon/pwa/tabdock_logobeta-512.png", secureHandler(serveStaticPNG("./home/assets/icon/pwa/tabdock_logobeta-512.png")))
+	mux.Handle("/assets/icon/pwa/tabdock_logobeta.png", secureHandler(serveStaticPNG("./home/assets/icon/pwa/tabdock_logobeta.png")))
 
 	// Error Pages
 	mux.Handle("/error/404/", secureHandler(http.StripPrefix("/error/404/", http.FileServer(http.Dir("./error/404"))).ServeHTTP)) // Not Found
@@ -1023,5 +1029,19 @@ func handlePing(w http.ResponseWriter, _ *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Println("JSONエンコード失敗:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func serveStaticJSON(path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		http.ServeFile(w, r, path)
+	}
+}
+
+func serveStaticPNG(path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		http.ServeFile(w, r, path)
 	}
 }
