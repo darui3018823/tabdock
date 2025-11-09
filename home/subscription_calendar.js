@@ -6,6 +6,11 @@
 class SubscriptionCalendarManager {
     constructor() {
         this.subscriptions = [];
+        this.filters = {
+            keyword: '',
+            status: 'all',
+            billing: 'all'
+        };
         this.initialize();
     }
 
@@ -201,13 +206,17 @@ class SubscriptionCalendarManager {
 
         const listModal = document.getElementById('subscriptionListModal');
         if (listModal) {
-            await this.updateSubscriptionList();
+            await this.updateSubscriptionList({ reload: false });
         }
 
         const selectedDate = window.selectedDate;
         if (selectedDate && typeof window.renderSchedule === 'function') {
             window.renderSchedule(selectedDate);
         }
+
+        window.dispatchEvent(new CustomEvent('subscription:calendar-regenerated', {
+            detail: { source: 'subscriptionCalendar' }
+        }));
     }
 
     async showSubscriptionListModal() {
@@ -236,8 +245,35 @@ class SubscriptionCalendarManager {
                     </div>
                 </div>
                 
+                <div class="mb-4 bg-black/15 rounded-lg p-4">
+                    <div class="grid gap-3 md:grid-cols-3">
+                        <div>
+                            <label class="block text-xs text-white/70 mb-1">キーワード</label>
+                            <input id="subscriptionFilterText" type="text" value="${this.filters.keyword}" placeholder="サービス名で絞り込み"
+                                class="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-white/70 mb-1">ステータス</label>
+                            <select id="subscriptionFilterStatus" class="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none">
+                                <option value="all" ${this.filters.status === 'all' ? 'selected' : ''}>すべて</option>
+                                <option value="active" ${this.filters.status === 'active' ? 'selected' : ''}>有効</option>
+                                <option value="inactive" ${this.filters.status === 'inactive' ? 'selected' : ''}>無効</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-white/70 mb-1">請求サイクル</label>
+                            <select id="subscriptionFilterBilling" class="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none">
+                                <option value="all" ${this.filters.billing === 'all' ? 'selected' : ''}>すべて</option>
+                                <option value="monthly" ${this.filters.billing === 'monthly' ? 'selected' : ''}>月額</option>
+                                <option value="yearly" ${this.filters.billing === 'yearly' ? 'selected' : ''}>年額</option>
+                                <option value="weekly" ${this.filters.billing === 'weekly' ? 'selected' : ''}>週次</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="subscriptionListContent" class="space-y-3 mb-6 flex-1">
-                    ${this.subscriptions.map(sub => `
+                    ${this.getFilteredSubscriptions().map(sub => `
                         <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item group" data-id="${sub.id || ''}">
                             <div class="flex justify-between items-start">
                                 <div class="flex-grow">
@@ -289,15 +325,34 @@ class SubscriptionCalendarManager {
         document.body.appendChild(subscriptionListModal);
         this.applyListScrollLimit(subscriptionListModal);
 
+        const textInput = subscriptionListModal.querySelector('#subscriptionFilterText');
+        const statusSelect = subscriptionListModal.querySelector('#subscriptionFilterStatus');
+        const billingSelect = subscriptionListModal.querySelector('#subscriptionFilterBilling');
+
+        textInput?.addEventListener('input', (event) => {
+            this.filters.keyword = event.target.value;
+            void this.updateSubscriptionList({ reload: false });
+        });
+
+        statusSelect?.addEventListener('change', (event) => {
+            this.filters.status = event.target.value;
+            void this.updateSubscriptionList({ reload: false });
+        });
+
+        billingSelect?.addEventListener('change', (event) => {
+            this.filters.billing = event.target.value;
+            void this.updateSubscriptionList({ reload: false });
+        });
+
         document.getElementById('closeSubscriptionList').addEventListener('click', () => {
             document.body.removeChild(subscriptionListModal);
         });
 
-        document.getElementById('addNewSubscription').addEventListener('click', () => {
-            document.body.removeChild(subscriptionListModal);
-            const subscriptionManager = window.subscriptionManager;
-            if (subscriptionManager) {
-                subscriptionManager.showAddModal();
+                document.getElementById('addNewSubscription').addEventListener('click', () => {
+                    document.body.removeChild(subscriptionListModal);
+                    const subscriptionManager = window.subscriptionManager;
+                    if (subscriptionManager) {
+                        subscriptionManager.showAddModal();
             }
         });
 
@@ -609,8 +664,11 @@ class SubscriptionCalendarManager {
         }
     }
 
-    async updateSubscriptionList() {
-        await this.loadSubscriptions();
+    async updateSubscriptionList(options = {}) {
+        const { reload = true } = options;
+        if (reload) {
+            await this.loadSubscriptions();
+        }
 
         const listModal = document.getElementById('subscriptionListModal');
         if (!listModal) return;
@@ -618,7 +676,15 @@ class SubscriptionCalendarManager {
         const container = listModal.querySelector('#subscriptionListContent');
         if (!container) return;
 
-        container.innerHTML = this.subscriptions.map(sub => `
+        const filtered = this.getFilteredSubscriptions();
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="text-white/60 text-sm">条件に一致するサブスクリプションがありません。</div>`;
+            this.applyListScrollLimit(listModal);
+            return;
+        }
+
+        container.innerHTML = filtered.map(sub => `
             <div class="bg-black/20 p-4 rounded-lg hover:bg-black/30 cursor-pointer transition-colors subscription-item group" data-id="${sub.id || ''}">
                 <div class="flex justify-between items-start">
                     <div class="flex-grow">
@@ -671,6 +737,36 @@ class SubscriptionCalendarManager {
         });
 
         this.applyListScrollLimit(listModal);
+    }
+
+    getFilteredSubscriptions() {
+        const keyword = this.filters.keyword.trim().toLowerCase();
+        const status = this.filters.status;
+        const billing = this.filters.billing;
+
+        return this.subscriptions.filter(sub => {
+            const name = (sub.serviceName || '').toLowerCase();
+            const plan = (sub.planName || '').toLowerCase();
+            if (keyword && !name.includes(keyword) && !plan.includes(keyword)) {
+                return false;
+            }
+
+            if (status !== 'all') {
+                const currentStatus = (sub.status || '').toLowerCase();
+                if (currentStatus !== status) {
+                    return false;
+                }
+            }
+
+            if (billing !== 'all') {
+                const cycle = (sub.billingCycle || '').toLowerCase();
+                if (cycle !== billing) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
     }
 
     applyListScrollLimit(rootEl) {

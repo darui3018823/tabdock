@@ -192,7 +192,7 @@ function setupLoggedInModal(modal) {
                             <button id="subscriptionManageBtn" class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
                                 サブスクリプション管理
                             </button>
-                            <button class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
+                            <button id="dataExportBtn" type="button" class="w-full text-left text-xs text-white/70 hover:text-white/90 py-2 px-3 rounded hover:bg-white/10 transition-colors">
                                 データエクスポート
                             </button>
                             <button class="w-full text-left text-xs text-red-400 hover:text-red-300 py-2 px-3 rounded hover:bg-red-600/10 transition-colors">
@@ -548,12 +548,13 @@ function setupLoggedInEventListeners() {
     });
     
     document.getElementById("changePasswordBtn").addEventListener("click", () => {
-        Swal.fire({
-            title: "パスワード変更",
-            text: "この機能は近日実装予定です。",
-            icon: "info"
-        });
+        openPasswordModal();
     });
+
+    const dataExportBtn = document.getElementById("dataExportBtn");
+    if (dataExportBtn) {
+        dataExportBtn.addEventListener("click", showDataExportDialog);
+    }
     
     document.getElementById("logoutBtn").addEventListener("click", () => {
         Swal.fire({
@@ -571,6 +572,260 @@ function setupLoggedInEventListeners() {
     });
     
     document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
+}
+
+function ensurePasswordModal() {
+    let modal = document.getElementById("passwordChangeModal");
+    if (modal) {
+        return modal;
+    }
+
+    modal = document.createElement("div");
+    modal.id = "passwordChangeModal";
+    modal.className = "fixed inset-0 z-50 hidden flex items-center justify-center";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "passwordChangeModalTitle");
+    modal.innerHTML = `
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-password-modal-overlay></div>
+        <div class="relative z-10 w-full max-w-lg mx-4">
+            <div class="bg-slate-900/90 border border-white/10 rounded-2xl shadow-2xl p-6 text-white">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 id="passwordChangeModalTitle" class="text-xl font-semibold">パスワード変更</h3>
+                        <p class="text-sm text-white/70 mt-1">現在のパスワードを確認し、新しいパスワードを設定します。</p>
+                    </div>
+                    <button type="button" class="text-white/60 hover:text-white transition-colors" data-password-modal-close>&times;</button>
+                </div>
+                <form id="passwordChangeForm" class="space-y-4">
+                    <div>
+                        <label for="currentPasswordInput" class="block text-sm text-white/80 mb-1">現在のパスワード</label>
+                        <input id="currentPasswordInput" type="password" class="w-full rounded-lg bg-white/15 border border-white/20 focus:border-blue-400 focus:outline-none p-3 text-white" autocomplete="current-password" required>
+                    </div>
+                    <div>
+                        <label for="newPasswordInput" class="block text-sm text-white/80 mb-1">新しいパスワード</label>
+                        <input id="newPasswordInput" type="password" class="w-full rounded-lg bg-white/15 border border-white/20 focus:border-blue-400 focus:outline-none p-3 text-white" autocomplete="new-password" required>
+                    </div>
+                    <div>
+                        <label for="confirmPasswordInput" class="block text-sm text-white/80 mb-1">新しいパスワード（確認）</label>
+                        <input id="confirmPasswordInput" type="password" class="w-full rounded-lg bg-white/15 border border-white/20 focus:border-blue-400 focus:outline-none p-3 text-white" autocomplete="new-password" required>
+                    </div>
+                    <p class="text-xs text-white/60 bg-white/5 border border-white/10 rounded-lg p-3">
+                        8文字以上で、大文字・小文字・数字をそれぞれ1文字以上含めてください。
+                    </p>
+                    <div id="passwordChangeError" class="hidden text-sm text-red-300 bg-red-500/20 border border-red-500/40 rounded-lg px-4 py-2" role="alert"></div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" data-password-modal-close>キャンセル</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-semibold" data-password-submit>更新する</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll('[data-password-modal-close]').forEach((element) => {
+        element.addEventListener("click", closePasswordModal);
+    });
+
+    const overlay = modal.querySelector("[data-password-modal-overlay]");
+    if (overlay) {
+        overlay.addEventListener("click", closePasswordModal);
+    }
+
+    const form = modal.querySelector("#passwordChangeForm");
+    form.addEventListener("submit", handlePasswordChangeSubmit);
+
+    form.querySelectorAll("input").forEach((input) => {
+        input.addEventListener("input", () => {
+            clearPasswordChangeError();
+        });
+    });
+
+    return modal;
+}
+
+function openPasswordModal() {
+    const modal = ensurePasswordModal();
+    const form = modal.querySelector("#passwordChangeForm");
+    if (form) {
+        form.reset();
+    }
+
+    clearPasswordChangeError();
+    modal.classList.remove("hidden");
+    modal.setAttribute("aria-hidden", "false");
+
+    const currentPasswordInput = modal.querySelector("#currentPasswordInput");
+    if (currentPasswordInput) {
+        setTimeout(() => currentPasswordInput.focus(), 0);
+    }
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById("passwordChangeModal");
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+
+    const form = modal.querySelector("#passwordChangeForm");
+    if (form) {
+        form.reset();
+    }
+
+    clearPasswordChangeError();
+}
+
+function setPasswordModalSubmitting(isSubmitting) {
+    const modal = document.getElementById("passwordChangeModal");
+    if (!modal) {
+        return;
+    }
+
+    const submitButton = modal.querySelector('[data-password-submit]');
+    if (!submitButton) {
+        return;
+    }
+
+    if (isSubmitting) {
+        if (!submitButton.dataset.originalText) {
+            submitButton.dataset.originalText = submitButton.textContent;
+        }
+        submitButton.textContent = "更新中…";
+        submitButton.disabled = true;
+        submitButton.classList.add("opacity-70", "cursor-not-allowed");
+    } else {
+        if (submitButton.dataset.originalText) {
+            submitButton.textContent = submitButton.dataset.originalText;
+            delete submitButton.dataset.originalText;
+        }
+        submitButton.disabled = false;
+        submitButton.classList.remove("opacity-70", "cursor-not-allowed");
+    }
+}
+
+function showPasswordChangeError(message) {
+    const modal = document.getElementById("passwordChangeModal");
+    if (!modal) {
+        Swal.fire("エラー", message, "error");
+        return;
+    }
+
+    const errorBox = modal.querySelector("#passwordChangeError");
+    if (errorBox) {
+        errorBox.textContent = message;
+        errorBox.classList.remove("hidden");
+    }
+}
+
+function clearPasswordChangeError() {
+    const modal = document.getElementById("passwordChangeModal");
+    if (!modal) {
+        return;
+    }
+
+    const errorBox = modal.querySelector("#passwordChangeError");
+    if (errorBox) {
+        errorBox.textContent = "";
+        errorBox.classList.add("hidden");
+    }
+}
+
+async function handlePasswordChangeSubmit(event) {
+    event.preventDefault();
+
+    const modal = ensurePasswordModal();
+    const currentPassword = modal.querySelector("#currentPasswordInput").value;
+    const newPassword = modal.querySelector("#newPasswordInput").value;
+    const confirmPassword = modal.querySelector("#confirmPasswordInput").value;
+
+    clearPasswordChangeError();
+
+    if (newPassword !== confirmPassword) {
+        showPasswordChangeError("新しいパスワードが一致しません。");
+        const confirmInput = modal.querySelector("#confirmPasswordInput");
+        if (confirmInput) {
+            confirmInput.focus();
+        }
+        return;
+    }
+
+    const user = getLoggedInUser();
+    if (!user) {
+        showPasswordChangeError("ログイン情報が確認できません。再度ログインしてください。");
+        return;
+    }
+
+    setPasswordModalSubmitting(true);
+
+    let successMessage = "";
+
+    try {
+        const response = await fetch("/api/auth/change-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: user.username,
+                currentPassword,
+                newPassword
+            })
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        const isJson = contentType.includes("application/json");
+        let payload = null;
+
+        if (isJson) {
+            payload = await response.json();
+        } else {
+            const text = await response.text();
+            if (text) {
+                payload = { message: text };
+            }
+        }
+
+        if (!response.ok || (payload && payload.success === false)) {
+            const message = (payload && payload.message) ? payload.message : "パスワード変更に失敗しました。";
+            showPasswordChangeError(message);
+            return;
+        }
+
+        successMessage = (payload && payload.message) ? payload.message : "パスワードを更新しました。";
+    } catch (error) {
+        console.error("パスワード変更エラー:", error);
+        showPasswordChangeError("通信中にエラーが発生しました。ネットワーク状況を確認してください。");
+        return;
+    } finally {
+        setPasswordModalSubmitting(false);
+    }
+
+    closePasswordModal();
+    Swal.fire("成功", successMessage, "success");
+}
+
+function showDataExportDialog() {
+    Swal.fire({
+        title: "データエクスポート",
+        html: `
+            <div class="text-sm text-left leading-relaxed space-y-2">
+                <p>サブスクリプションやアカウントに関するデータをエクスポートできます。</p>
+                <p class="text-xs text-white/70">エクスポートされたファイルは、ダッシュボードのバックアップや別環境への移行時に利用できます。</p>
+            </div>
+        `,
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonText: "エクスポート開始",
+        cancelButtonText: "キャンセル",
+        focusConfirm: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.dispatchEvent(new CustomEvent("account:data-export-requested"));
+        }
+    });
 }
 
 function setupAccountEventListeners() {

@@ -125,9 +125,10 @@ func getMem() string {
 }
 
 func getDriveC() string {
-	d, _ := disk.Usage("C:\\")
-	return fmt.Sprintf("%.0f%% (%.0fGB/%.0fGB)",
-		d.UsedPercent, float64(d.Used)/1e9, float64(d.Total)/1e9)
+        d, _ := disk.Usage("C:\\")
+        const gib = 1024 * 1024 * 1024
+        return fmt.Sprintf("%.0f%% (%.1fGiB/%.1fGiB)",
+                d.UsedPercent, float64(d.Used)/float64(gib), float64(d.Total)/float64(gib))
 }
 
 func getUptime() string {

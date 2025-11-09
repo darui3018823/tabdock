@@ -9,6 +9,8 @@ class SubscriptionManager {
         this.form = document.getElementById('subscriptionForm');
         this.paymentMethodSelect = this.form?.querySelector('[name="paymentMethod"]') ?? null;
         this.notificationTimers = new Set();
+        this.cachedUpcoming = [];
+        this.notifiedKeys = new Set();
         this.initialize();
     }
 
@@ -20,6 +22,7 @@ class SubscriptionManager {
 
         this.hideAllPaymentDetails();
         this.setupEventListeners();
+        this.registerCalendarListeners();
     }
 
     setupEventListeners() {
@@ -53,6 +56,27 @@ class SubscriptionManager {
         });
 
         window.addEventListener('subscription:request-open', () => this.showAddModal());
+    }
+
+    registerCalendarListeners() {
+        window.addEventListener('calendar:schedule-rendered', (event) => {
+            const detailDate = event.detail?.date;
+            if (!detailDate) return;
+            const reference = new Date(detailDate);
+            if (Number.isNaN(reference.getTime())) return;
+            void this.showImmediateNotifications(reference);
+        });
+
+        window.addEventListener('subscription:calendar-regenerated', () => {
+            void this.showImmediateNotifications();
+        });
+    }
+
+    clearNotificationTimers() {
+        this.notificationTimers.forEach(timer => {
+            clearTimeout(timer);
+        });
+        this.notificationTimers.clear();
     }
 
     showAddModal() {
@@ -107,6 +131,107 @@ class SubscriptionManager {
         ['ccDetails', 'paypalDetails', 'otherDetails'].forEach((id) => {
             document.getElementById(id)?.classList.add('hidden');
         });
+    }
+
+    async showImmediateNotifications(referenceDate = new Date()) {
+        if (typeof Swal === 'undefined') {
+            return 'skip';
+        }
+
+        if (!Array.isArray(this.cachedUpcoming) || this.cachedUpcoming.length === 0) {
+            return 'skip';
+        }
+
+        const reference = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+        if (Number.isNaN(reference.getTime())) {
+            return 'skip';
+        }
+
+        const referenceStr = reference.toISOString().split('T')[0];
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const baseToday = new Date(`${todayStr}T00:00:00`);
+        const dueSoon = [];
+
+        const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+
+        for (const sub of this.cachedUpcoming) {
+            if (!sub?.nextPaymentDate) continue;
+            const paymentDate = new Date(sub.nextPaymentDate);
+            if (Number.isNaN(paymentDate.getTime())) continue;
+            const paymentStr = paymentDate.toISOString().split('T')[0];
+
+            const amountText = (() => {
+                if (typeof sub.amount === 'number') {
+                    return `${sub.amount.toLocaleString()} ${sub.currency || ''}`.trim();
+                }
+                if (typeof sub.amount === 'string' && sub.amount.trim() !== '') {
+                    return `${sub.amount} ${sub.currency || ''}`.trim();
+                }
+                return '金額未設定';
+            })();
+
+            const pushEntry = (label, type) => {
+                const key = `${type}:${sub.id || sub.serviceName || paymentStr}:${paymentStr}`;
+                if (this.notifiedKeys.has(key)) return;
+                dueSoon.push({
+                    key,
+                    sub,
+                    label,
+                    amount: amountText
+                });
+            };
+
+            if (paymentStr === referenceStr) {
+                pushEntry('選択日', 'selected');
+            }
+
+            const diffDays = Math.floor((paymentDate.getTime() - baseToday.getTime()) / (24 * 60 * 60 * 1000));
+            if (diffDays === 0) {
+                pushEntry('本日', 'today');
+            } else if (diffDays === 1) {
+                pushEntry('明日', 'tomorrow');
+            } else if (diffDays === 3) {
+                pushEntry('3日後', 'three-days');
+            }
+        }
+
+        if (dueSoon.length === 0) {
+            return 'skip';
+        }
+
+        const listItems = dueSoon.map(item => {
+            const name = escape(item.sub.serviceName || '名称未設定');
+            const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
+            return `<li class="py-1">
+                <div class="font-semibold text-white/90">${name}</div>
+                <div class="text-white/60 text-[11px]">${escape(item.label)}に支払い予定 / ${escape(item.amount)} / ${cycle}</div>
+            </li>`;
+        }).join('');
+
+        await Swal.fire({
+            icon: 'info',
+            title: '支払い予定の確認',
+            html: `<div class="text-left text-xs"><p class="mb-2">近い支払予定のサブスクリプションがあります。</p><ul class="divide-y divide-white/10">${listItems}</ul></div>`,
+            confirmButtonText: '閉じる'
+        });
+
+        dueSoon.forEach(item => this.notifiedKeys.add(item.key));
+        return 'notified';
+    }
+
+    formatBillingCycleLabel(cycle) {
+        const normalized = typeof cycle === 'string' ? cycle.toLowerCase() : '';
+        const labels = {
+            monthly: '月額',
+            yearly: '年額',
+            weekly: '週次',
+            daily: '日次'
+        };
+        if (!normalized) {
+            return '周期未設定';
+        }
+        return labels[normalized] || cycle;
     }
 
     async handleSubmit(event) {
@@ -225,17 +350,19 @@ class SubscriptionManager {
         }
     }
 
-    clearNotificationTimers() {
-        if (!this.notificationTimers.size) return;
-        for (const timerId of this.notificationTimers) {
-            clearTimeout(timerId);
-        }
-        this.notificationTimers.clear();
-    }
+    async scheduleNotifications(options = {}) {
+        const settings = {
+            reschedule: false,
+            immediate: false,
+            ...options
+        };
 
-    async scheduleNotifications() {
-        this.clearNotificationTimers();
         try {
+            if (settings.reschedule) {
+                this.clearNotificationTimers();
+                this.notifiedKeys.clear();
+            }
+
             let username = null;
             if (typeof window.getLoggedInUser === 'function') {
                 const user = window.getLoggedInUser();
@@ -247,7 +374,8 @@ class SubscriptionManager {
             }
 
             if (!username) {
-                throw new Error('ログインユーザー情報が取得できません。ログインしてください。');
+                console.info('通知スケジュール: ログインユーザーが見つからないためスキップします');
+                return 'skip';
             }
 
             const response = await fetch('/api/subscriptions/upcoming', {
@@ -257,12 +385,14 @@ class SubscriptionManager {
             if (!response.ok) throw new Error('通知の取得に失敗しました');
 
             const subscriptions = await response.json();
-
-            // 空配列や不正データに対するガード
             if (!Array.isArray(subscriptions) || subscriptions.length === 0) {
                 console.info('通知対象のサブスクリプションが見つかりませんでした。');
-                return;
+                this.cachedUpcoming = [];
+                return 'skip';
             }
+
+            this.cachedUpcoming = subscriptions;
+            const now = new Date();
 
             subscriptions.forEach((sub) => {
                 const paymentDate = new Date(sub.nextPaymentDate);
@@ -270,42 +400,45 @@ class SubscriptionManager {
                     return;
                 }
 
-                const now = new Date();
+                const paymentStr = paymentDate.toISOString().split('T')[0];
+                const scheduleReminder = (targetDate, label, icon) => {
+                    if (now >= targetDate) return;
+                    const timeout = setTimeout(() => {
+                        if (typeof Swal !== 'undefined') {
+                            const currency = sub.currency || '';
+                            const amount = typeof sub.amount === 'number' ? sub.amount.toLocaleString() : (sub.amount ?? '');
+                            Swal.fire({
+                                title: 'サブスクリプション支払い予定',
+                                html: `<p>${sub.serviceName || '名称未設定'}の支払いが${label}に予定されています。</p>` +
+                                      `<p>金額: ${amount} ${currency}</p>`,
+                                icon,
+                                confirmButtonText: '了解'
+                            });
+                            const key = `timer:${label}:${sub.id || sub.serviceName || paymentStr}:${paymentStr}`;
+                            this.notifiedKeys.add(key);
+                        }
+                        this.notificationTimers.delete(timeout);
+                    }, targetDate.getTime() - now.getTime());
+                    this.notificationTimers.add(timeout);
+                };
+
                 const threeDaysBefore = new Date(paymentDate);
                 threeDaysBefore.setDate(paymentDate.getDate() - 3);
+                scheduleReminder(threeDaysBefore, '3日後', 'info');
+
                 const oneDayBefore = new Date(paymentDate);
                 oneDayBefore.setDate(paymentDate.getDate() - 1);
-
-                if (now < threeDaysBefore) {
-                    const timeout = setTimeout(() => {
-                        Swal.fire({
-                            title: 'サブスクリプション支払い予定',
-                            html: `<p>${sub.serviceName}の支払いが3日後に予定されています。</p>` +
-                                  `<p>金額: ${sub.amount} ${sub.currency}</p>`,
-                            icon: 'info',
-                            confirmButtonText: '了解'
-                        });
-                        this.notificationTimers.delete(timeout);
-                    }, threeDaysBefore.getTime() - now.getTime());
-                    this.notificationTimers.add(timeout);
-                }
-
-                if (now < oneDayBefore) {
-                    const timeout = setTimeout(() => {
-                        Swal.fire({
-                            title: 'サブスクリプション支払い予定',
-                            html: `<p>${sub.serviceName}の支払いが明日予定されています。</p>` +
-                                  `<p>金額: ${sub.amount} ${sub.currency}</p>`,
-                            icon: 'warning',
-                            confirmButtonText: '了解'
-                        });
-                        this.notificationTimers.delete(timeout);
-                    }, oneDayBefore.getTime() - now.getTime());
-                    this.notificationTimers.add(timeout);
-                }
+                scheduleReminder(oneDayBefore, '明日', 'warning');
             });
+
+            if (settings.immediate) {
+                return await this.showImmediateNotifications();
+            }
+
+            return 'scheduled';
         } catch (error) {
             console.error('通知スケジュールの設定に失敗しました:', error);
+            throw error;
         }
     }
 }
@@ -316,8 +449,8 @@ if (typeof window !== 'undefined') {
 }
 export { subscriptionManager };
 
-subscriptionManager.scheduleNotifications();
+subscriptionManager.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => {});
 
 setInterval(() => {
-    subscriptionManager.scheduleNotifications();
+    subscriptionManager.scheduleNotifications({ reschedule: true }).catch(() => {});
 }, 3600000);

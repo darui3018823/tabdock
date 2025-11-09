@@ -4,18 +4,143 @@
 // This code Version: 5.3.0_devtools-r1
 
 let debugLog = [];
-let maxLogEntries = 100;
+let maxLogEntries = 200;
 let lastFullSync = null;
 let burnInOverlayCleanup = null;
+const BURN_IN_SLEEP_TIMEOUT = 60000;
+let burnInIsSleeping = false;
+let burnInSleepTimer = null;
+
+function getBurnInOverlay() {
+    return document.getElementById('burnInOverlay');
+}
+
+function isBurnInOverlayActive() {
+    const overlay = getBurnInOverlay();
+    return !!overlay && !overlay.classList.contains('hidden');
+}
+
+function cancelBurnInSleepTimer() {
+    if (burnInSleepTimer) {
+        clearTimeout(burnInSleepTimer);
+        burnInSleepTimer = null;
+    }
+}
+
+function scheduleBurnInSleep() {
+    cancelBurnInSleepTimer();
+    burnInSleepTimer = window.setTimeout(() => {
+        enterBurnInSleep();
+    }, BURN_IN_SLEEP_TIMEOUT);
+}
+
+function enterBurnInSleep() {
+    const overlay = getBurnInOverlay();
+    if (!overlay || overlay.classList.contains('hidden')) {
+        return;
+    }
+    overlay.classList.add('sleeping');
+    burnInIsSleeping = true;
+}
+
+function wakeBurnInOverlayMode() {
+    const overlay = getBurnInOverlay();
+    if (!overlay) return;
+    if (burnInIsSleeping) {
+        overlay.classList.remove('sleeping');
+        burnInIsSleeping = false;
+    }
+    scheduleBurnInSleep();
+}
+
+function handleBurnInActivity() {
+    if (!isBurnInOverlayActive()) {
+        return false;
+    }
+    if (burnInIsSleeping) {
+        wakeBurnInOverlayMode();
+        return true;
+    }
+    scheduleBurnInSleep();
+    return false;
+}
+
+function escapeHtml(value) {
+    if (value == null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatLogTimestamp(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return timestamp;
+    }
+    const datePart = date.toLocaleDateString('ja-JP');
+    const timePart = date.toLocaleTimeString('ja-JP', { hour12: false });
+    return `${datePart} ${timePart}`;
+}
+
+function getDebugLogSlice(level = 'all', limit = 20) {
+    const normalizedLevel = (level || 'all').toLowerCase();
+    let entries = debugLog;
+    if (normalizedLevel !== 'all') {
+        entries = entries.filter(log => log.level === normalizedLevel);
+    }
+    return entries.slice(0, Math.max(1, limit));
+}
+
+function renderDebugLogEntries(container, options = {}) {
+    if (!container) return;
+    const { level = 'all', limit = 20 } = options;
+    const entries = getDebugLogSlice(level, limit);
+    if (entries.length === 0) {
+        container.innerHTML = '<p class="text-gray-400">該当するログはありません</p>';
+        return;
+    }
+
+    const levelColors = {
+        info: 'text-blue-500',
+        warn: 'text-yellow-400',
+        error: 'text-red-500',
+        debug: 'text-slate-300'
+    };
+
+    container.innerHTML = entries.map(log => {
+        const levelLabel = escapeHtml(log.level?.toUpperCase() || 'INFO');
+        const levelClass = levelColors[log.level] || 'text-blue-500';
+        const timestamp = formatLogTimestamp(log.timestamp);
+        const message = escapeHtml(log.message || '');
+        const dataSection = log.data != null
+            ? `<details class="mt-1"><summary class="cursor-pointer text-xs text-white/70">詳細データ</summary><pre class="mt-1 bg-black/40 rounded p-2 text-[10px] whitespace-pre-wrap">${escapeHtml(JSON.stringify(log.data, null, 2))}</pre></details>`
+            : '';
+        return `
+            <article class="bg-black/30 rounded-md px-3 py-2">
+                <div class="flex justify-between text-[11px] tracking-wide text-white/70">
+                    <span class="font-semibold ${levelClass}">${levelLabel}</span>
+                    <time>${escapeHtml(timestamp)}</time>
+                </div>
+                <div class="mt-1 text-xs leading-relaxed">${message}</div>
+                ${dataSection}
+            </article>
+        `;
+    }).join('');
+}
 
 function openBurnInOverlay() {
-    const overlay = document.getElementById('burnInOverlay');
+    const overlay = getBurnInOverlay();
     if (!overlay) {
         console.warn('burnInOverlay が見つかりません');
         return;
     }
 
     if (!overlay.classList.contains('hidden')) {
+        handleBurnInActivity();
         return;
     }
 
@@ -23,9 +148,17 @@ function openBurnInOverlay() {
     const content = overlay.querySelector('.burnin-content');
     const stopPropagation = (event) => event.stopPropagation();
 
+    const pointerActivity = () => handleBurnInActivity();
+
     const close = () => {
+        cancelBurnInSleepTimer();
+        burnInIsSleeping = false;
         overlay.classList.add('hidden');
+        overlay.classList.remove('sleeping');
         overlay.removeEventListener('click', handleOverlayClick);
+        overlay.removeEventListener('mousemove', pointerActivity);
+        overlay.removeEventListener('mousedown', pointerActivity);
+        overlay.removeEventListener('touchstart', pointerActivity);
         exitButton?.removeEventListener('click', handleExitButton);
         document.removeEventListener('keydown', escHandler);
         content?.removeEventListener('click', stopPropagation);
@@ -35,22 +168,42 @@ function openBurnInOverlay() {
 
     const handleExitButton = (event) => {
         event.stopPropagation();
+        if (handleBurnInActivity()) {
+            return;
+        }
         close();
     };
 
-    const handleOverlayClick = () => close();
+    const handleOverlayClick = () => {
+        if (handleBurnInActivity()) {
+            return;
+        }
+        close();
+    };
+
     const escHandler = (event) => {
         if (event.key === 'Escape') {
+            if (handleBurnInActivity()) {
+                event.preventDefault();
+                return;
+            }
             close();
+        } else {
+            handleBurnInActivity();
         }
     };
 
     burnInOverlayCleanup = close;
 
-    overlay.classList.remove('hidden');
+    overlay.classList.remove('hidden', 'sleeping');
+    burnInIsSleeping = false;
+    scheduleBurnInSleep();
     Toast?.fire({ icon: 'success', title: '画面焼け防止モードを開始しました' });
 
     overlay.addEventListener('click', handleOverlayClick);
+    overlay.addEventListener('mousemove', pointerActivity);
+    overlay.addEventListener('mousedown', pointerActivity);
+    overlay.addEventListener('touchstart', pointerActivity, { passive: true });
     exitButton?.addEventListener('click', handleExitButton);
     content?.addEventListener('click', stopPropagation);
     document.addEventListener('keydown', escHandler);
@@ -74,44 +227,77 @@ function addDebugLog(level, message, data = null) {
 
 function checkJavaScriptLoadStatus() {
     const scripts = [
-        { name: 'script.js', functions: [], elements: ['clock', 'date'] }, // DOM要素で確認
+        { name: 'script.js', elements: ['clock', 'date'], globals: ['updatePCStatus'] },
         { name: 'weather.js', functions: ['fetchWeather'] },
         { name: 'status.js', functions: ['checkApi', 'fetchJsVersion'] },
-        { name: 'calendar.js', functions: ['renderCalendar', 'fetchHolidayData', 'loadSchedules'] },
+        { name: 'calendar.js', functions: ['renderCalendar', 'fetchHolidayData', 'loadSchedules'], globals: ['calendarManager'] },
         { name: 'ui_visibility.js', functions: ['applyVisualSettings'] },
-        { name: 'tabdock_about.js', functions: [] },
-        { name: 'passkey.js', functions: [] },
-        { name: 'devtools.js', functions: ['addDebugLog', 'performFullSync'] }
+        { name: 'tabdock_about.js' },
+        { name: 'passkey.js', functions: ['handlePasskeyLogin'] },
+        { name: 'devtools.js', functions: ['addDebugLog', 'performFullSync'] },
+        { name: 'subscription.js', globals: ['subscriptionManager'], module: true },
+        { name: 'subscription_calendar.js', globals: ['subscriptionCalendarManager'], module: true }
     ];
-    
+
     const results = scripts.map(script => {
-        let isLoaded = false;
-        let loadedFunctions = [];
-        let missingFunctions = [];
-        
-        if (script.functions && script.functions.length > 0) {
-            loadedFunctions = script.functions.filter(func => typeof window[func] === 'function');
-            missingFunctions = script.functions.filter(func => typeof window[func] !== 'function');
-            isLoaded = loadedFunctions.length > 0;
-        } else if (script.elements && script.elements.length > 0) {
-            const existingElements = script.elements.filter(id => document.getElementById(id) !== null);
-            isLoaded = existingElements.length === script.elements.length;
-            loadedFunctions = existingElements;
-            missingFunctions = script.elements.filter(id => document.getElementById(id) === null);
-        } else {
-            isLoaded = true;
+        const checkDetails = [];
+        const missing = [];
+        const existing = [];
+
+        if (Array.isArray(script.functions) && script.functions.length > 0) {
+            const availableFns = script.functions.filter(fn => typeof window[fn] === 'function');
+            const missingFns = script.functions.filter(fn => typeof window[fn] !== 'function');
+            if (missingFns.length) {
+                missing.push(`関数: ${missingFns.join(', ')}`);
+            }
+            if (availableFns.length) {
+                existing.push(`関数: ${availableFns.join(', ')}`);
+            }
+            checkDetails.push({ type: 'functions', total: script.functions.length, ok: availableFns.length });
         }
-        
+
+        if (Array.isArray(script.elements) && script.elements.length > 0) {
+            const availableElements = script.elements.filter(id => document.getElementById(id) !== null);
+            const missingElements = script.elements.filter(id => document.getElementById(id) === null);
+            if (missingElements.length) {
+                missing.push(`要素: ${missingElements.join(', ')}`);
+            }
+            if (availableElements.length) {
+                existing.push(`要素: ${availableElements.join(', ')}`);
+            }
+            checkDetails.push({ type: 'elements', total: script.elements.length, ok: availableElements.length });
+        }
+
+        if (Array.isArray(script.globals) && script.globals.length > 0) {
+            const availableGlobals = script.globals.filter(key => typeof window[key] !== 'undefined' && window[key] !== null);
+            const missingGlobals = script.globals.filter(key => typeof window[key] === 'undefined' || window[key] === null);
+            if (missingGlobals.length) {
+                missing.push(`グローバル: ${missingGlobals.join(', ')}`);
+            }
+            if (availableGlobals.length) {
+                existing.push(`グローバル: ${availableGlobals.join(', ')}`);
+            }
+            checkDetails.push({ type: 'globals', total: script.globals.length, ok: availableGlobals.length });
+        }
+
+        const versionLabel = document.getElementById(`jsver-${script.name}-ver`);
+        const version = versionLabel ? versionLabel.textContent?.trim() ?? 'Unknown' : 'Unknown';
+        const scriptTag = document.querySelector(`script[src*="${script.name}"]`);
+
+        const loaded = missing.length === 0 && (checkDetails.length > 0 || !!scriptTag);
+
         return {
             name: script.name,
-            loaded: isLoaded,
-            functions: script.functions ? script.functions.length : 0,
-            loadedFunctions: loadedFunctions.length,
-            missingFunctions: missingFunctions,
-            checkType: script.elements ? 'DOM elements' : 'functions'
+            loaded,
+            details: checkDetails,
+            missing,
+            existing,
+            tagFound: !!scriptTag,
+            module: !!script.module,
+            version
         };
     });
-    
+
     addDebugLog('info', 'JavaScript読み込み状態確認完了', results);
     return results;
 }
@@ -178,6 +364,35 @@ async function performFullSync() {
                     }
                     return 'skip';
                 }
+            },
+            {
+                name: 'UI設定再適用',
+                run: () => typeof window.applyVisualSettings === 'function' ? window.applyVisualSettings() : 'skip'
+            },
+            {
+                name: 'PCステータス更新',
+                run: () => {
+                    if (typeof window.fetchStatus === 'function') {
+                        return window.fetchStatus();
+                    }
+                    if (typeof window.updatePCStatus === 'function') {
+                        return window.updatePCStatus();
+                    }
+                    return 'skip';
+                }
+            },
+            {
+                name: '通知スケジュール更新',
+                run: () => {
+                    if (window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
+                        return window.subscriptionManager.scheduleNotifications({ reschedule: true, immediate: true });
+                    }
+                    return 'skip';
+                }
+            },
+            {
+                name: 'PWAステータスチェック',
+                run: () => typeof window.requestPwaStatus === 'function' ? window.requestPwaStatus({ force: true }) : 'skip'
             }
         ];
 
@@ -277,14 +492,6 @@ async function performFullSync() {
         addDebugLog('error', 'APIステータス確認エラー', error);
     }
     
-    if (window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
-        try {
-            await window.subscriptionManager.scheduleNotifications();
-        } catch (notifyError) {
-            console.warn('通知スケジュール更新でエラー:', notifyError);
-        }
-    }
-
     const totalTime = Math.round(performance.now() - startTime);
     lastFullSync = new Date().toISOString();
     console.log(`=== 完全同期完了 (合計${totalTime}ms) ===`);
@@ -683,23 +890,46 @@ forceSyncButton?.addEventListener("click", async (event) => {
             console.log(`- ${r.name}: ${r.status}${r.time ? ` (${r.time}ms)` : ''}${r.error ? ` - Error: ${r.error}` : ''}${r.reason ? ` - Reason: ${r.reason}` : ''}`);
         });
         
+        const rowsHtml = result.results.map(r => {
+            const statusLabel = r.status === 'success' ? '成功' : r.status === 'error' ? '失敗' : 'スキップ';
+            const statusClass = r.status === 'success' ? 'text-green-400' : r.status === 'error' ? 'text-red-400' : 'text-yellow-300';
+            const detail = r.error ? escapeHtml(r.error) : r.reason ? escapeHtml(r.reason) : (typeof r.time === 'number' ? `${r.time}ms` : '—');
+            return `<tr>
+                <td class="py-1 pr-2 align-top text-white/80">${escapeHtml(r.name)}</td>
+                <td class="py-1 pr-2 align-top ${statusClass}">${statusLabel}</td>
+                <td class="py-1 align-top text-white/60">${detail}</td>
+            </tr>`;
+        }).join('');
+
         await Swal.fire({
             icon: errorCount > 0 ? 'warning' : 'success',
             title: '同期完了',
             html: `
-                <div class="text-left">
-                    <p>同期処理が完了しました (${result.totalTime}ms)</p>
-                    <ul class="mt-2 text-sm">
-                        <li class="text-green-600">成功: ${successCount}件</li>
-                        ${errorCount > 0 ? `<li class="text-red-600">エラー: ${errorCount}件</li>` : ''}
-                        ${skippedCount > 0 ? `<li class="text-yellow-600">スキップ: ${skippedCount}件</li>` : ''}
-                    </ul>
-                    <div class="mt-3 text-xs text-gray-600">
-                        詳細はブラウザのコンソールを確認してください
+                <div class="text-left text-xs space-y-3">
+                    <div>
+                        <p class="text-sm text-white/90">同期処理が完了しました (${result.totalTime}ms)</p>
+                        <div class="mt-2 flex gap-4">
+                            <span class="text-green-400">成功: ${successCount}</span>
+                            <span class="text-red-400">失敗: ${errorCount}</span>
+                            <span class="text-yellow-300">スキップ: ${skippedCount}</span>
+                        </div>
                     </div>
+                    <div class="max-h-40 overflow-y-auto border border-white/10 rounded">
+                        <table class="w-full text-[11px]">
+                            <thead class="bg-white/5 text-white/70">
+                                <tr>
+                                    <th class="text-left font-medium px-2 py-1">タスク</th>
+                                    <th class="text-left font-medium px-2 py-1">状態</th>
+                                    <th class="text-left font-medium px-2 py-1">詳細</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                    <div class="text-white/50">詳細なログはコンソールまたはデバッグログから確認できます。</div>
                 </div>
             `,
-            timer: 5000,
+            timer: 6000,
             showConfirmButton: true
         });
         
@@ -786,33 +1016,47 @@ document.getElementById("closeDevMenuModal").addEventListener("click", () => {
 
 document.getElementById("checkJsStatusBtn").addEventListener("click", async () => {
     const results = checkJavaScriptLoadStatus();
-    
+
     const loadedCount = results.filter(r => r.loaded).length;
     const totalCount = results.length;
-    
-    let resultHtml = `<div class="text-left text-sm">`;
-    resultHtml += `<p class="mb-3 font-bold">読み込み状況: ${loadedCount}/${totalCount}</p>`;
-    
+
+    let resultHtml = `<div class="text-left text-xs space-y-3">`;
+    resultHtml += `<p class="text-sm font-semibold text-white/80">読み込み状況: <span class="text-white">${loadedCount}</span>/<span class="text-white">${totalCount}</span></p>`;
+
     results.forEach(script => {
-        const statusIcon = script.loaded ? '✅' : '❌';
-        const statusText = script.loaded ? 'OK' : 'NG';
-        resultHtml += `<div class="mb-1 flex justify-between">`;
-        resultHtml += `<span>${statusIcon} ${script.name}</span>`;
-        resultHtml += `<span class="${script.loaded ? 'text-green-600' : 'text-red-600'}">${statusText}</span>`;
-        resultHtml += `</div>`;
-        
-        if (!script.loaded && script.missingFunctions.length > 0) {
-            const missingType = script.checkType === 'DOM elements' ? 'Missing elements' : 'Missing functions';
-            resultHtml += `<div class="ml-4 text-xs text-red-500">${missingType}: ${script.missingFunctions.join(', ')}</div>`;
+        const statusClass = script.loaded ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10';
+        const badgeText = script.loaded ? 'OK' : 'NG';
+        const moduleBadge = script.module ? '<span class="ml-2 rounded-full border border-blue-500/40 px-2 text-[10px] uppercase tracking-widest text-blue-300">module</span>' : '';
+        const tagInfo = script.tagFound ? '検出済み' : '未検出';
+
+        resultHtml += `
+            <section class="rounded-lg border border-white/10 bg-black/20 p-3">
+                <div class="flex justify-between items-center">
+                    <div class="font-semibold text-white/90">${escapeHtml(script.name)}${moduleBadge}</div>
+                    <span class="px-3 py-0.5 rounded-full text-[11px] font-semibold ${statusClass}">${badgeText}</span>
+                </div>
+                <div class="mt-1 text-white/60">バージョン: <span class="text-white/80">${escapeHtml(script.version)}</span></div>
+                <div class="mt-1 text-white/50">scriptタグ: ${tagInfo}</div>
+        `;
+
+        if (script.existing.length > 0) {
+            resultHtml += `<div class="mt-2 text-xs text-green-300">確認済み: ${escapeHtml(script.existing.join(' / '))}</div>`;
         }
-        
-        if (script.checkType) {
-            resultHtml += `<div class="ml-4 text-xs text-gray-500">Check: ${script.checkType}</div>`;
+
+        if (script.missing.length > 0) {
+            resultHtml += `<div class="mt-1 text-xs text-red-300">不足: ${escapeHtml(script.missing.join(' / '))}</div>`;
         }
+
+        if (Array.isArray(script.details) && script.details.length > 0) {
+            const detailText = script.details.map(detail => `${detail.type}: ${detail.ok}/${detail.total}`).join(' ・ ');
+            resultHtml += `<div class="mt-2 text-[11px] text-white/60">検査内訳: ${escapeHtml(detailText)}</div>`;
+        }
+
+        resultHtml += `</section>`;
     });
-    
+
     resultHtml += `</div>`;
-    
+
     await Swal.fire({
         title: 'JavaScript読み込み状態',
         html: resultHtml,
@@ -824,32 +1068,70 @@ document.getElementById("checkJsStatusBtn").addEventListener("click", async () =
 
 document.getElementById("quickDiagBtn").addEventListener("click", async () => {
     const diagnostics = performQuickDiagnostics();
-    
-    let resultHtml = `<div class="text-left text-xs">`;
-    resultHtml += `<h4 class="font-bold mb-2">基本チェック</h4>`;
-    resultHtml += `<div class="mb-2">SweetAlert2: ${diagnostics.swalLoaded ? '✅ 読み込み済み' : '❌ 未読み込み'}</div>`;
-    
-    resultHtml += `<h4 class="font-bold mb-2 mt-4">DOM要素</h4>`;
-    Object.entries(diagnostics.domElements).forEach(([key, value]) => {
-        resultHtml += `<div class="mb-1">${key}: ${value ? '✅' : '❌'}</div>`;
-    });
-    
-    resultHtml += `<h4 class="font-bold mb-2 mt-4">グローバル関数</h4>`;
-    Object.entries(diagnostics.globalFunctions).forEach(([key, value]) => {
-        resultHtml += `<div class="mb-1">${key}: ${value ? '✅' : '❌'}</div>`;
-    });
-    
-    resultHtml += `<h4 class="font-bold mb-2 mt-4">DevTools関数</h4>`;
-    Object.entries(diagnostics.devtoolsFunctions).forEach(([key, value]) => {
-        resultHtml += `<div class="mb-1">${key}: ${value ? '✅' : '❌'}</div>`;
-    });
-    
+
+    const makeList = (entries) => Object.entries(entries).map(([key, value]) => `<li class="flex justify-between"><span>${escapeHtml(key)}</span><span>${value ? '✅' : '❌'}</span></li>`).join('');
+
+    const pwaStatus = diagnostics.pwaStatus;
+    const pwaHtml = pwaStatus
+        ? `<div class="mt-1">利用可否: <span class="${pwaStatus.available ? 'text-green-400' : 'text-red-400'}">${pwaStatus.available ? '利用可能' : '未対応'}</span></div>
+           <div class="text-white/60 text-[11px]">Safari: ${escapeHtml(pwaStatus.safariVersion || '不明')} / 理由: ${escapeHtml(pwaStatus.reason || '情報なし')}</div>`
+        : '<div class="text-white/60 text-[11px]">PWA ステータスは未取得です</div>';
+
+    let resultHtml = `<div class="text-left text-xs space-y-4">`;
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">基本チェック</h4>
+            <ul class="space-y-1">
+                <li class="flex justify-between"><span>SweetAlert2</span><span>${diagnostics.swalLoaded ? '✅' : '❌'}</span></li>
+                <li class="flex justify-between"><span>ServiceWorker</span><span>${diagnostics.serviceWorker ? '✅' : '❌'}</span></li>
+            </ul>
+        </section>`;
+
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">DOM 要素</h4>
+            <ul class="space-y-1">${makeList(diagnostics.domElements)}</ul>
+        </section>`;
+
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">グローバル関数</h4>
+            <ul class="space-y-1">${makeList(diagnostics.globalFunctions)}</ul>
+        </section>`;
+
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">DevTools 関連</h4>
+            <ul class="space-y-1">${makeList(diagnostics.devtoolsFunctions)}</ul>
+        </section>`;
+
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">ストレージ</h4>
+            <div>項目数: <span class="text-white/80">${diagnostics.storage.totalItems}</span></div>
+            <div>合計サイズ: <span class="text-white/80">${escapeHtml(diagnostics.storage.sizeFormatted)}</span></div>
+        </section>`;
+
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">ネットワーク</h4>
+            <div>オンライン: ${diagnostics.network.online ? '✅ 接続中' : '❌ オフライン'}</div>
+            <div class="text-white/60 text-[11px]">通信品質: ${escapeHtml(diagnostics.network.effectiveType)}</div>
+        </section>`;
+
+    resultHtml += `
+        <section>
+            <h4 class="font-bold mb-2 text-white/80">PWA ステータス</h4>
+            ${pwaHtml}
+        </section>`;
+
     resultHtml += `</div>`;
-    
-    const hasIssues = !diagnostics.swalLoaded || 
-                     Object.values(diagnostics.domElements).some(v => !v) || 
-                     Object.values(diagnostics.globalFunctions).some(v => !v);
-    
+
+    const hasIssues = !diagnostics.swalLoaded ||
+                     Object.values(diagnostics.domElements).some(v => !v) ||
+                     Object.values(diagnostics.globalFunctions).some(v => !v) ||
+                     !diagnostics.network.online;
+
     await Swal.fire({
         title: '簡易診断結果',
         html: resultHtml,
@@ -898,47 +1180,106 @@ document.getElementById("clearLocalStorageBtn").addEventListener("click", async 
 
 document.getElementById("showDebugLogBtn").addEventListener("click", async () => {
     const diagnostics = getSystemDiagnostics();
-    
-    let logHtml = `<div class="text-left text-xs">`;
-    logHtml += `<div class="mb-4 p-2 bg-gray-100 rounded">`;
-    logHtml += `<h4 class="font-bold mb-2">システム情報</h4>`;
-    logHtml += `<div>ブラウザ: ${diagnostics.userAgent.split(' ').pop()}</div>`;
-    logHtml += `<div>画面: ${diagnostics.screen.width}x${diagnostics.screen.height}</div>`;
-    logHtml += `<div>メモリ使用量: ${typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory}</div>`;
-    logHtml += `<div>デバイスメモリ(概算): ${diagnostics.deviceMemory}</div>`;
-    logHtml += `<div>最終同期: ${lastFullSync || '未実行'}</div>`;
-    logHtml += `</div>`;
-    
-    logHtml += `<h4 class="font-bold mb-2">デバッグログ (最新${Math.min(10, debugLog.length)}件)</h4>`;
-    
-    if (debugLog.length === 0) {
-        logHtml += `<p class="text-gray-500">ログはありません</p>`;
-    } else {
-        debugLog.slice(0, 10).forEach(log => {
-            const timeStr = new Date(log.timestamp).toLocaleTimeString();
-            const levelColor = {
-                info: 'text-blue-600',
-                warn: 'text-yellow-600',
-                error: 'text-red-600'
-            }[log.level] || 'text-gray-600';
-            
-            logHtml += `<div class="mb-1 p-1 border-l-2 border-gray-300">`;
-            logHtml += `<div class="flex justify-between">`;
-            logHtml += `<span class="${levelColor} font-mono">[${log.level.toUpperCase()}]</span>`;
-            logHtml += `<span class="text-gray-500">${timeStr}</span>`;
-            logHtml += `</div>`;
-            logHtml += `<div class="mt-1">${log.message}</div>`;
-            logHtml += `</div>`;
-        });
-    }
-    
-    logHtml += `</div>`;
-    
+
+    let logHtml = `
+        <div class="text-left text-xs space-y-4" id="debugLogModal">
+            <section class="bg-black/25 border border-white/10 rounded-lg p-3 space-y-1">
+                <h4 class="font-semibold text-white/80">システム情報</h4>
+                <div>ブラウザ: <span class="text-white/80">${escapeHtml(diagnostics.userAgent.split(' ').pop() || '不明')}</span></div>
+                <div>画面: <span class="text-white/80">${diagnostics.screen.width}×${diagnostics.screen.height}</span></div>
+                <div>メモリ: <span class="text-white/80">${escapeHtml(typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory)}</span></div>
+                <div>デバイスメモリ: <span class="text-white/80">${escapeHtml(diagnostics.deviceMemory)}</span></div>
+                <div>最終完全同期: <span class="text-white/80">${escapeHtml(lastFullSync || '未実行')}</span></div>
+            </section>
+            <section>
+                <div class="flex flex-wrap items-center gap-3 mb-3">
+                    <label class="flex items-center gap-1">レベル
+                        <select id="debugLogLevelFilter" class="bg-black/40 border border-white/20 rounded px-2 py-1">
+                            <option value="all">すべて</option>
+                            <option value="info">INFO</option>
+                            <option value="warn">WARN</option>
+                            <option value="error">ERROR</option>
+                            <option value="debug">DEBUG</option>
+                        </select>
+                    </label>
+                    <label class="flex items-center gap-1">件数
+                        <select id="debugLogLimit" class="bg-black/40 border border-white/20 rounded px-2 py-1">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                    <div class="ml-auto flex gap-2">
+                        <button id="debugLogCopyBtn" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white">コピー</button>
+                        <button id="debugLogDownloadBtn" class="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-white">JSON出力</button>
+                    </div>
+                </div>
+                <div class="text-white/60 text-[11px] mb-2">保持件数: ${debugLog.length} / 表示上限: ${maxLogEntries}</div>
+                <div id="debugLogEntries" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+            </section>
+        </div>
+    `;
+
     await Swal.fire({
         title: 'デバッグ情報',
         html: logHtml,
-        width: '600px',
-        confirmButtonText: 'OK'
+        width: '680px',
+        confirmButtonText: '閉じる',
+        didOpen: () => {
+            const container = Swal.getHtmlContainer();
+            if (!container) return;
+            const levelSelect = container.querySelector('#debugLogLevelFilter');
+            const limitSelect = container.querySelector('#debugLogLimit');
+            const entriesContainer = container.querySelector('#debugLogEntries');
+            const copyBtn = container.querySelector('#debugLogCopyBtn');
+            const downloadBtn = container.querySelector('#debugLogDownloadBtn');
+
+            const refresh = () => {
+                const level = levelSelect.value;
+                const limit = parseInt(limitSelect.value, 10);
+                renderDebugLogEntries(entriesContainer, { level, limit });
+            };
+
+            levelSelect.addEventListener('change', refresh);
+            limitSelect.addEventListener('change', refresh);
+
+            copyBtn?.addEventListener('click', async () => {
+                try {
+                    const level = levelSelect.value;
+                    const limit = parseInt(limitSelect.value, 10);
+                    const slice = getDebugLogSlice(level, limit);
+                    await navigator.clipboard.writeText(JSON.stringify(slice, null, 2));
+                    Toast?.fire({ icon: 'success', title: 'ログをコピーしました' });
+                } catch (error) {
+                    console.error('ログコピーに失敗しました:', error);
+                    Swal.showValidationMessage('クリップボードへのコピーに失敗しました');
+                }
+            });
+
+            downloadBtn?.addEventListener('click', () => {
+                try {
+                    const level = levelSelect.value;
+                    const limit = parseInt(limitSelect.value, 10);
+                    const slice = getDebugLogSlice(level, limit);
+                    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), level, limit, entries: slice }, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `tabdock-debug-log-${Date.now()}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    Toast?.fire({ icon: 'success', title: 'ログをエクスポートしました' });
+                } catch (error) {
+                    console.error('ログエクスポートに失敗しました:', error);
+                    Swal.showValidationMessage('ログのエクスポートに失敗しました');
+                }
+            });
+
+            refresh();
+        }
     });
 });
 
@@ -1128,7 +1469,7 @@ if (document.readyState === 'loading') {
 
 function performQuickDiagnostics() {
     console.log('=== クイック診断開始 ===');
-    
+
     const diagnostics = {
         timestamp: new Date().toISOString(),
         swalLoaded: typeof Swal !== 'undefined',
@@ -1147,12 +1488,25 @@ function performQuickDiagnostics() {
         devtoolsFunctions: {
             performFullSync: typeof performFullSync === 'function',
             addDebugLog: typeof addDebugLog === 'function'
-        }
+        },
+        storage: (() => {
+            const info = analyzeLocalStorage();
+            return {
+                totalItems: info.totalItems,
+                sizeFormatted: info.sizeFormatted
+            };
+        })(),
+        network: {
+            online: navigator.onLine,
+            effectiveType: navigator.connection?.effectiveType || 'unknown'
+        },
+        serviceWorker: typeof navigator.serviceWorker === 'object',
+        pwaStatus: window.__pwaStatus || null
     };
-    
+
     console.log('診断結果:', diagnostics);
     addDebugLog('info', 'クイック診断実行', diagnostics);
-    
+
     return diagnostics;
 }
 
