@@ -499,22 +499,24 @@ func mergeWeatherResponse(regionKey string, upstream map[string]interface{}) (ma
 	weatherCacheMu.Lock()
 	defer weatherCacheMu.Unlock()
 
-	body, _ := upstream["body"].(map[string]interface{})
+	mutable := deepCopyMap(upstream)
+
+	body, _ := mutable["body"].(map[string]interface{})
 	if body == nil {
 		weatherCache[regionKey] = &cachedWeather{
-			rawResponse: deepCopyMap(upstream),
+			rawResponse: deepCopyMap(mutable),
 			updatedAt:   time.Now(),
 		}
-		return upstream, nil
+		return mutable, nil
 	}
 
 	newMain, err := decodeWeatherMain(body["main_data"])
 	if err != nil {
 		weatherCache[regionKey] = &cachedWeather{
-			rawResponse: deepCopyMap(upstream),
+			rawResponse: deepCopyMap(mutable),
 			updatedAt:   time.Now(),
 		}
-		return upstream, nil
+		return mutable, nil
 	}
 
 	var merged map[string]interface{}
@@ -537,14 +539,14 @@ func mergeWeatherResponse(regionKey string, upstream map[string]interface{}) (ma
 	}
 
 	body["main_data"] = string(mergedBytes)
-	upstream["body"] = body
+	mutable["body"] = body
 
 	weatherCache[regionKey] = &cachedWeather{
-		rawResponse: deepCopyMap(upstream),
+		rawResponse: deepCopyMap(mutable),
 		updatedAt:   time.Now(),
 	}
 
-	return upstream, nil
+	return mutable, nil
 }
 
 func decodeWeatherMain(value interface{}) (map[string]interface{}, error) {

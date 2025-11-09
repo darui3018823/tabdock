@@ -635,7 +635,6 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Username        string `json:"username"`
 		CurrentPassword string `json:"currentPassword"`
 		NewPassword     string `json:"newPassword"`
 	}
@@ -645,9 +644,18 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Username = strings.TrimSpace(req.Username)
+	username := getHeaderUsername(r)
+	if username == "" {
+		http.Error(w, "認証情報が確認できません", http.StatusUnauthorized)
+		return
+	}
 
-	if req.Username == "" || req.CurrentPassword == "" || req.NewPassword == "" {
+	if _, err := getUserIDFromSession(r); err != nil {
+		http.Error(w, "認証情報が確認できません", http.StatusUnauthorized)
+		return
+	}
+
+	if req.CurrentPassword == "" || req.NewPassword == "" {
 		http.Error(w, "必須項目が不足しています", http.StatusBadRequest)
 		return
 	}
@@ -662,12 +670,12 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := authenticateAuthUser(req.Username, req.CurrentPassword); err != nil {
+	if _, err := authenticateAuthUser(username, req.CurrentPassword); err != nil {
 		http.Error(w, "現在のパスワードが正しくありません", http.StatusUnauthorized)
 		return
 	}
 
-	if err := updateAuthUserPassword(req.Username, req.NewPassword); err != nil {
+	if err := updateAuthUserPassword(username, req.NewPassword); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "ユーザーが見つかりません", http.StatusNotFound)
 			return

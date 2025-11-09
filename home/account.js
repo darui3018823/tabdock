@@ -767,9 +767,11 @@ async function handlePasswordChangeSubmit(event) {
     try {
         const response = await fetch("/api/auth/change-password", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "X-Username": encodeURIComponent(user.username)
+            },
             body: JSON.stringify({
-                username: user.username,
                 currentPassword,
                 newPassword
             })
