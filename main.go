@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"tabdock/getstatus"
@@ -41,6 +43,33 @@ var (
 	}
 	mutex sync.Mutex
 )
+
+var (
+	weatherCache          = map[string]*cachedWeather{}
+	weatherCacheMu        sync.Mutex
+	weatherNullTokensOnce sync.Once
+	weatherNullTokens     map[string]struct{}
+)
+
+type cachedWeather struct {
+	rawResponse map[string]interface{}
+	updatedAt   time.Time
+}
+
+type weatherRequest struct {
+	Data struct {
+		PrefName string `json:"prefname"`
+		CityName string `json:"cityname"`
+	} `json:"data"`
+}
+
+type weatherBody struct {
+	MainData interface{} `json:"main_data"`
+}
+
+type weatherAPIResponse struct {
+	Body weatherBody `json:"body"`
+}
 
 // type
 type responseWriterWithStatus struct {
@@ -172,6 +201,7 @@ func main() {
 	mux.HandleFunc("/api/auth/login", secureHandler(handleAuthLogin))
 	mux.HandleFunc("/api/auth/register", secureHandler(handleAuthRegister))
 	mux.HandleFunc("/api/auth/user-info", secureHandler(handleUserInfo))
+	mux.HandleFunc("/api/auth/change-password", secureHandler(handleAuthChangePassword))
 
 	// Subscription APIs
 	subscriptionDB, err := sql.Open("sqlite", "./database/subscription.db")
@@ -185,6 +215,7 @@ func main() {
 	mux.HandleFunc("/api/subscriptions/update", secureHandler(subHandler.Update))
 	mux.HandleFunc("/api/subscriptions/status", secureHandler(subHandler.UpdateStatus))
 	mux.HandleFunc("/api/subscriptions/delete", secureHandler(subHandler.Delete))
+	mux.HandleFunc("/api/pwa-status", secureHandler(handlePWAStatus))
 
 	// WebAuthn
 	mux.HandleFunc("/api/webauthn/register/start", secureHandler(HandleWebAuthnRegisterStart))
@@ -408,6 +439,16 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var wReq weatherRequest
+	regionKey := ""
+	if err := json.Unmarshal(reqBody, &wReq); err == nil {
+		pref := strings.TrimSpace(wReq.Data.PrefName)
+		city := strings.TrimSpace(wReq.Data.CityName)
+		if pref != "" || city != "" {
+			regionKey = pref + "::" + city
+		}
+	}
+
 	// APIにリクエストを転送
 	resp, err := http.Post("https://api.daruks.com/weather", "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
@@ -417,15 +458,371 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// APIのレスポンスをそのまま返す
+	// APIのレスポンスを読み取る
 	apiRespBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, "failed to read weather API response", http.StatusInternalServerError)
 		return
 	}
 
+	if resp.StatusCode >= 400 {
+		w.WriteHeader(resp.StatusCode)
+		w.Write(apiRespBody)
+		return
+	}
+
+	var upstream map[string]interface{}
+	if err := json.Unmarshal(apiRespBody, &upstream); err != nil {
+		// パースできない場合はそのまま返す
+		w.WriteHeader(resp.StatusCode)
+		w.Write(apiRespBody)
+		return
+	}
+
+	if regionKey != "" {
+		if merged, err := mergeWeatherResponse(regionKey, upstream); err == nil {
+			upstream = merged
+		}
+	}
+
+	finalBody, err := json.Marshal(upstream)
+	if err != nil {
+		http.Error(w, "failed to encode weather response", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(resp.StatusCode)
-	w.Write(apiRespBody)
+	w.Write(finalBody)
+}
+
+func mergeWeatherResponse(regionKey string, upstream map[string]interface{}) (map[string]interface{}, error) {
+	weatherCacheMu.Lock()
+	defer weatherCacheMu.Unlock()
+
+	mutable := deepCopyMap(upstream)
+
+	body, _ := mutable["body"].(map[string]interface{})
+	if body == nil {
+		weatherCache[regionKey] = &cachedWeather{
+			rawResponse: deepCopyMap(mutable),
+			updatedAt:   time.Now(),
+		}
+		return mutable, nil
+	}
+
+	newMain, err := decodeWeatherMain(body["main_data"])
+	if err != nil {
+		weatherCache[regionKey] = &cachedWeather{
+			rawResponse: deepCopyMap(mutable),
+			updatedAt:   time.Now(),
+		}
+		return mutable, nil
+	}
+
+	var merged map[string]interface{}
+
+	if cached := weatherCache[regionKey]; cached != nil {
+		prevBody, _ := cached.rawResponse["body"].(map[string]interface{})
+		prevMain, err := decodeWeatherMain(prevBody["main_data"])
+		if err != nil {
+			merged = mergeWeatherMain(nil, newMain)
+		} else {
+			merged = mergeWeatherMain(prevMain, newMain)
+		}
+	} else {
+		merged = mergeWeatherMain(nil, newMain)
+	}
+
+	mergedBytes, err := json.Marshal(merged)
+	if err != nil {
+		return nil, err
+	}
+
+	body["main_data"] = string(mergedBytes)
+	mutable["body"] = body
+
+	weatherCache[regionKey] = &cachedWeather{
+		rawResponse: deepCopyMap(mutable),
+		updatedAt:   time.Now(),
+	}
+
+	return mutable, nil
+}
+
+func decodeWeatherMain(value interface{}) (map[string]interface{}, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	switch v := value.(type) {
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return map[string]interface{}{}, nil
+		}
+		var decoded map[string]interface{}
+		if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+			return nil, err
+		}
+		return decoded, nil
+	case map[string]interface{}:
+		return deepCopyMap(v), nil
+	default:
+		return nil, errors.New("unsupported main_data format")
+	}
+}
+
+func mergeWeatherMain(prev, next map[string]interface{}) map[string]interface{} {
+	if prev == nil && next == nil {
+		return nil
+	}
+	if prev == nil {
+		return deepCopyMap(next)
+	}
+	if next == nil {
+		return deepCopyMap(prev)
+	}
+
+	result := deepCopyMap(prev)
+	for key, newVal := range next {
+		oldVal := result[key]
+		result[key] = mergeWeatherValue(oldVal, newVal)
+	}
+	return result
+}
+
+func initWeatherNullTokens() {
+	tokens := map[string]struct{}{
+		"":     {},
+		"null": {},
+		"n/a":  {},
+		"na":   {},
+	}
+
+	if extra := strings.TrimSpace(os.Getenv("WEATHER_NULL_TOKENS")); extra != "" {
+		for _, token := range strings.Split(extra, ",") {
+			trimmed := strings.ToLower(strings.TrimSpace(token))
+			if trimmed != "" {
+				tokens[trimmed] = struct{}{}
+			}
+		}
+	}
+
+	weatherNullTokens = tokens
+}
+
+func isNullishString(value string) bool {
+	weatherNullTokensOnce.Do(initWeatherNullTokens)
+
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return true
+	}
+
+	lower := strings.ToLower(trimmed)
+	if _, ok := weatherNullTokens[lower]; ok {
+		return true
+	}
+
+	if isHyphenPlaceholder(lower) {
+		return true
+	}
+
+	withoutPercent := strings.TrimSpace(strings.TrimSuffix(lower, "%"))
+	if isHyphenPlaceholder(withoutPercent) {
+		return true
+	}
+
+	return false
+}
+
+func isHyphenPlaceholder(value string) bool {
+	if value == "" {
+		return false
+	}
+	return strings.Trim(value, "-") == ""
+}
+
+func mergeWeatherValue(oldVal, newVal interface{}) interface{} {
+	if newVal == nil {
+		return deepCopyValue(oldVal)
+	}
+
+	switch nv := newVal.(type) {
+	case string:
+		if isNullishString(nv) {
+			if oldVal != nil {
+				return deepCopyValue(oldVal)
+			}
+			return nv
+		}
+		return nv
+	case map[string]interface{}:
+		oldMap, _ := oldVal.(map[string]interface{})
+		return mergeWeatherMain(oldMap, nv)
+	case []interface{}:
+		oldSlice, _ := oldVal.([]interface{})
+		return mergeWeatherSlices(oldSlice, nv)
+	default:
+		return nv
+	}
+}
+
+func mergeWeatherSlices(oldSlice, newSlice []interface{}) []interface{} {
+	if oldSlice == nil && newSlice == nil {
+		return nil
+	}
+	if oldSlice == nil {
+		return deepCopySlice(newSlice)
+	}
+	if newSlice == nil {
+		return deepCopySlice(oldSlice)
+	}
+
+	maxLen := len(newSlice)
+	if len(oldSlice) > maxLen {
+		maxLen = len(oldSlice)
+	}
+
+	result := make([]interface{}, maxLen)
+	for i := 0; i < maxLen; i++ {
+		var oldVal interface{}
+		if i < len(oldSlice) {
+			oldVal = oldSlice[i]
+		}
+		var newVal interface{}
+		if i < len(newSlice) {
+			newVal = newSlice[i]
+		}
+		result[i] = mergeWeatherValue(oldVal, newVal)
+	}
+	return result
+}
+
+func deepCopyMap(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]interface{}, len(src))
+	for key, value := range src {
+		dst[key] = deepCopyValue(value)
+	}
+	return dst
+}
+
+func deepCopySlice(src []interface{}) []interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make([]interface{}, len(src))
+	for i, value := range src {
+		dst[i] = deepCopyValue(value)
+	}
+	return dst
+}
+
+func deepCopyValue(value interface{}) interface{} {
+	switch v := value.(type) {
+	case map[string]interface{}:
+		return deepCopyMap(v)
+	case []interface{}:
+		return deepCopySlice(v)
+	default:
+		return v
+	}
+}
+
+type pwaStatusResponse struct {
+	Available     bool   `json:"available"`
+	Platform      string `json:"platform,omitempty"`
+	SafariVersion string `json:"safariVersion,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+	UserAgent     string `json:"userAgent,omitempty"`
+}
+
+func handlePWAStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	status := detectPWASupport(r.Header.Get("User-Agent"))
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+func detectPWASupport(ua string) pwaStatusResponse {
+	platform := "unknown"
+	switch {
+	case strings.Contains(ua, "iPad"):
+		platform = "iPadOS"
+	case strings.Contains(ua, "iPhone"):
+		platform = "iOS"
+	case strings.Contains(ua, "Macintosh"):
+		platform = "macOS"
+	case strings.Contains(ua, "Android"):
+		platform = "Android"
+	}
+
+	status := pwaStatusResponse{
+		Platform:  platform,
+		UserAgent: ua,
+	}
+
+	if ua == "" {
+		status.Reason = "user agent header is missing"
+		return status
+	}
+
+	major, fullVersion, err := parseSafariVersion(ua)
+	if err != nil {
+		status.Reason = "Safari version could not be detected"
+		return status
+	}
+
+	status.SafariVersion = fullVersion
+
+	if major >= 16 {
+		status.Available = true
+		status.Reason = "Safari supports progressive web apps"
+		return status
+	}
+
+	status.Reason = fmt.Sprintf("Safari %s does not meet the minimum requirement (16)", fullVersion)
+	return status
+}
+
+func parseSafariVersion(ua string) (int, string, error) {
+	idx := strings.Index(ua, "Version/")
+	if idx == -1 {
+		return 0, "", errors.New("version token not found")
+	}
+
+	start := idx + len("Version/")
+	end := start
+	for end < len(ua) {
+		c := ua[end]
+		if (c >= '0' && c <= '9') || c == '.' {
+			end++
+			continue
+		}
+		break
+	}
+
+	if end <= start {
+		return 0, "", errors.New("version string missing")
+	}
+
+	versionStr := ua[start:end]
+	parts := strings.Split(versionStr, ".")
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, "", err
+	}
+
+	return major, versionStr, nil
 }
 
 func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
