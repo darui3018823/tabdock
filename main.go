@@ -29,7 +29,7 @@ import (
 )
 
 // const
-const version = "5.8.1"
+const version = "5.9.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -1429,13 +1429,6 @@ func handlePing(w http.ResponseWriter, _ *http.Request) {
 func serveStaticJSON(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		http.ServeFile(w, r, path)
-	}
-}
-
-func serveStaticPNG(path string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/png")
 		http.ServeFile(w, r, path)
 	}
 }
