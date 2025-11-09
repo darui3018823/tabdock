@@ -339,7 +339,7 @@ class SubscriptionManager {
                 window.calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => {});
             }
 
-            await this.scheduleNotifications().catch(() => {});
+            await this.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => {});
         } catch (error) {
             Swal.fire({
                 title: 'エラー',

@@ -8,6 +8,7 @@ package getstatus
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -125,10 +126,19 @@ func getMem() string {
 }
 
 func getDriveC() string {
-        d, _ := disk.Usage("C:\\")
-        const gib = 1024 * 1024 * 1024
-        return fmt.Sprintf("%.0f%% (%.1fGiB/%.1fGiB)",
-                d.UsedPercent, float64(d.Used)/float64(gib), float64(d.Total)/float64(gib))
+	usage, err := disk.Usage("C:\\")
+	if err != nil {
+		log.Printf("failed to query drive C usage: %v", err)
+		return "N/A"
+	}
+	if usage == nil {
+		log.Printf("drive C usage result is nil")
+		return "N/A"
+	}
+
+	const gib = 1024 * 1024 * 1024
+	return fmt.Sprintf("%.0f%% (%.1fGiB/%.1fGiB)",
+		usage.UsedPercent, float64(usage.Used)/float64(gib), float64(usage.Total)/float64(gib))
 }
 
 func getUptime() string {

@@ -5,22 +5,24 @@
 package main
 
 import (
-        "bytes"
-        "database/sql"
-        "encoding/base64"
-        "encoding/json"
-        "fmt"
-        "io"
-        "log"
-        "net/http"
-        "strings"
-        "sync"
-        "time"
-        "unicode"
+	"bytes"
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
 
 	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 )
 
@@ -204,33 +206,43 @@ func insertUser(id, username, displayName string) error {
 
 // ===== 通常認証用のヘルパー関数 =====
 
-func hashPassword(password string) string {
-        // 簡単なハッシュ化（本番では更に強力なハッシュを使用）
-        return password // 仮実装
+func hashPassword(password string) (string, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashed), nil
+}
+
+func verifyPassword(hashedPassword, candidate string) error {
+	if hashedPassword == "" {
+		return errors.New("stored password hash is empty")
+	}
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(candidate))
 }
 
 func validatePasswordStrength(password string) error {
-        if len(password) < 8 {
-                return fmt.Errorf("パスワードは8文字以上で入力してください")
-        }
+	if len(password) < 8 {
+		return fmt.Errorf("パスワードは8文字以上で入力してください")
+	}
 
-        var hasUpper, hasLower, hasDigit bool
-        for _, r := range password {
-                switch {
-                case unicode.IsUpper(r):
-                        hasUpper = true
-                case unicode.IsLower(r):
-                        hasLower = true
-                case unicode.IsDigit(r):
-                        hasDigit = true
-                }
-        }
+	var hasUpper, hasLower, hasDigit bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
 
-        if !hasUpper || !hasLower || !hasDigit {
-                return fmt.Errorf("大文字・小文字・数字をそれぞれ1文字以上含めてください")
-        }
+	if !hasUpper || !hasLower || !hasDigit {
+		return fmt.Errorf("大文字・小文字・数字をそれぞれ1文字以上含めてください")
+	}
 
-        return nil
+	return nil
 }
 
 // SQLiteの日時文字列をtime.Timeに変換
@@ -262,12 +274,16 @@ func createAuthUser(username, email, password string) (*AuthUser, error) {
 		return nil, fmt.Errorf("データベース接続がありません")
 	}
 
-	hashedPassword := hashPassword(password)
+	hashedPassword, err := hashPassword(password)
+	if err != nil {
+		log.Printf("[ERROR] パスワードのハッシュ化に失敗しました: %v", err)
+		return nil, fmt.Errorf("パスワードのハッシュ化に失敗しました: %w", err)
+	}
 	userID := uuid.New().String()
 	now := time.Now()
 
 	query := `INSERT INTO users (id, username, display_name, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-	_, err := db.Exec(query, userID, username, username, email, hashedPassword, now.Format("2006-01-02 15:04:05"), now.Format("2006-01-02 15:04:05"))
+	_, err = db.Exec(query, userID, username, username, email, hashedPassword, now.Format("2006-01-02 15:04:05"), now.Format("2006-01-02 15:04:05"))
 	if err != nil {
 		log.Printf("[ERROR] ユーザー作成エラー: %v", err)
 		return nil, err
@@ -285,24 +301,30 @@ func createAuthUser(username, email, password string) (*AuthUser, error) {
 
 // 通常認証
 func authenticateAuthUser(username, password string) (*AuthUser, error) {
-        if db == nil {
-                log.Printf("[ERROR] データベース接続がありません")
-                return nil, fmt.Errorf("データベース接続がありません")
-        }
+	if db == nil {
+		log.Printf("[ERROR] データベース接続がありません")
+		return nil, fmt.Errorf("データベース接続がありません")
+	}
 
-	hashedPassword := hashPassword(password)
-
-	query := `SELECT username, COALESCE(email, ''), COALESCE(profile_image, ''),
-			COALESCE(created_at, CURRENT_TIMESTAMP), 
-			COALESCE(updated_at, CURRENT_TIMESTAMP) 
-			FROM users WHERE username = ? AND password = ?`
-	row := db.QueryRow(query, username, hashedPassword)
+	query := `SELECT password, username, COALESCE(email, ''), COALESCE(profile_image, ''),
+                        COALESCE(created_at, CURRENT_TIMESTAMP),
+                        COALESCE(updated_at, CURRENT_TIMESTAMP)
+                        FROM users WHERE username = ?`
+	row := db.QueryRow(query, username)
 
 	var user AuthUser
-	var createdAtStr, updatedAtStr string
-	err := row.Scan(&user.Username, &user.Email, &user.ProfileImage, &createdAtStr, &updatedAtStr)
+	var hashedPassword, createdAtStr, updatedAtStr string
+	err := row.Scan(&hashedPassword, &user.Username, &user.Email, &user.ProfileImage, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		log.Printf("[ERROR] 認証エラー: %v", err)
+		return nil, err
+	}
+
+	if err := verifyPassword(hashedPassword, password); err != nil {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return nil, sql.ErrNoRows
+		}
+		log.Printf("[ERROR] パスワード検証エラー: %v", err)
 		return nil, err
 	}
 
@@ -324,27 +346,30 @@ func authenticateAuthUser(username, password string) (*AuthUser, error) {
 		log.Printf("[WARN] updated_at パース失敗、現在時刻を使用: %v", err)
 	}
 
-        log.Printf("[DEBUG] 認証成功: %s", username)
-        return &user, nil
+	log.Printf("[DEBUG] 認証成功: %s", username)
+	return &user, nil
 }
 
 func updateAuthUserPassword(username, newPassword string) error {
-        if db == nil {
-                return fmt.Errorf("データベース接続がありません")
-        }
+	if db == nil {
+		return fmt.Errorf("データベース接続がありません")
+	}
 
-        hashed := hashPassword(newPassword)
-        res, err := db.Exec("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?", hashed, username)
-        if err != nil {
-                return err
-        }
+	hashed, err := hashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("パスワードのハッシュ化に失敗しました: %w", err)
+	}
+	res, err := db.Exec("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?", hashed, username)
+	if err != nil {
+		return err
+	}
 
-        affected, err := res.RowsAffected()
-        if err == nil && affected == 0 {
-                return sql.ErrNoRows
-        }
+	affected, err := res.RowsAffected()
+	if err == nil && affected == 0 {
+		return sql.ErrNoRows
+	}
 
-        return err
+	return err
 }
 
 // ユーザー名でユーザー情報を取得（AuthUser型）
@@ -554,10 +579,10 @@ func FindUserByUsername(username string) (*User, error) {
 
 // 通常ログインハンドラ
 func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
-        if r.Method != http.MethodPost {
-                http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-                return
-        }
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
 	var req AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -599,64 +624,64 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			"loginAt":      time.Now().Unix(),
 		},
 	}
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(response)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
-        if r.Method != http.MethodPost {
-                http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-                return
-        }
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-        var req struct {
-                Username        string `json:"username"`
-                CurrentPassword string `json:"currentPassword"`
-                NewPassword     string `json:"newPassword"`
-        }
+	var req struct {
+		Username        string `json:"username"`
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
 
-        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                http.Error(w, "Invalid JSON", http.StatusBadRequest)
-                return
-        }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
-        req.Username = strings.TrimSpace(req.Username)
+	req.Username = strings.TrimSpace(req.Username)
 
-        if req.Username == "" || req.CurrentPassword == "" || req.NewPassword == "" {
-                http.Error(w, "必須項目が不足しています", http.StatusBadRequest)
-                return
-        }
+	if req.Username == "" || req.CurrentPassword == "" || req.NewPassword == "" {
+		http.Error(w, "必須項目が不足しています", http.StatusBadRequest)
+		return
+	}
 
-        if req.CurrentPassword == req.NewPassword {
-                http.Error(w, "新しいパスワードが現在のパスワードと同じです", http.StatusBadRequest)
-                return
-        }
+	if req.CurrentPassword == req.NewPassword {
+		http.Error(w, "新しいパスワードが現在のパスワードと同じです", http.StatusBadRequest)
+		return
+	}
 
-        if err := validatePasswordStrength(req.NewPassword); err != nil {
-                http.Error(w, err.Error(), http.StatusBadRequest)
-                return
-        }
+	if err := validatePasswordStrength(req.NewPassword); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-        if _, err := authenticateAuthUser(req.Username, req.CurrentPassword); err != nil {
-                http.Error(w, "現在のパスワードが正しくありません", http.StatusUnauthorized)
-                return
-        }
+	if _, err := authenticateAuthUser(req.Username, req.CurrentPassword); err != nil {
+		http.Error(w, "現在のパスワードが正しくありません", http.StatusUnauthorized)
+		return
+	}
 
-        if err := updateAuthUserPassword(req.Username, req.NewPassword); err != nil {
-                if err == sql.ErrNoRows {
-                        http.Error(w, "ユーザーが見つかりません", http.StatusNotFound)
-                        return
-                }
-                log.Printf("[ERROR] パスワード更新失敗: %v", err)
-                http.Error(w, "パスワード更新に失敗しました", http.StatusInternalServerError)
-                return
-        }
+	if err := updateAuthUserPassword(req.Username, req.NewPassword); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "ユーザーが見つかりません", http.StatusNotFound)
+			return
+		}
+		log.Printf("[ERROR] パスワード更新失敗: %v", err)
+		http.Error(w, "パスワード更新に失敗しました", http.StatusInternalServerError)
+		return
+	}
 
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]any{
-                "success": true,
-                "message": "パスワードを更新しました",
-        })
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"message": "パスワードを更新しました",
+	})
 }
 
 // 通常登録ハンドラ

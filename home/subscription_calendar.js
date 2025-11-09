@@ -319,7 +319,7 @@ class SubscriptionCalendarManager {
 
         const subscriptionListModal = document.createElement('div');
         subscriptionListModal.id = 'subscriptionListModal';
-    subscriptionListModal.className = 'td-modal-overlay z-[70]';
+        subscriptionListModal.className = 'td-modal-overlay z-[70]';
         subscriptionListModal.innerHTML = modalHtml;
 
         document.body.appendChild(subscriptionListModal);
@@ -348,11 +348,12 @@ class SubscriptionCalendarManager {
             document.body.removeChild(subscriptionListModal);
         });
 
-                document.getElementById('addNewSubscription').addEventListener('click', () => {
-                    document.body.removeChild(subscriptionListModal);
-                    const subscriptionManager = window.subscriptionManager;
-                    if (subscriptionManager) {
-                        subscriptionManager.showAddModal();
+        const addButton = document.getElementById('addNewSubscription');
+        addButton?.addEventListener('click', () => {
+            document.body.removeChild(subscriptionListModal);
+            const subscriptionManager = window.subscriptionManager;
+            if (subscriptionManager) {
+                subscriptionManager.showAddModal();
             }
         });
 
@@ -1124,7 +1125,7 @@ class SubscriptionCalendarManager {
                 }
 
                 if (window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
-                    await window.subscriptionManager.scheduleNotifications();
+                    await window.subscriptionManager.scheduleNotifications({ reschedule: true });
                 }
             } catch (error) {
                 Swal.fire('エラー', error.message, 'error');
@@ -1244,7 +1245,7 @@ class SubscriptionCalendarManager {
             }
 
             if (updatedAny && window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
-                await window.subscriptionManager.scheduleNotifications();
+                await window.subscriptionManager.scheduleNotifications({ reschedule: true });
             }
         } catch (error) {
             console.error('支払い日自動更新処理でエラー:', error);
