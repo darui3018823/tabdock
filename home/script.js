@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 4.3.0_js-r1
+// This code Version: 5.10.1_js-r1
 
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleBtn = document.getElementById("toggleFormat");
   
     const weekdays = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
+
+    let currentDate = new Date().toLocaleDateString();
   
     function formatTime(now) {
         let hours = now.getHours();
@@ -29,6 +31,14 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateClock() {
         const now = new Date();
         clockEl.textContent = formatTime(now);
+
+        const newDate = now.toLocaleDateString();
+        if (newDate !== currentDate) {
+            currentDate = newDate;
+            console.log('日付が更新されました。イベントを発行します。');
+            updateDate();
+            window.dispatchEvent(new CustomEvent('date:changed'));
+        }
     }
   
     function updateDate() {
@@ -50,8 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateDate();
   
     setInterval(updateClock, 1000);
-  
-    setInterval(updateDate, 10000);
   
     updatePCStatus();
     setInterval(updatePCStatus, 120000);

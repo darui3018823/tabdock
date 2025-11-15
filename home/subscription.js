@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.6.0_subsc-r3
+// This code Version: 5.10.1_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -23,6 +23,7 @@ class SubscriptionManager {
         this.hideAllPaymentDetails();
         this.setupEventListeners();
         this.registerCalendarListeners();
+        this.registerDateChangeListener();
     }
 
     setupEventListeners() {
@@ -56,6 +57,14 @@ class SubscriptionManager {
         });
 
         window.addEventListener('subscription:request-open', () => this.showAddModal());
+    }
+
+    registerDateChangeListener() {
+        window.addEventListener('date:changed', () => {
+            console.log('日付変更を検知しました。通知を再スケジュールします。');
+            this.scheduleNotifications({ reschedule: true, immediate: true })
+                .catch(err => console.error('日付変更による通知の再スケジュールに失敗しました:', err));
+        });
     }
 
     registerCalendarListeners() {
