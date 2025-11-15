@@ -29,7 +29,7 @@ import (
 )
 
 // const
-const version = "5.9.0"
+const version = "5.10.0"
 
 // var
 var fallbackHolidays map[string]string
@@ -948,9 +948,8 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.ParseMultipartForm(10 << 20) // 最大10MB
+	r.ParseMultipartForm(10 << 20)
 
-	// ユーザー名を取得
 	username := r.FormValue("username")
 	if username == "" {
 		http.Error(w, "ユーザー名が必要です", http.StatusBadRequest)
@@ -964,7 +963,6 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// ファイル拡張子チェック
 	ext := strings.ToLower(filepath.Ext(handler.Filename))
 	allowedExts := map[string]bool{
 		".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
@@ -974,7 +972,6 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ユニークなファイル名を生成
 	uniqueID := uuid.New().String()
 	filename := uniqueID + ext
 	filepath := "home/assets/acc_icon/" + filename
@@ -993,11 +990,9 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// データベースにプロフィール画像パスを保存
 	err = updateUserProfileImage(username, imagePath)
 	if err != nil {
 		log.Printf("[WARN] プロフィール画像のDB更新に失敗: %v", err)
-		// ファイルは保存されているため、エラーにはしない
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1008,7 +1003,6 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ユーザー情報を取得するAPI
 func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1029,7 +1023,6 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// データベースからユーザー情報を取得
 	user, err := getUserByUsername(req.Username)
 	if err != nil {
 		log.Printf("[ERROR] ユーザー情報取得エラー: %v", err)
