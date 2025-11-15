@@ -54,9 +54,9 @@ The host machine must meet the following requirements:
 - Storage: At least 300 MB of available space
 - Internet: Stable connection with at least 10 Mbps bandwidth
 
-⚠️ Devices that do not meet these requirements are **not guaranteed to function correctly.**
-^1 Although it should work on Macs with M1 chips based on specifications, official support is not planned.
-^2 On Linux systems, it is strongly recommended to use `systemd` instead of PowerShell.  
+⚠️ Devices that do not meet these requirements are **not guaranteed to function correctly.**<br>
+^1 Although it should work on Macs with M1 chips based on specifications, official support is not planned.<br>
+^2 On Linux systems, it is strongly recommended to use `systemd` instead of PowerShell.
   A setup script is provided at `./ps/linux_server_setup.ps1` to configure `systemd`, but it may not work in all environments.
 
 <br>
