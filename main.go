@@ -23,6 +23,7 @@ import (
 	"tabdock/subscription"
 	"time"
 
+	"golang.org/x/mod/semver"
 	_ "modernc.org/sqlite"
 
 	"github.com/google/uuid"
@@ -30,6 +31,7 @@ import (
 
 // const
 const version = "5.10.1"
+const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/main/latest_version.txt"
 
 // var
 var fallbackHolidays map[string]string
@@ -155,6 +157,7 @@ func serve(mux http.Handler) {
 }
 
 func main() {
+	go checkForUpdates()
 	mux := http.NewServeMux()
 	fallbackHolidays = preloadHolidays()
 
@@ -229,6 +232,30 @@ func main() {
 	})
 
 	serve(mux)
+}
+
+func checkForUpdates() {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(versionURL)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	latestVersion := strings.TrimSpace(string(body))
+
+	if semver.Compare("v"+latestVersion, "v"+version) > 0 {
+		log.Printf("\n[UPDATE] A new version %s is available. Please download from https://github.com/darui3018823/tabdock/releases\n", latestVersion)
+	}
 }
 
 func initSubscriptionDB() error {

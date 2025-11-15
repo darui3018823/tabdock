@@ -9,6 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/crypto v0.44.0
+	golang.org/x/mod v0.30.0
 	golang.org/x/sys v0.38.0
 	modernc.org/sqlite v1.40.0
 )
