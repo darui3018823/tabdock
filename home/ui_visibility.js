@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_ui-r1
+// This code Version: 5.10.0_ui-r1
 
 let wallpaperStorageWarningShown = false;
 
@@ -158,6 +158,7 @@ async function loadWallpapers() {
             img.src = "/" + path.replace(/\\/g, "/");
             img.alt = fileName;
             img.className = "rounded cursor-pointer hover:ring-2 ring-white";
+            img.loading = "lazy";
             img.onclick = () => handlePresetClick(img.src);
             presetWallpapers.appendChild(img);
         });
