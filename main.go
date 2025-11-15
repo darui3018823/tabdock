@@ -30,8 +30,8 @@ import (
 )
 
 // const
-const version = "5.10.2"
-const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/main/latest_version.txt"
+const version = "5.10.3"
+const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var
 var fallbackHolidays map[string]string
@@ -254,7 +254,7 @@ func checkForUpdates() {
 	latestVersion := strings.TrimSpace(string(body))
 
 	if semver.Compare("v"+latestVersion, "v"+version) > 0 {
-		log.Printf("\n[UPDATE] A new version %s is available. Please download from https://github.com/darui3018823/tabdock/releases\n", latestVersion)
+		log.Printf("[UPDATE] A new version %s is available. Please download from https://github.com/darui3018823/tabdock/releases\n", latestVersion)
 		log.Println("If you can't find a new version in Releases, please perform a 'git pull' to get the latest code.")
 	}
 }
