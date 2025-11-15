@@ -255,7 +255,7 @@ func checkForUpdates() {
 
 	if semver.Compare("v"+latestVersion, "v"+version) > 0 {
 		log.Printf("[UPDATE] A new version %s is available. Please download from https://github.com/darui3018823/tabdock/releases\n", latestVersion)
-		log.Println("If you can't find a new version in Releases, please perform a 'git pull' to get the latest code.")
+		log.Println("[UPDATE] If you can't find a new version in Releases, please perform a 'git pull' to get the latest code.")
 	}
 }
 
