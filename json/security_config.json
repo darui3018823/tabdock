@@ -1,4 +1,4 @@
-{
+﻿{
   "max_request_size_mb": 10,
   "rate_limit_per_min": 60,
   "dynamic_block_time_min": 30,
@@ -16,9 +16,9 @@
     "KP"
   ],
   "detection_patterns": {
-    "sql_injection": "(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|<script|onload|onerror|alert|confirm|prompt|document\\\\.cookie)",
-    "xss": "(?i)(<script|javascript:|onload|onerror|alert\\\\(|confirm\\\\(|prompt\\\\(|document\\\\.|window\\\\.|eval\\\\()",
-    "path_traversal": "(\\\\.\\\\./|\\\\.\\\\.\\\\\\\\|%2e%2e%2f|%2e%2e\\\\)",
+    "sql_injection": "(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|<script|onload|onerror|alert|confirm|prompt|document\\.cookie)",
+    "xss": "(?i)(<script|javascript:|onload|onerror|alert\\(|confirm\\(|prompt\\(|document\\.|window\\.|eval\\()))",
+    "path_traversal": "(\\.\\./|\\.\\.\\\\|%2e%2e%2f|%2e%2e\\\\)",
     "malicious_ua": [
       "sqlmap", "nessus", "acunetix", "nikto", "dirb", "gobuster",
       "masscan", "zmap", "nmap", "burpsuite", "metasploit",
