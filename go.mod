@@ -7,6 +7,7 @@ toolchain go1.24.7
 require (
 	github.com/duo-labs/webauthn v0.0.0-20221205164246-ebaf9b74c6ec
 	github.com/google/uuid v1.6.0
+	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/crypto v0.44.0
 	golang.org/x/mod v0.30.0
@@ -25,6 +26,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/shoenig/go-m1cpu v0.1.7 // indirect

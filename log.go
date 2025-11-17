@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/oschwald/geoip2-golang"
 )
 
 var trustedCIDRs []*net.IPNet
@@ -59,9 +61,15 @@ var rateLimitMutex sync.RWMutex
 var dynamicBlockMap = map[string]time.Time{}
 var dynamicBlockMutex sync.RWMutex
 
-var sqlInjectionPattern = regexp.MustCompile(`(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|<script|onload|onerror|alert|confirm|prompt|document\.cookie)`)
-var xssPattern = regexp.MustCompile(`(?i)(<script|javascript:|onload|onerror|alert\(|confirm\(|prompt\(|document\.|window\.|eval\()`)
-var pathTraversalPattern = regexp.MustCompile(`(\.\./|\.\.\\|%2e%2e%2f|%2e%2e\\)`)
+var (
+	sqlInjectionPattern  *regexp.Regexp
+	xssPattern           *regexp.Regexp
+	pathTraversalPattern *regexp.Regexp
+	maliciousUAPatterns  []string
+	suspiciousUAPatterns []string
+	suspiciousPathPatterns []string
+	geoipDB              *geoip2.Reader
+)
 
 type RateLimit struct {
 	Count     int
@@ -69,27 +77,72 @@ type RateLimit struct {
 	Mutex     sync.Mutex
 }
 
-type SecurityConfig struct {
-	MaxRequestSize   int64
-	RateLimitPerMin  int
-	AllowedMethods   []string
-	BlockedCountries []string
-	DynamicBlockTime time.Duration
+type DetectionPatterns struct {
+	SQLInjection    string   `json:"sql_injection"`
+	XSS             string   `json:"xss"`
+	PathTraversal   string   `json:"path_traversal"`
+	MaliciousUA     []string `json:"malicious_ua"`
+	SuspiciousUA    []string `json:"suspicious_ua"`
+	SuspiciousPath  []string `json:"suspicious_path"`
 }
 
-var secConfig = SecurityConfig{
-	MaxRequestSize:   10 * 1024 * 1024,
-	RateLimitPerMin:  60,
-	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"},
-	BlockedCountries: []string{"CN", "RU", "KP"},
-	DynamicBlockTime: 30 * time.Minute,
+type SecurityConfig struct {
+	MaxRequestSizeMB    int64             `json:"max_request_size_mb"`
+	RateLimitPerMin     int               `json:"rate_limit_per_min"`
+	DynamicBlockTimeMin int               `json:"dynamic_block_time_min"`
+	AllowedMethods      []string          `json:"allowed_methods"`
+	BlockedCountries    []string          `json:"blocked_countries"`
+	Patterns            DetectionPatterns `json:"detection_patterns"`
 }
+
+var secConfig SecurityConfig
+
+func loadSecurityConfig(filepath string) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return fmt.Errorf("セキュリティ設定ファイルが開けません: %w", err)
+	}
+	defer file.Close()
+
+	if err := json.NewDecoder(file).Decode(&secConfig); err != nil {
+		return fmt.Errorf("セキュリティ設定のJSONデコードに失敗: %w", err)
+	}
+
+	// 正規表現をコンパイル
+	sqlInjectionPattern, err = regexp.Compile(secConfig.Patterns.SQLInjection)
+	if err != nil {
+		return fmt.Errorf("SQL Injection パターンのコンパイルに失敗: %w", err)
+	}
+	xssPattern, err = regexp.Compile(secConfig.Patterns.XSS)
+	if err != nil {
+		return fmt.Errorf("XSS パターンのコンパイルに失敗: %w", err)
+	}
+	pathTraversalPattern, err = regexp.Compile(secConfig.Patterns.PathTraversal)
+	if err != nil {
+		return fmt.Errorf("Path Traversal パターンのコンパイルに失敗: %w", err)
+	}
+    
+    maliciousUAPatterns = secConfig.Patterns.MaliciousUA
+    suspiciousUAPatterns = secConfig.Patterns.SuspiciousUA
+    suspiciousPathPatterns = secConfig.Patterns.SuspiciousPath
+
+	return nil
+}
+
 
 func init() {
-	err := loadTrustedIPs("./json/trusted_ips.json")
-	if err != nil {
+	if err := loadTrustedIPs("./json/trusted_ips.json"); err != nil {
 		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
 		os.Exit(1)
+	}
+
+	if err := loadSecurityConfig("./json/security_config.json"); err != nil {
+		fmt.Println("security_config.json の読み込みに失敗しました:", err)
+		os.Exit(1)
+	}
+
+	if err := loadGeoIPDatabase("./geoip/GeoLite2-Country.mmdb"); err != nil {
+		fmt.Println("警告: GeoIPデータベースが読み込めませんでした。国別ブロック機能は無効になります。:", err)
 	}
 
 	go startCleanupRoutine()
@@ -118,8 +171,9 @@ func cleanupMaps() {
 	rateLimitMutex.Unlock()
 
 	dynamicBlockMutex.Lock()
+	blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
 	for ip, blockTime := range dynamicBlockMap {
-		if now.Sub(blockTime) > secConfig.DynamicBlockTime {
+		if now.Sub(blockTime) > blockDuration {
 			delete(dynamicBlockMap, ip)
 		}
 	}
@@ -166,6 +220,39 @@ func isTrustedIP(ipStr string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func loadGeoIPDatabase(filepath string) error {
+	var err error
+	geoipDB, err = geoip2.Open(filepath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func isBlockedCountry(ipStr string) bool {
+	if geoipDB == nil || len(secConfig.BlockedCountries) == 0 {
+		return false
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	country, err := geoipDB.Country(ip)
+	if err != nil {
+		return false
+	}
+
+	for _, blocked := range secConfig.BlockedCountries {
+		if country.Country.IsoCode == blocked {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -236,25 +323,13 @@ func detectSuspiciousUA(ua string) string {
 		return "deny"
 	}
 
-	maliciousPatterns := []string{
-		"sqlmap", "nessus", "acunetix", "nikto", "dirb", "gobuster",
-		"masscan", "zmap", "nmap", "burpsuite", "metasploit",
-		"havij", "pangolin", "sqlninja", "beef", "w3af",
-	}
-
-	for _, pattern := range maliciousPatterns {
+	for _, pattern := range maliciousUAPatterns {
 		if strings.Contains(lower, pattern) {
 			return "deny"
 		}
 	}
 
-	suspiciousPatterns := []string{
-		"curl", "wget", "python", "perl", "ruby", "php", "java",
-		"bot", "crawler", "spider", "scraper", "scanner",
-		"test", "check", "monitor", "probe", "audit",
-	}
-
-	for _, pattern := range suspiciousPatterns {
+	for _, pattern := range suspiciousUAPatterns {
 		if strings.Contains(lower, pattern) {
 			return "warn"
 		}
@@ -273,13 +348,7 @@ func detectSuspiciousUA(ua string) string {
 
 func isSuspiciousPath(path string) bool {
 	lower := strings.ToLower(path)
-	attackPatterns := []string{
-		".php", ".env", ".bak", ".old", ".git", ".htaccess", "wp-", "admin", "login",
-		".config", ".ini", ".conf", ".log", ".sql", ".db", ".backup", ".tmp",
-		"phpmyadmin", "cpanel", "webmail", ".aws", ".ssh", "id_rsa", "passwd",
-		"shadow", "etc/", "proc/", "var/log", "boot.ini", "web.config",
-	}
-	for _, pattern := range attackPatterns {
+	for _, pattern := range suspiciousPathPatterns {
 		if strings.Contains(lower, pattern) {
 			return true
 		}
@@ -335,9 +404,10 @@ func isDynamicallyBlocked(ip string) bool {
 
 	dynamicBlockMutex.RLock()
 	defer dynamicBlockMutex.RUnlock()
-
+    
+    blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
 	if blockTime, exists := dynamicBlockMap[ip]; exists {
-		if time.Since(blockTime) < secConfig.DynamicBlockTime {
+		if time.Since(blockTime) < blockDuration {
 			return true
 		}
 		delete(dynamicBlockMap, ip)
@@ -380,8 +450,9 @@ func addSecurityHeaders(w http.ResponseWriter) {
 }
 
 func detectAdvancedThreats(r *http.Request) string {
+    maxSize := secConfig.MaxRequestSizeMB * 1024 * 1024
 	if r.Method == "POST" || r.Method == "PUT" {
-		if r.ContentLength > secConfig.MaxRequestSize {
+		if r.ContentLength > maxSize {
 			return "oversized"
 		}
 	}
@@ -416,15 +487,36 @@ func detectAdvancedThreats(r *http.Request) string {
 	return "clean"
 }
 
-func logRequest(r *http.Request, ip, level string) {
-	now := time.Now().Format("[2006/01/02 15:04:05]")
+type LogEntry struct {
+	Timestamp    string `json:"timestamp"`
+	Level        string `json:"level"`
+	Method       string `json:"method"`
+	Path         string `json:"path"`
+	IP           string `json:"ip"`
+	UserAgent    string `json:"user_agent"`
+	RequestHash  string `json:"request_hash"`
+}
 
+func logRequest(r *http.Request, ip, level string) {
 	reqData := fmt.Sprintf("%s%s%s%s", r.Method, r.URL.Path, r.UserAgent(), ip)
 	hasher := sha256.Sum256([]byte(reqData))
 	reqHash := hex.EncodeToString(hasher[:])[:16]
 
-	msg := fmt.Sprintf("%s [%s] %s %s UA: %s ReqIP: %s Hash: %s\n",
-		now, strings.ToUpper(level), r.Method, r.URL.Path, r.UserAgent(), ip, reqHash)
+	entry := LogEntry{
+		Timestamp:    time.Now().Format(time.RFC3339),
+		Level:        strings.ToUpper(level),
+		Method:       r.Method,
+		Path:         r.URL.Path,
+		IP:           ip,
+		UserAgent:    r.UserAgent(),
+		RequestHash:  reqHash,
+	}
+
+	logData, err := json.Marshal(entry)
+	if err != nil {
+		fmt.Println("Failed to marshal log entry:", err)
+		return
+	}
 
 	switch level {
 	case "info", "warn", "attack", "error", "block":
@@ -433,7 +525,6 @@ func logRequest(r *http.Request, ip, level string) {
 	}
 
 	safeIP := sanitizeIP(ip)
-
 	baseDir := "./log"
 	dir := filepath.Join(baseDir, level, safeIP)
 	dir = filepath.Clean(dir)
@@ -450,7 +541,7 @@ func logRequest(r *http.Request, ip, level string) {
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer f.Close()
-		f.WriteString(msg)
+		f.WriteString(string(logData) + "\n")
 	}
 
 	if level == "warn" || level == "attack" || level == "block" {
@@ -531,6 +622,12 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// 信頼できないIPに対する通常のセキュリティチェック
+		if isBlockedCountry(ip) {
+			logRequest(r, ip, "block")
+			http.Error(w, "Access Denied", http.StatusForbidden)
+			return
+		}
+
 		if !isAllowedMethod(r.Method) {
 			incrementScore(ip, 10)
 			logRequest(r, ip, "attack")
