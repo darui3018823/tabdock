@@ -33,5 +33,6 @@
       "phpmyadmin", "cpanel", "webmail", ".aws", ".ssh", "id_rsa", "passwd",
       "shadow", "etc/", "proc/", "var/log", "boot.ini", "web.config"
     ]
-  }
+  },
+  "security_level": "strict"
 }

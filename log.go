@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.5.0_log-r1
+// This code Version: 5.12.0_log-r1
 
 package main
 
@@ -100,6 +100,7 @@ type SecurityConfig struct {
 	AllowedMethods      []string          `json:"allowed_methods"`
 	BlockedCountries    []string          `json:"blocked_countries"`
 	Patterns            DetectionPatterns `json:"detection_patterns"`
+	SecurityLevel       string            `json:"security_level"`
 }
 
 var secConfig SecurityConfig
@@ -113,6 +114,10 @@ func loadSecurityConfig(filepath string) error {
 
 	if err := json.NewDecoder(file).Decode(&secConfig); err != nil {
 		return fmt.Errorf("セキュリティ設定のJSONデコードに失敗: %w", err)
+	}
+
+	if secConfig.SecurityLevel == "" {
+		secConfig.SecurityLevel = "strict"
 	}
 
 	// 正規表現をコンパイル
@@ -599,6 +604,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
+		isRelaxedMode := secConfig.SecurityLevel == "relaxed"
 
 		if isPrivateIP || isTrusted {
 			if !isAllowedMethod(r.Method) {
@@ -625,7 +631,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if isBlockedCountry(ip) {
+		if !isRelaxedMode && isBlockedCountry(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
@@ -639,31 +645,37 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if !checkRateLimit(ip, r.URL.Path) {
-			incrementScore(ip, 5)
-			logRequest(r, ip, "block")
-			addDynamicBlock(ip)
-			http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
-			return
+			if isRelaxedMode {
+				logRequest(r, ip, "warn")
+			} else {
+				incrementScore(ip, 5)
+				logRequest(r, ip, "block")
+				addDynamicBlock(ip)
+				http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+				return
+			}
 		}
 
-		if isDynamicallyBlocked(ip) {
+		if !isRelaxedMode && isDynamicallyBlocked(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
 		}
 
 		threatLevel := detectAdvancedThreats(r)
-		switch threatLevel {
-		case "oversized":
-			incrementScore(ip, 8)
-			logRequest(r, ip, "attack")
-			http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
-			return
-		case "header_manipulation", "long_header", "long_header_name":
-			incrementScore(ip, 7)
-			logRequest(r, ip, "attack")
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
+		if threatLevel != "clean" && !isRelaxedMode {
+			switch threatLevel {
+			case "oversized":
+				incrementScore(ip, 8)
+				logRequest(r, ip, "attack")
+				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
+				return
+			case "header_manipulation", "long_header", "long_header_name":
+				incrementScore(ip, 7)
+				logRequest(r, ip, "attack")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			}
 		}
 
 		internalLevelBoost := 0
@@ -671,7 +683,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			internalLevelBoost += 2
 		}
 
-		if isBlockedDirectIP(ip) {
+		if !isRelaxedMode && isBlockedDirectIP(ip) {
 			incrementScore(ip, 5+internalLevelBoost)
 			logRequest(r, ip, "warn")
 			http.Redirect(w, r, "/error/403", http.StatusFound)
@@ -694,29 +706,42 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		uaStatus := detectSuspiciousUA(ua)
 		switch uaStatus {
 		case "deny":
-			incrementScore(ip, 8+internalLevelBoost)
-			logRequest(r, ip, "attack")
-			addDynamicBlock(ip)
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
+			if isRelaxedMode {
+				incrementScore(ip, 1+internalLevelBoost)
+				logRequest(r, ip, "warn")
+			} else {
+				incrementScore(ip, 8+internalLevelBoost)
+				logRequest(r, ip, "attack")
+				addDynamicBlock(ip)
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			}
 		case "warn":
-			incrementScore(ip, 4+internalLevelBoost)
-			logRequest(r, ip, "warn")
+			if isRelaxedMode {
+				logRequest(r, ip, "info")
+			} else {
+				incrementScore(ip, 4+internalLevelBoost)
+				logRequest(r, ip, "warn")
+			}
 		default:
 			logRequest(r, ip, getLevel(ip))
 		}
 
-		if strings.HasPrefix(ip, "60.") {
+		if !isRelaxedMode && strings.HasPrefix(ip, "60.") {
 			incrementScore(ip, 3+internalLevelBoost)
 			logRequest(r, ip, "warn")
 		}
 
 		currentLevel := getLevel(ip)
 		if currentLevel == "block" {
-			addDynamicBlock(ip)
-			logRequest(r, ip, "block")
-			http.Redirect(w, r, "/error/503", http.StatusFound)
-			return
+			if isRelaxedMode {
+				logRequest(r, ip, "warn")
+			} else {
+				addDynamicBlock(ip)
+				logRequest(r, ip, "block")
+				http.Redirect(w, r, "/error/503", http.StatusFound)
+				return
+			}
 		}
 
 		next(w, r)
