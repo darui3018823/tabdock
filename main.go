@@ -300,18 +300,7 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 			http.Redirect(w, r, r.URL.Path+"/", http.StatusMovedPermanently)
 			return
 		}
-
-		rw := &responseWriterWithStatus{ResponseWriter: w, status: 200}
-		next.ServeHTTP(rw, r)
-
-		switch rw.status {
-		case 404:
-			http.Redirect(w, r, "/error/404/", http.StatusFound)
-			return
-		case 503:
-			http.Redirect(w, r, "/error/503/", http.StatusFound)
-			return
-		}
+		next.ServeHTTP(w, r)
 	})
 }
 
