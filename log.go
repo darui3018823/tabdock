@@ -62,13 +62,13 @@ var dynamicBlockMap = map[string]time.Time{}
 var dynamicBlockMutex sync.RWMutex
 
 var (
-	sqlInjectionPattern  *regexp.Regexp
-	xssPattern           *regexp.Regexp
-	pathTraversalPattern *regexp.Regexp
-	maliciousUAPatterns  []string
-	suspiciousUAPatterns []string
+	sqlInjectionPattern    *regexp.Regexp
+	xssPattern             *regexp.Regexp
+	pathTraversalPattern   *regexp.Regexp
+	maliciousUAPatterns    []string
+	suspiciousUAPatterns   []string
 	suspiciousPathPatterns []string
-	geoipDB              *geoip2.Reader
+	geoipDB                *geoip2.Reader
 )
 
 type RateLimit struct {
@@ -78,12 +78,12 @@ type RateLimit struct {
 }
 
 type DetectionPatterns struct {
-	SQLInjection    string   `json:"sql_injection"`
-	XSS             string   `json:"xss"`
-	PathTraversal   string   `json:"path_traversal"`
-	MaliciousUA     []string `json:"malicious_ua"`
-	SuspiciousUA    []string `json:"suspicious_ua"`
-	SuspiciousPath  []string `json:"suspicious_path"`
+	SQLInjection   string   `json:"sql_injection"`
+	XSS            string   `json:"xss"`
+	PathTraversal  string   `json:"path_traversal"`
+	MaliciousUA    []string `json:"malicious_ua"`
+	SuspiciousUA   []string `json:"suspicious_ua"`
+	SuspiciousPath []string `json:"suspicious_path"`
 }
 
 type SecurityConfig struct {
@@ -121,14 +121,13 @@ func loadSecurityConfig(filepath string) error {
 	if err != nil {
 		return fmt.Errorf("Path Traversal パターンのコンパイルに失敗: %w", err)
 	}
-    
-    maliciousUAPatterns = secConfig.Patterns.MaliciousUA
-    suspiciousUAPatterns = secConfig.Patterns.SuspiciousUA
-    suspiciousPathPatterns = secConfig.Patterns.SuspiciousPath
+
+	maliciousUAPatterns = secConfig.Patterns.MaliciousUA
+	suspiciousUAPatterns = secConfig.Patterns.SuspiciousUA
+	suspiciousPathPatterns = secConfig.Patterns.SuspiciousPath
 
 	return nil
 }
-
 
 func init() {
 	if err := loadTrustedIPs("./json/trusted_ips.json"); err != nil {
@@ -404,8 +403,8 @@ func isDynamicallyBlocked(ip string) bool {
 
 	dynamicBlockMutex.RLock()
 	defer dynamicBlockMutex.RUnlock()
-    
-    blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
+
+	blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
 	if blockTime, exists := dynamicBlockMap[ip]; exists {
 		if time.Since(blockTime) < blockDuration {
 			return true
@@ -450,7 +449,7 @@ func addSecurityHeaders(w http.ResponseWriter) {
 }
 
 func detectAdvancedThreats(r *http.Request) string {
-    maxSize := secConfig.MaxRequestSizeMB * 1024 * 1024
+	maxSize := secConfig.MaxRequestSizeMB * 1024 * 1024
 	if r.Method == "POST" || r.Method == "PUT" {
 		if r.ContentLength > maxSize {
 			return "oversized"
@@ -488,13 +487,13 @@ func detectAdvancedThreats(r *http.Request) string {
 }
 
 type LogEntry struct {
-	Timestamp    string `json:"timestamp"`
-	Level        string `json:"level"`
-	Method       string `json:"method"`
-	Path         string `json:"path"`
-	IP           string `json:"ip"`
-	UserAgent    string `json:"user_agent"`
-	RequestHash  string `json:"request_hash"`
+	Timestamp   string `json:"timestamp"`
+	Level       string `json:"level"`
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	IP          string `json:"ip"`
+	UserAgent   string `json:"user_agent"`
+	RequestHash string `json:"request_hash"`
 }
 
 func logRequest(r *http.Request, ip, level string) {
@@ -503,13 +502,13 @@ func logRequest(r *http.Request, ip, level string) {
 	reqHash := hex.EncodeToString(hasher[:])[:16]
 
 	entry := LogEntry{
-		Timestamp:    time.Now().Format(time.RFC3339),
-		Level:        strings.ToUpper(level),
-		Method:       r.Method,
-		Path:         r.URL.Path,
-		IP:           ip,
-		UserAgent:    r.UserAgent(),
-		RequestHash:  reqHash,
+		Timestamp:   time.Now().Format(time.RFC3339),
+		Level:       strings.ToUpper(level),
+		Method:      r.Method,
+		Path:        r.URL.Path,
+		IP:          ip,
+		UserAgent:   r.UserAgent(),
+		RequestHash: reqHash,
 	}
 
 	logData, err := json.Marshal(entry)
@@ -566,7 +565,6 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		addSecurityHeaders(w)
 
-		// CORS プリフライトリクエストの処理
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -576,37 +574,30 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		ua := r.UserAgent()
 		loadScores()
 
-		// 最優先: localhost系のアクセスは常に許可
 		if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 			next(w, r)
 			return
 		}
 
-		// WebAuthn APIは常に許可
 		if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
 			next(w, r)
 			return
 		}
 
-		// 信頼できるIPアドレスかどうかを早期に判定
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
 
-		// 信頼できるIPの場合、スコアやブロック状態に関係なく基本的なチェックのみで通す
 		if isPrivateIP || isTrusted {
-			// 基本的なメソッドチェックのみ実行
 			if !isAllowedMethod(r.Method) {
-				logRequest(r, ip, "warn") // 信頼できるIPなのでスコア増加は行わない
+				logRequest(r, ip, "warn")
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
 
-			// レート制限は信頼できるIPには適用しない（ログのみ）
 			if !checkRateLimit(ip) {
-				logRequest(r, ip, "warn") // ログは残すがブロックはしない
+				logRequest(r, ip, "warn")
 			}
 
-			// 疑わしいパスでもログのみでブロックしない
 			if isSuspiciousPath(r.URL.Path) {
 				logRequest(r, ip, "warn")
 			} else {
@@ -621,7 +612,6 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// 信頼できないIPに対する通常のセキュリティチェック
 		if isBlockedCountry(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
