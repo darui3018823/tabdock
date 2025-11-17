@@ -376,10 +376,9 @@ func isSuspiciousPath(path string) bool {
 }
 
 func checkRateLimit(ip string, path string) bool {
-	// Check if the path has an exempt extension
 	for _, ext := range rateLimitExemptExtensions {
 		if strings.HasSuffix(strings.ToLower(path), ext) {
-			return true // Exempt from rate limiting
+			return true
 		}
 	}
 
