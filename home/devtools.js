@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_devtools-r1
+// This code Version: 5.10.4_devtools-r1
 
 let debugLog = [];
 let maxLogEntries = 200;
@@ -930,7 +930,12 @@ forceSyncButton?.addEventListener("click", async (event) => {
                 </div>
             `,
             timer: 6000,
-            showConfirmButton: true
+            showConfirmButton: true,
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
         });
         
     } catch (error) {
@@ -1178,109 +1183,106 @@ document.getElementById("clearLocalStorageBtn").addEventListener("click", async 
     }
 });
 
-document.getElementById("showDebugLogBtn").addEventListener("click", async () => {
+document.getElementById("showDebugLogBtn").addEventListener("click", () => {
+    const modal = document.getElementById('debugLogModal');
+    const content = document.getElementById('debugLogContent');
+    if (!modal || !content) return;
+
     const diagnostics = getSystemDiagnostics();
 
-    let logHtml = `
-        <div class="text-left text-xs space-y-4" id="debugLogModal">
-            <section class="bg-black/25 border border-white/10 rounded-lg p-3 space-y-1">
-                <h4 class="font-semibold text-white/80">システム情報</h4>
-                <div>ブラウザ: <span class="text-white/80">${escapeHtml(diagnostics.userAgent.split(' ').pop() || '不明')}</span></div>
-                <div>画面: <span class="text-white/80">${diagnostics.screen.width}×${diagnostics.screen.height}</span></div>
-                <div>メモリ: <span class="text-white/80">${escapeHtml(typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory)}</span></div>
-                <div>デバイスメモリ: <span class="text-white/80">${escapeHtml(diagnostics.deviceMemory)}</span></div>
-                <div>最終完全同期: <span class="text-white/80">${escapeHtml(lastFullSync || '未実行')}</span></div>
-            </section>
-            <section>
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <label class="flex items-center gap-1">レベル
-                        <select id="debugLogLevelFilter" class="bg-black/40 border border-white/20 rounded px-2 py-1">
-                            <option value="all">すべて</option>
-                            <option value="info">INFO</option>
-                            <option value="warn">WARN</option>
-                            <option value="error">ERROR</option>
-                            <option value="debug">DEBUG</option>
-                        </select>
-                    </label>
-                    <label class="flex items-center gap-1">件数
-                        <select id="debugLogLimit" class="bg-black/40 border border-white/20 rounded px-2 py-1">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </label>
-                    <div class="ml-auto flex gap-2">
-                        <button id="debugLogCopyBtn" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white">コピー</button>
-                        <button id="debugLogDownloadBtn" class="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-white">JSON出力</button>
-                    </div>
+    content.innerHTML = `
+        <section class="bg-black/25 border border-white/10 rounded-lg p-3 space-y-1">
+            <h4 class="font-semibold text-white/80">システム情報</h4>
+            <div>ブラウザ: <span class="text-white/80">${escapeHtml(diagnostics.userAgent.split(' ').pop() || '不明')}</span></div>
+            <div>画面: <span class="text-white/80">${diagnostics.screen.width}×${diagnostics.screen.height}</span></div>
+            <div>メモリ: <span class="text-white/80">${escapeHtml(typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory)}</span></div>
+            <div>デバイスメモリ: <span class="text-white/80">${escapeHtml(diagnostics.deviceMemory)}</span></div>
+            <div>最終完全同期: <span class="text-white/80">${escapeHtml(lastFullSync || '未実行')}</span></div>
+        </section>
+        <section>
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+                <label class="flex items-center gap-1">レベル
+                    <select id="debugLogLevelFilter" class="bg-black/40 border border-white/20 rounded px-2 py-1">
+                        <option value="all">すべて</option>
+                        <option value="info">INFO</option>
+                        <option value="warn">WARN</option>
+                        <option value="error">ERROR</option>
+                        <option value="debug">DEBUG</option>
+                    </select>
+                </label>
+                <label class="flex items-center gap-1">件数
+                    <select id="debugLogLimit" class="bg-black/40 border border-white/20 rounded px-2 py-1">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </label>
+                <div class="ml-auto flex gap-2">
+                    <button id="debugLogCopyBtn" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white">コピー</button>
+                    <button id="debugLogDownloadBtn" class="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-white">JSON出力</button>
                 </div>
-                <div class="text-white/60 text-[11px] mb-2">保持件数: ${debugLog.length} / 表示上限: ${maxLogEntries}</div>
-                <div id="debugLogEntries" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
-            </section>
-        </div>
+            </div>
+            <div class="text-white/60 text-[11px] mb-2">保持件数: ${debugLog.length} / 表示上限: ${maxLogEntries}</div>
+            <div id="debugLogEntries" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+        </section>
     `;
 
-    await Swal.fire({
-        title: 'デバッグ情報',
-        html: logHtml,
-        width: '680px',
-        confirmButtonText: '閉じる',
-        didOpen: () => {
-            const container = Swal.getHtmlContainer();
-            if (!container) return;
-            const levelSelect = container.querySelector('#debugLogLevelFilter');
-            const limitSelect = container.querySelector('#debugLogLimit');
-            const entriesContainer = container.querySelector('#debugLogEntries');
-            const copyBtn = container.querySelector('#debugLogCopyBtn');
-            const downloadBtn = container.querySelector('#debugLogDownloadBtn');
+    const levelSelect = content.querySelector('#debugLogLevelFilter');
+    const limitSelect = content.querySelector('#debugLogLimit');
+    const entriesContainer = content.querySelector('#debugLogEntries');
+    const copyBtn = content.querySelector('#debugLogCopyBtn');
+    const downloadBtn = content.querySelector('#debugLogDownloadBtn');
 
-            const refresh = () => {
-                const level = levelSelect.value;
-                const limit = parseInt(limitSelect.value, 10);
-                renderDebugLogEntries(entriesContainer, { level, limit });
-            };
+    const refresh = () => {
+        const level = levelSelect.value;
+        const limit = parseInt(limitSelect.value, 10);
+        renderDebugLogEntries(entriesContainer, { level, limit });
+    };
 
-            levelSelect.addEventListener('change', refresh);
-            limitSelect.addEventListener('change', refresh);
+    levelSelect.addEventListener('change', refresh);
+    limitSelect.addEventListener('change', refresh);
 
-            copyBtn?.addEventListener('click', async () => {
-                try {
-                    const level = levelSelect.value;
-                    const limit = parseInt(limitSelect.value, 10);
-                    const slice = getDebugLogSlice(level, limit);
-                    await navigator.clipboard.writeText(JSON.stringify(slice, null, 2));
-                    Toast?.fire({ icon: 'success', title: 'ログをコピーしました' });
-                } catch (error) {
-                    console.error('ログコピーに失敗しました:', error);
-                    Swal.showValidationMessage('クリップボードへのコピーに失敗しました');
-                }
-            });
-
-            downloadBtn?.addEventListener('click', () => {
-                try {
-                    const level = levelSelect.value;
-                    const limit = parseInt(limitSelect.value, 10);
-                    const slice = getDebugLogSlice(level, limit);
-                    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), level, limit, entries: slice }, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `tabdock-debug-log-${Date.now()}.json`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
-                    Toast?.fire({ icon: 'success', title: 'ログをエクスポートしました' });
-                } catch (error) {
-                    console.error('ログエクスポートに失敗しました:', error);
-                    Swal.showValidationMessage('ログのエクスポートに失敗しました');
-                }
-            });
-
-            refresh();
+    copyBtn?.addEventListener('click', async () => {
+        try {
+            const level = levelSelect.value;
+            const limit = parseInt(limitSelect.value, 10);
+            const slice = getDebugLogSlice(level, limit);
+            await navigator.clipboard.writeText(JSON.stringify(slice, null, 2));
+            Toast?.fire({ icon: 'success', title: 'ログをコピーしました' });
+        } catch (error) {
+            console.error('ログコピーに失敗しました:', error);
+            Toast?.fire({ icon: 'error', title: 'コピーに失敗しました' });
         }
     });
+
+    downloadBtn?.addEventListener('click', () => {
+        try {
+            const level = levelSelect.value;
+            const limit = parseInt(limitSelect.value, 10);
+            const slice = getDebugLogSlice(level, limit);
+            const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), level, limit, entries: slice }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tabdock-debug-log-${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            Toast?.fire({ icon: 'success', title: 'ログをエクスポートしました' });
+        } catch (error) {
+            console.error('ログエクスポートに失敗しました:', error);
+            Toast?.fire({ icon: 'error', title: 'エクスポートに失敗しました' });
+        }
+    });
+
+    refresh();
+    modal.classList.remove('hidden');
+});
+
+document.getElementById("closeDebugLogModal")?.addEventListener("click", () => {
+    document.getElementById('debugLogModal').classList.add('hidden');
 });
 
 document.getElementById("deleteAllShiftsBtn").addEventListener("click", async () => {
