@@ -11,8 +11,6 @@
     "OPTIONS"
   ],
   "blocked_countries": [
-    "CN",
-    "RU",
     "KP"
   ],
   "detection_patterns": {
