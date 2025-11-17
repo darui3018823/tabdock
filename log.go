@@ -61,6 +61,13 @@ var rateLimitMutex sync.RWMutex
 var dynamicBlockMap = map[string]time.Time{}
 var dynamicBlockMutex sync.RWMutex
 
+var rateLimitExemptExtensions = []string{
+	".css", ".js",
+	".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+	".woff", ".woff2", ".ttf", ".eot",
+	".json",
+}
+
 var (
 	sqlInjectionPattern    *regexp.Regexp
 	xssPattern             *regexp.Regexp
@@ -368,7 +375,14 @@ func isSuspiciousPath(path string) bool {
 	return false
 }
 
-func checkRateLimit(ip string) bool {
+func checkRateLimit(ip string, path string) bool {
+	// Check if the path has an exempt extension
+	for _, ext := range rateLimitExemptExtensions {
+		if strings.HasSuffix(strings.ToLower(path), ext) {
+			return true // Exempt from rate limiting
+		}
+	}
+
 	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
 		return true
 	}
@@ -594,7 +608,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 
-			if !checkRateLimit(ip) {
+			if !checkRateLimit(ip, r.URL.Path) {
 				logRequest(r, ip, "warn")
 			}
 
@@ -625,7 +639,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if !checkRateLimit(ip) {
+		if !checkRateLimit(ip, r.URL.Path) {
 			incrementScore(ip, 5)
 			logRequest(r, ip, "block")
 			addDynamicBlock(ip)
