@@ -1,35 +1,64 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
+// This code Version: 5.10.5_ui-r1
+
+// 2025 TabDock: darui3018823 All rights reserved.
+// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
+// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 5.10.0_ui-r1
 
 let wallpaperStorageWarningShown = false;
 
 function applyVisualSettings() {
+    // ぼかしと明るさをlocalStorageから読み込む（今回は変更しないが、元のロジックを維持）
     const blur = parseInt(document.getElementById("blurRange")?.value || 0);
     const brightness = parseInt(document.getElementById("brightnessRange")?.value || 100);
-    const opacity = parseInt(document.getElementById("opacityRange")?.value || 100);
-
     const blurLayer = document.getElementById("wallpaperBlurLayer");
-    const widgets = document.querySelectorAll('.widget-box'); 
-
     if (blurLayer) {
         blurLayer.style.backdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
         blurLayer.style.webkitBackdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
     }
 
+    // 保存されたウィジェットの不透明度を適用
+    const savedOpacity = localStorage.getItem('tabdock_widget_opacity') ?? 30; // デフォルトは30 (70%不透明)
+    const alpha = (100 - parseInt(savedOpacity)) / 100;
+    const widgets = document.querySelectorAll('.widget-box');
     widgets.forEach(widget => {
-        const alpha = Math.max(opacity / 100, 0.1);
-        document.documentElement.style.setProperty('--widget-bg', `rgba(30, 30, 30, ${alpha})`);
+        widget.style.backgroundColor = `rgba(0, 0, 0, ${alpha})`;
     });
 
-    // 表示の更新
+    // モーダル内のスライダーとテキスト表示を更新
+    const opacitySlider = document.getElementById("opacityRange");
+    const opacityValueEl = document.getElementById("opacityValue");
+    if (opacitySlider) {
+        opacitySlider.value = savedOpacity;
+    }
+    if (opacityValueEl) {
+        opacityValueEl.textContent = `${100 - parseInt(savedOpacity)}%`; // ユーザーには不透明度として表示
+    }
+    
+    // 他のスライダーのテキスト表示も更新
     const blurValue = document.getElementById("blurValue");
     const brightnessValue = document.getElementById("brightnessValue");
-    const opacityValue = document.getElementById("opacityValue");
     if (blurValue) blurValue.textContent = `${blur}px`;
     if (brightnessValue) brightnessValue.textContent = `${brightness}%`;
-    if (opacityValue) opacityValue.textContent = `${opacity}%`;
+}
+
+function tempApplyOpacity() {
+    const opacitySlider = document.getElementById("opacityRange");
+    const sliderValue = parseInt(opacitySlider.value);
+    const alpha = (100 - sliderValue) / 100;
+    
+    const widgets = document.querySelectorAll('.widget-box');
+    widgets.forEach(widget => {
+        widget.style.backgroundColor = `rgba(0, 0, 0, ${alpha})`;
+    });
+
+    const opacityValueEl = document.getElementById("opacityValue");
+    if (opacityValueEl) {
+        opacityValueEl.textContent = `${100 - sliderValue}%`; // ユーザーには不透明度として表示
+    }
 }
 
 (function initVisibilitySettings() {
@@ -39,21 +68,44 @@ function applyVisualSettings() {
         handlePresetClick(savedWallpaper, { persist: false });
     }
 
-    const sliders = ["blurRange", "brightnessRange", "opacityRange"];
-    sliders.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener("input", applyVisualSettings);
-        }
+    // 元のぼかし・明るさスライダーのイベントリスナーはそのまま
+    const blurSlider = document.getElementById("blurRange");
+    const brightnessSlider = document.getElementById("brightnessRange");
+    if (blurSlider) blurSlider.addEventListener("input", () => {
+        const blurValue = document.getElementById("blurValue");
+        if(blurValue) blurValue.textContent = `${blurSlider.value}px`;
     });
+    if (brightnessSlider) brightnessSlider.addEventListener("input", () => {
+        const brightnessValue = document.getElementById("brightnessValue");
+        if(brightnessValue) brightnessValue.textContent = `${brightnessSlider.value}%`;
+    });
+
+    // 透明度スライダーはリアルタイムプレビュー
+    const opacitySlider = document.getElementById("opacityRange");
+    if (opacitySlider) {
+        opacitySlider.addEventListener("input", tempApplyOpacity);
+    }
 
     const applyBtn = document.getElementById("applyWallpaperAdvanced");
     const closeBtn = document.getElementById("closeWallpaperAdvancedModal");
 
     if (applyBtn) {
         applyBtn.addEventListener("click", () => {
+            // 透明度の値を保存
+            const opacity = document.getElementById("opacityRange").value;
+            localStorage.setItem('tabdock_widget_opacity', opacity);
+            
+            // TODO: ぼかしや明るさもここで保存するのが望ましい
+            // const blur = document.getElementById("blurRange").value;
+            // localStorage.setItem('tabdock_wallpaper_blur', blur);
+            // const brightness = document.getElementById("brightnessRange").value;
+            // localStorage.setItem('tabdock_wallpaper_brightness', brightness);
+
+            // 保存した値を正式に適用
             applyVisualSettings();
+            
             document.getElementById("wallpaperAdvancedModal")?.classList.add("hidden");
+            document.getElementById("menuModal")?.classList.remove("hidden");
         });
     }
 
@@ -61,24 +113,30 @@ function applyVisualSettings() {
         closeBtn.addEventListener("click", () => {
             document.getElementById("wallpaperAdvancedModal")?.classList.add("hidden");
             document.getElementById("menuModal")?.classList.remove("hidden");
+            // キャンセル時は保存されている値にUIを戻す
+            applyVisualSettings();
         });
     }
 
     initializeSliders();
-    applyVisualSettings();
     initWallpaperUploadHandlers();
     initMenuToggle();
 })();
 
 function initializeSliders() {
+    // ぼかしと明るさの初期化は元のまま
     const blurSlider = document.getElementById("blurRange");
     const brightnessSlider = document.getElementById("brightnessRange");
-    const opacitySlider = document.getElementById("opacityRange");
-
     if (blurSlider) blurSlider.value = 0;
     if (brightnessSlider) brightnessSlider.value = 100;
-    if (opacitySlider) opacitySlider.value = 100;
 
+    // 透明度スライダーの初期値を設定
+    const opacitySlider = document.getElementById("opacityRange");
+    if (opacitySlider) {
+        opacitySlider.value = localStorage.getItem('tabdock_widget_opacity') ?? 30;
+    }
+
+    // 全ての視覚設定を適用
     applyVisualSettings();
 }
 
