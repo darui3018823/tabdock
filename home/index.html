@@ -348,24 +348,24 @@
                         </div>
 
                         <div class="td-detail-grid">
-                            <label class="td-detail-field">
-                                <span class="td-detail-label">場所</span>
+                            <div class="td-detail-field">
+                                <label for="scheduleLocation" class="td-detail-label">場所</label>
                                 <input
                                     type="text"
                                     id="scheduleLocation"
                                     placeholder="場所（例: 会議室 / aタグのみ許可）"
                                     class="w-full p-2 rounded bg-gray-700 text-white border border-slate-500/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
-                                <span class="td-detail-hint">例: &lt;a href=&quot;https://...&quot;&gt;会議室リンク&lt;/a&gt;</span>
-                            </label>
-                            <label class="td-detail-field">
-                                <span class="td-detail-label">埋め込みマップURL</span>
+                                <span class="td-detail-hint">例: <a href="https://example.com/">会議室リンク</a></span>
+                            </div>
+                            <div class="td-detail-field">
+                                <label for="scheduleEmbedMap" class="td-detail-label">埋め込みマップURL</label>
                                 <input
                                     type="text"
                                     id="scheduleEmbedMap"
                                     placeholder="埋め込みマップURL（Google Mapsなど）"
                                     class="w-full p-2 rounded bg-gray-700 text-white border border-slate-500/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
                                 <span class="td-detail-hint">Google Mapsの共有リンクなどを貼り付けると地図を表示できます。</span>
-                            </label>
+                            </div>
                         </div>
 
                         <label class="td-detail-inline">
@@ -383,8 +383,8 @@
                             <button type="button" id="regularClearMemo" class="td-detail-action">入力をクリア</button>
                         </div>
 
-                        <label class="td-detail-field">
-                            <span class="td-detail-label">メモ</span>
+                        <div class="td-detail-field">
+                            <label for="scheduleDesc" class="td-detail-label">メモ</label>
                             <textarea
                                 id="scheduleDesc"
                                 placeholder="メモ（\\nで改行）"
@@ -395,7 +395,7 @@
                                 <span class="td-detail-hint">改行は \\n として保存されます</span>
                                 <span id="scheduleDescCounter" class="td-detail-counter">0/500</span>
                             </div>
-                        </label>
+                        </div>
 
                         <div class="td-detail-file">
                             <label class="td-detail-label" for="scheduleAttachment">添付ファイル（JPG, PNG, PDF）</label>
