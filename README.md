@@ -9,7 +9,7 @@ This application has been tested and confirmed to work in the following environm
 
 ## Verified Devices
 - iPad (5th Generation / 9th Generation)
-- Safari on iPadOS 15 or later
+- Safari on iPadOS 16 or later
 
 All features have been confirmed to work as expected in the environment above.
 
@@ -26,7 +26,8 @@ Devices with similar **CSS pixel density** are also likely to be compatible.
 #### Notes
 - The application generally works on any device that supports modern CSS.  
   However, on larger devices like the iPad Pro 12.9", the system may identify the device as a desktop, which can negatively affect UI display.
-- Official support is limited to **iPadOS 15 or later**.
+- When using on an iPad, it is recommended to set the display zoom to 90%.
+- Official support is limited to **iPadOS 16 or later**.
 - As this application utilizes a **CDN**, please ensure that both the server and the iPad are connected to the **same local network**.
 - **Android devices may also work, but they have not been tested. Use at your own discretion.**
 
@@ -42,8 +43,8 @@ The host machine must meet the following requirements:
 
 ## Supported Operating Systems (One of the following)
 - Windows 10 or later
-- macOS (Support planned)
-- Linux distributions capable of running systemd (see below)
+- macOS M1~ (^1)
+- `systemd` capable Linux distributions (^2)
 
 ## Minimum Specifications
 - PowerShell 5.1 or 7.5 and above
@@ -53,11 +54,10 @@ The host machine must meet the following requirements:
 - Storage: At least 300 MB of available space
 - Internet: Stable connection with at least 10 Mbps bandwidth
 
-⚠️ Devices that do not meet these requirements are **not guaranteed to function correctly.**
-
-### Notes on Linux
-On Linux systems, it is strongly recommended to use `systemd` instead of PowerShell, as it is generally more practical and powerful for this context.<br>
-We assume that most users familiar with Linux will already understand how to configure and use `systemd`, so detailed instructions are omitted.
+⚠️ Devices that do not meet these requirements are **not guaranteed to function correctly.**<br>
+^1 Although it should work on Macs with M1 chips based on specifications, official support is not planned.<br>
+^2 On Linux systems, it is strongly recommended to use `systemd` instead of PowerShell.
+  A setup script is provided at `./ps/linux_server_setup.ps1` to configure `systemd`, but it may not work in all environments.
 
 <br>
 

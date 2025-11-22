@@ -1,0 +1,38 @@
+{
+  "max_request_size_mb": 10,
+  "rate_limit_per_min": 60,
+  "dynamic_block_time_min": 30,
+  "allowed_methods": [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "HEAD",
+    "OPTIONS"
+  ],
+  "blocked_countries": [
+    "KP"
+  ],
+  "detection_patterns": {
+    "sql_injection": "(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|<script|onload|onerror|alert|confirm|prompt|document\\.cookie)",
+    "xss": "(?i)(<script|javascript:|onload|onerror|alert\\(|confirm\\(|prompt\\(|document\\.|window\\.|eval\\(\\))",
+    "path_traversal": "(\\.\\./|\\.\\.\\\\|%2e%2e%2f|%2e%2e\\\\)",
+    "malicious_ua": [
+      "sqlmap", "nessus", "acunetix", "nikto", "dirb", "gobuster",
+      "masscan", "zmap", "nmap", "burpsuite", "metasploit",
+      "havij", "pangolin", "sqlninja", "beef", "w3af"
+    ],
+    "suspicious_ua": [
+      "curl", "wget", "python", "perl", "ruby", "php", "java",
+      "bot", "crawler", "spider", "scraper", "scanner",
+      "test", "check", "monitor", "probe", "audit"
+    ],
+    "suspicious_path": [
+      ".php", ".env", ".bak", ".old", ".git", ".htaccess", "wp-", "admin", "login",
+      ".config", ".ini", ".conf", ".log", ".sql", ".db", ".backup", ".tmp",
+      "phpmyadmin", "cpanel", "webmail", ".aws", ".ssh", "id_rsa", "passwd",
+      "shadow", "etc/", "proc/", "var/log", "boot.ini", "web.config"
+    ]
+  },
+  "security_level": "strict"
+}

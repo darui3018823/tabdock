@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_devtools-r1
+// This code Version: 5.10.5_devtools-r1
 
 let debugLog = [];
 let maxLogEntries = 200;
@@ -930,7 +930,12 @@ forceSyncButton?.addEventListener("click", async (event) => {
                 </div>
             `,
             timer: 6000,
-            showConfirmButton: true
+            showConfirmButton: true,
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
         });
         
     } catch (error) {
@@ -945,15 +950,21 @@ forceSyncButton?.addEventListener("click", async (event) => {
                 html: `
                     <div class="text-left">
                         <p>同期処理中に予期しないエラーが発生しました。</p>
-                        <div class="mt-2 text-sm text-red-600">
+                        <div class="mt-2 text-sm text-red-400">
                             エラー: ${error.message || error}
                         </div>
-                        <div class="mt-2 text-xs text-gray-600">
+                        <div class="mt-2 text-xs text-gray-400">
                             詳細はブラウザのコンソールを確認してください
                         </div>
                     </div>
                 `,
-                footer: 'F12を押してコンソールを開き、エラーの詳細を確認してください。'
+                footer: 'F12を押してコンソールを開き、エラーの詳細を確認してください。',
+                customClass: {
+                    popup: 'bg-gray-800 text-white',
+                    title: 'text-white',
+                    htmlContainer: 'text-white',
+                    footer: 'text-white'
+                }
             });
         } catch (swalErr) {
             console.error('エラーダイアログの表示でもエラー:', swalErr);
@@ -996,7 +1007,16 @@ document.getElementById("regenerateCalendarBtn")?.addEventListener("click", asyn
     } catch (error) {
         console.error('カレンダー再生成エラー:', error);
         addDebugLog('error', 'カレンダー再生成中にエラー', error);
-        Swal.fire('エラー', error.message || 'カレンダー再生成に失敗しました', 'error');
+        Swal.fire({
+            title: 'エラー',
+            text: error.message || 'カレンダー再生成に失敗しました',
+            icon: 'error',
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
+        });
     }
 });
 
@@ -1062,7 +1082,12 @@ document.getElementById("checkJsStatusBtn").addEventListener("click", async () =
         html: resultHtml,
         icon: loadedCount === totalCount ? 'success' : 'warning',
         confirmButtonText: 'OK',
-        width: '500px'
+        width: '500px',
+        customClass: {
+            popup: 'bg-gray-800 text-white',
+            title: 'text-white',
+            htmlContainer: 'text-white'
+        }
     });
 });
 
@@ -1138,7 +1163,13 @@ document.getElementById("quickDiagBtn").addEventListener("click", async () => {
         icon: hasIssues ? 'warning' : 'success',
         confirmButtonText: 'OK',
         width: '600px',
-        footer: 'ブラウザコンソール(F12)で詳細を確認できます'
+        footer: 'ブラウザコンソール(F12)で詳細を確認できます',
+        customClass: {
+            popup: 'bg-gray-800 text-white',
+            title: 'text-white',
+            htmlContainer: 'text-white',
+            footer: 'text-white'
+        }
     });
 });
 
@@ -1154,14 +1185,19 @@ document.getElementById("clearLocalStorageBtn").addEventListener("click", async 
                     <li>項目数: ${storageInfo.totalItems}</li>
                     <li>合計サイズ: ${storageInfo.sizeFormatted}</li>
                 </ul>
-                <p class="text-red-600 font-bold">この操作は元に戻せません。</p>
+                <p class="text-red-400 font-bold">この操作は元に戻せません。</p>
             </div>
         `,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: '初期化する',
         cancelButtonText: 'キャンセル',
-        confirmButtonColor: '#dc2626'
+        confirmButtonColor: '#dc2626',
+        customClass: {
+            popup: 'bg-gray-800 text-white',
+            title: 'text-white',
+            htmlContainer: 'text-white'
+        }
     });
     
     if (result.isConfirmed) {
@@ -1173,114 +1209,116 @@ document.getElementById("clearLocalStorageBtn").addEventListener("click", async 
             title: '初期化完了',
             text: 'ローカルストレージを初期化しました。',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
         });
     }
 });
 
-document.getElementById("showDebugLogBtn").addEventListener("click", async () => {
+document.getElementById("showDebugLogBtn").addEventListener("click", () => {
+    const modal = document.getElementById('debugLogModal');
+    const content = document.getElementById('debugLogContent');
+    if (!modal || !content) return;
+
     const diagnostics = getSystemDiagnostics();
 
-    let logHtml = `
-        <div class="text-left text-xs space-y-4" id="debugLogModal">
-            <section class="bg-black/25 border border-white/10 rounded-lg p-3 space-y-1">
-                <h4 class="font-semibold text-white/80">システム情報</h4>
-                <div>ブラウザ: <span class="text-white/80">${escapeHtml(diagnostics.userAgent.split(' ').pop() || '不明')}</span></div>
-                <div>画面: <span class="text-white/80">${diagnostics.screen.width}×${diagnostics.screen.height}</span></div>
-                <div>メモリ: <span class="text-white/80">${escapeHtml(typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory)}</span></div>
-                <div>デバイスメモリ: <span class="text-white/80">${escapeHtml(diagnostics.deviceMemory)}</span></div>
-                <div>最終完全同期: <span class="text-white/80">${escapeHtml(lastFullSync || '未実行')}</span></div>
-            </section>
-            <section>
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <label class="flex items-center gap-1">レベル
-                        <select id="debugLogLevelFilter" class="bg-black/40 border border-white/20 rounded px-2 py-1">
-                            <option value="all">すべて</option>
-                            <option value="info">INFO</option>
-                            <option value="warn">WARN</option>
-                            <option value="error">ERROR</option>
-                            <option value="debug">DEBUG</option>
-                        </select>
-                    </label>
-                    <label class="flex items-center gap-1">件数
-                        <select id="debugLogLimit" class="bg-black/40 border border-white/20 rounded px-2 py-1">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </label>
-                    <div class="ml-auto flex gap-2">
-                        <button id="debugLogCopyBtn" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white">コピー</button>
-                        <button id="debugLogDownloadBtn" class="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-white">JSON出力</button>
-                    </div>
+    content.innerHTML = `
+        <section class="bg-black/25 border border-white/10 rounded-lg p-3 space-y-1">
+            <h4 class="font-semibold text-white/80">システム情報</h4>
+            <div>ブラウザ: <span class="text-white/80">${escapeHtml(diagnostics.userAgent.split(' ').pop() || '不明')}</span></div>
+            <div>画面: <span class="text-white/80">${diagnostics.screen.width}×${diagnostics.screen.height}</span></div>
+            <div>メモリ: <span class="text-white/80">${escapeHtml(typeof diagnostics.memory === 'object' ? diagnostics.memory.used : diagnostics.memory)}</span></div>
+            <div>デバイスメモリ: <span class="text-white/80">${escapeHtml(diagnostics.deviceMemory)}</span></div>
+            <div>最終完全同期: <span class="text-white/80">${escapeHtml(lastFullSync || '未実行')}</span></div>
+        </section>
+        <section>
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+                <label class="flex items-center gap-1">レベル
+                    <select id="debugLogLevelFilter" class="bg-black/40 border border-white/20 rounded px-2 py-1">
+                        <option value="all">すべて</option>
+                        <option value="info">INFO</option>
+                        <option value="warn">WARN</option>
+                        <option value="error">ERROR</option>
+                        <option value="debug">DEBUG</option>
+                    </select>
+                </label>
+                <label class="flex items-center gap-1">件数
+                    <select id="debugLogLimit" class="bg-black/40 border border-white/20 rounded px-2 py-1">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </label>
+                <div class="ml-auto flex gap-2">
+                    <button id="debugLogCopyBtn" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white">コピー</button>
+                    <button id="debugLogDownloadBtn" class="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-white">JSON出力</button>
                 </div>
-                <div class="text-white/60 text-[11px] mb-2">保持件数: ${debugLog.length} / 表示上限: ${maxLogEntries}</div>
-                <div id="debugLogEntries" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
-            </section>
-        </div>
+            </div>
+            <div class="text-white/60 text-[11px] mb-2">保持件数: ${debugLog.length} / 表示上限: ${maxLogEntries}</div>
+            <div id="debugLogEntries" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+        </section>
     `;
 
-    await Swal.fire({
-        title: 'デバッグ情報',
-        html: logHtml,
-        width: '680px',
-        confirmButtonText: '閉じる',
-        didOpen: () => {
-            const container = Swal.getHtmlContainer();
-            if (!container) return;
-            const levelSelect = container.querySelector('#debugLogLevelFilter');
-            const limitSelect = container.querySelector('#debugLogLimit');
-            const entriesContainer = container.querySelector('#debugLogEntries');
-            const copyBtn = container.querySelector('#debugLogCopyBtn');
-            const downloadBtn = container.querySelector('#debugLogDownloadBtn');
+    const levelSelect = content.querySelector('#debugLogLevelFilter');
+    const limitSelect = content.querySelector('#debugLogLimit');
+    const entriesContainer = content.querySelector('#debugLogEntries');
+    const copyBtn = content.querySelector('#debugLogCopyBtn');
+    const downloadBtn = content.querySelector('#debugLogDownloadBtn');
 
-            const refresh = () => {
-                const level = levelSelect.value;
-                const limit = parseInt(limitSelect.value, 10);
-                renderDebugLogEntries(entriesContainer, { level, limit });
-            };
+    const refresh = () => {
+        const level = levelSelect.value;
+        const limit = parseInt(limitSelect.value, 10);
+        renderDebugLogEntries(entriesContainer, { level, limit });
+    };
 
-            levelSelect.addEventListener('change', refresh);
-            limitSelect.addEventListener('change', refresh);
+    levelSelect.addEventListener('change', refresh);
+    limitSelect.addEventListener('change', refresh);
 
-            copyBtn?.addEventListener('click', async () => {
-                try {
-                    const level = levelSelect.value;
-                    const limit = parseInt(limitSelect.value, 10);
-                    const slice = getDebugLogSlice(level, limit);
-                    await navigator.clipboard.writeText(JSON.stringify(slice, null, 2));
-                    Toast?.fire({ icon: 'success', title: 'ログをコピーしました' });
-                } catch (error) {
-                    console.error('ログコピーに失敗しました:', error);
-                    Swal.showValidationMessage('クリップボードへのコピーに失敗しました');
-                }
-            });
-
-            downloadBtn?.addEventListener('click', () => {
-                try {
-                    const level = levelSelect.value;
-                    const limit = parseInt(limitSelect.value, 10);
-                    const slice = getDebugLogSlice(level, limit);
-                    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), level, limit, entries: slice }, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `tabdock-debug-log-${Date.now()}.json`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
-                    Toast?.fire({ icon: 'success', title: 'ログをエクスポートしました' });
-                } catch (error) {
-                    console.error('ログエクスポートに失敗しました:', error);
-                    Swal.showValidationMessage('ログのエクスポートに失敗しました');
-                }
-            });
-
-            refresh();
+    copyBtn?.addEventListener('click', async () => {
+        try {
+            const level = levelSelect.value;
+            const limit = parseInt(limitSelect.value, 10);
+            const slice = getDebugLogSlice(level, limit);
+            await navigator.clipboard.writeText(JSON.stringify(slice, null, 2));
+            Toast?.fire({ icon: 'success', title: 'ログをコピーしました' });
+        } catch (error) {
+            console.error('ログコピーに失敗しました:', error);
+            Toast?.fire({ icon: 'error', title: 'コピーに失敗しました' });
         }
     });
+
+    downloadBtn?.addEventListener('click', () => {
+        try {
+            const level = levelSelect.value;
+            const limit = parseInt(limitSelect.value, 10);
+            const slice = getDebugLogSlice(level, limit);
+            const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), level, limit, entries: slice }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tabdock-debug-log-${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            Toast?.fire({ icon: 'success', title: 'ログをエクスポートしました' });
+        } catch (error) {
+            console.error('ログエクスポートに失敗しました:', error);
+            Toast?.fire({ icon: 'error', title: 'エクスポートに失敗しました' });
+        }
+    });
+
+    refresh();
+    modal.classList.remove('hidden');
+});
+
+document.getElementById("closeDebugLogModal")?.addEventListener("click", () => {
+    document.getElementById('debugLogModal').classList.add('hidden');
 });
 
 document.getElementById("deleteAllShiftsBtn").addEventListener("click", async () => {
@@ -1297,7 +1335,12 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                 title: 'テスト実行中',
                 text: '現在テストを実行中です。完了までお待ちください。',
                 timer: 1500,
-                showConfirmButton: false
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'bg-gray-800 text-white',
+                    title: 'text-white',
+                    htmlContainer: 'text-white'
+                }
             });
         }
         return;
@@ -1317,6 +1360,11 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
         text: 'ブラウザとシステムの性能を測定しています',
         allowOutsideClick: false,
         showConfirmButton: false,
+        customClass: {
+            popup: 'bg-gray-800 text-white',
+            title: 'text-white',
+            htmlContainer: 'text-white'
+        },
         didOpen: () => {
             console.log('パフォーマンステストのローディングダイアログが表示されました');
             Swal.showLoading();
@@ -1330,20 +1378,20 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
         console.log('パフォーマンステスト実行完了:', results);
         
         let resultHtml = `<div class="text-left text-sm">`;
-        resultHtml += `<h4 class="font-bold mb-3 text-blue-600">📊 パフォーマンステスト結果</h4>`;
+        resultHtml += `<h4 class="font-bold mb-3 text-blue-400">📊 パフォーマンステスト結果</h4>`;
         
         results.forEach(test => {
-            resultHtml += `<div class="mb-3 p-2 border border-gray-200 rounded">`;
-            resultHtml += `<div class="font-semibold text-gray-800">${test.name}</div>`;
+            resultHtml += `<div class="mb-3 p-2 border border-gray-600 rounded">`;
+            resultHtml += `<div class="font-semibold text-white">${test.name}</div>`;
             
             if (test.description) {
-                resultHtml += `<div class="text-xs text-gray-500 mb-1">${test.description}</div>`;
+                resultHtml += `<div class="text-xs text-gray-400 mb-1">${test.description}</div>`;
             }
             
             if (test.error) {
-                resultHtml += `<div class="text-red-600 font-mono text-xs">❌ エラー: ${test.error}</div>`;
+                resultHtml += `<div class="text-red-400 font-mono text-xs">❌ エラー: ${test.error}</div>`;
             } else if (test.time !== undefined) {
-                const timeClass = test.time < 50 ? 'text-green-600' : test.time < 200 ? 'text-yellow-600' : 'text-red-600';
+                const timeClass = test.time < 50 ? 'text-green-400' : test.time < 200 ? 'text-yellow-400' : 'text-red-400';
                 let performanceLevel = '';
                 if (test.time < 50) performanceLevel = '(高速 🚀)';
                 else if (test.time < 200) performanceLevel = '(標準 ✅)';
@@ -1352,16 +1400,16 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                 resultHtml += `<div class="${timeClass} font-bold">⏱️ ${test.time}ms ${performanceLevel}</div>`;
                 
                 if (test.status) {
-                    resultHtml += `<div class="text-xs text-gray-600">HTTP Status: ${test.status}</div>`;
+                    resultHtml += `<div class="text-xs text-gray-400">HTTP Status: ${test.status}</div>`;
                 }
                 if (test.dataSize) {
-                    resultHtml += `<div class="text-xs text-gray-600">データサイズ: ${test.dataSize}</div>`;
+                    resultHtml += `<div class="text-xs text-gray-400">データサイズ: ${test.dataSize}</div>`;
                 }
                 if (test.result) {
-                    resultHtml += `<div class="text-xs text-gray-600">${test.result}</div>`;
+                    resultHtml += `<div class="text-xs text-gray-400">${test.result}</div>`;
                 }
             } else if (test.used) {
-                resultHtml += `<div class="text-blue-600">`;
+                resultHtml += `<div class="text-blue-400">`;
                 resultHtml += `<div>使用中: ${test.used}</div>`;
                 resultHtml += `<div>総容量: ${test.total}</div>`;
                 resultHtml += `<div>上限: ${test.limit}</div>`;
@@ -1371,9 +1419,9 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
             resultHtml += `</div>`;
         });
         
-    resultHtml += `<div class="mt-4 p-2 bg-blue-50 rounded text-xs">`;
-    resultHtml += `<h5 class="font-bold text-blue-800 mb-1">📝 テスト内容説明(ヘビー):</h5>`;
-    resultHtml += `<ul class="text-blue-700 space-y-1">`;
+    resultHtml += `<div class="mt-4 p-2 bg-black/20 rounded text-xs">`;
+    resultHtml += `<h5 class="font-bold text-blue-300 mb-1">📝 テスト内容説明(ヘビー):</h5>`;
+    resultHtml += `<ul class="text-blue-200 space-y-1">`;
     resultHtml += `<li>• DOM構築/レイアウト: 大量要素追加とレイアウト計算</li>`;
     resultHtml += `<li>• ネットワーク(並列): 5本の同時Ping平均/分散</li>`;
     resultHtml += `<li>• ストレージ: 256KBの保存・読み込み・削除</li>`;
@@ -1394,7 +1442,13 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
             icon: 'info',
             confirmButtonText: 'OK',
             width: '600px',
-            footer: '数値が小さいほど高速です。ブラウザの性能や負荷状況により結果は変動します。'
+            footer: '数値が小さいほど高速です。ブラウザの性能や負荷状況により結果は変動します。',
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white',
+                footer: 'text-white'
+            }
         });
         
     } catch (error) {
@@ -1407,12 +1461,18 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                 html: `
                     <div class="text-left">
                         <p>パフォーマンステスト中にエラーが発生しました。</p>
-                        <div class="mt-2 text-sm text-red-600">
+                        <div class="mt-2 text-sm text-red-400">
                             エラー: ${error.message || error}
                         </div>
                     </div>
                 `,
-                footer: 'F12を押してコンソールを確認してください。'
+                footer: 'F12を押してコンソールを確認してください。',
+                customClass: {
+                    popup: 'bg-gray-800 text-white',
+                    title: 'text-white',
+                    htmlContainer: 'text-white',
+                    footer: 'text-white'
+                }
             });
         } catch (swalErr) {
             console.error('エラーダイアログの表示でもエラー:', swalErr);
@@ -1438,7 +1498,12 @@ document.getElementById("reloadPageBtn").addEventListener("click", async () => {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: '再読み込み',
-        cancelButtonText: 'キャンセル'
+        cancelButtonText: 'キャンセル',
+        customClass: {
+            popup: 'bg-gray-800 text-white',
+            title: 'text-white',
+            htmlContainer: 'text-white'
+        }
     });
     
     if (result.isConfirmed) {
@@ -1536,14 +1601,19 @@ async function deleteAllShiftsForUser() {
             html: `
                 <div class="text-left">
                     <p class="mb-2">ユーザー "${username}" の全シフトを削除します。</p>
-                    <p class="text-red-600 font-bold">この操作は元に戻せません！</p>
+                    <p class="text-red-400 font-bold">この操作は元に戻せません！</p>
                 </div>
             `,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: '削除する',
             cancelButtonText: 'キャンセル',
-            confirmButtonColor: '#dc2626'
+            confirmButtonColor: '#dc2626',
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
         });
 
         if (result.isConfirmed) {
@@ -1569,7 +1639,12 @@ async function deleteAllShiftsForUser() {
                 title: '削除完了',
                 text: 'すべてのシフトを削除しました',
                 timer: 2000,
-                showConfirmButton: false
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'bg-gray-800 text-white',
+                    title: 'text-white',
+                    htmlContainer: 'text-white'
+                }
             });
 
             // カレンダーを再読み込み
@@ -1583,7 +1658,12 @@ async function deleteAllShiftsForUser() {
             icon: 'error',
             title: 'エラー',
             text: error.message,
-            confirmButtonText: '閉じる'
+            confirmButtonText: '閉じる',
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
         });
     }
 }
