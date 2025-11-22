@@ -434,28 +434,33 @@ function updateScheduleDescCounter() {
 
     const max = typeof desc.maxLength === 'number' && desc.maxLength > 0 ? desc.maxLength : null;
     const length = desc.value.length;
+    const remaining = max ? max - length : null;
 
-    if (max) {
-        counter.textContent = `${length}/${max}`;
-        const remaining = max - length;
+    counter.textContent = max ? `${length}/${max}` : `${length}`;
+
+    let state = '';
+    if (remaining !== null) {
         if (remaining <= 0) {
-            counter.dataset.state = 'max';
+            state = 'max';
         } else if (remaining <= 50) {
-            counter.dataset.state = 'warn';
-        } else {
-            delete counter.dataset.state;
+            state = 'warn';
         }
+    }
+
+    if (state) {
+        counter.dataset.state = state;
     } else {
-        counter.textContent = `${length}`;
         delete counter.dataset.state;
     }
 }
 
+const KILO_BYTES = 1024;
+const MEGA_BYTES = KILO_BYTES * KILO_BYTES;
+
 function formatFileSize(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) return '';
-    const mb = 1024 * 1024;
-    if (bytes >= mb) return `${(bytes / mb).toFixed(1)} MB`;
-    if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+    if (bytes >= MEGA_BYTES) return `${(bytes / MEGA_BYTES).toFixed(1)} MB`;
+    if (bytes >= KILO_BYTES) return `${Math.round(bytes / KILO_BYTES)} KB`;
     return `${bytes} B`;
 }
 
