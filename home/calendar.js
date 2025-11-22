@@ -488,7 +488,7 @@ document.getElementById('scheduleAttachment')?.addEventListener('change', (e) =>
     const file = input.files?.[0];
     if (file) {
         const sizeLabel = formatFileSize(file.size);
-        nameEl.textContent = sizeLabel ? `選択中: ${file.name} (${sizeLabel})` : `選択中: ${file.name}`;
+        nameEl.textContent = `選択中: ${file.name}${sizeLabel ? ` (${sizeLabel})` : ''}`;
     } else {
         nameEl.textContent = '';
     }
