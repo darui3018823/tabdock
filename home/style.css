@@ -219,7 +219,7 @@ body {
 }
 
 /* --- Regular schedule detail section ------------------------------------ */
-#regularToggleDetail.td-detail-toggle {
+.td-detail-toggle {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -230,7 +230,7 @@ body {
     transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-#regularToggleDetail.td-detail-toggle:hover {
+.td-detail-toggle:hover {
     background: rgba(37, 99, 235, 0.2);
     color: #e0f2fe;
     transform: translateY(-1px);
