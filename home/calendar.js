@@ -257,6 +257,124 @@ window.addEventListener("DOMContentLoaded", async () => {
         detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
     };
 
+    // Setup event listeners after regularForm is initialized
+    document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-range]');
+        if (!btn) return;
+        applyTimePreset(btn.dataset.range);
+    });
+
+    regularForm.allDay?.addEventListener('change', (e) => {
+        const disabled = e.target.checked;
+        regularForm.timeInputsRow?.classList.toggle('opacity-50', disabled);
+        if (regularForm.startTime) regularForm.startTime.disabled = disabled;
+        if (regularForm.endTime) regularForm.endTime.disabled = disabled;
+    });
+
+    regularForm.attachment?.addEventListener('change', (e) => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        const nameEl = regularForm.attachmentName;
+        if (!nameEl) return;
+        const file = input.files?.[0];
+        if (file) {
+            const sizeLabel = formatFileSize(file.size);
+            nameEl.textContent = `選択中: ${file.name}${sizeLabel ? ` (${sizeLabel})` : ''}`;
+        } else {
+            nameEl.textContent = '';
+        }
+    });
+
+    regularForm.location?.addEventListener('change', () => {
+        updateEmbedFromLocation();
+    });
+
+    regularForm.embedAuto?.addEventListener('change', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        const auto = target.checked;
+        regularForm.embedMap?.classList.toggle('td-input-disabled', auto);
+        if (regularForm.embedMap) {
+            regularForm.embedMap.disabled = auto;
+        }
+        if (auto) {
+            updateEmbedFromLocation();
+        }
+    });
+
+    regularForm.desc?.addEventListener('input', updateScheduleDescCounter);
+
+    document.getElementById('regularClearLocation')?.addEventListener('click', () => {
+        if (regularForm.location) {
+            regularForm.location.value = '';
+            regularForm.location.focus();
+        }
+        if (regularForm.embedMap) regularForm.embedMap.value = '';
+    });
+
+    document.getElementById('regularClearMemo')?.addEventListener('click', () => {
+        if (regularForm.desc) {
+            regularForm.desc.value = '';
+            regularForm.desc.focus();
+        }
+        if (regularForm.attachment) regularForm.attachment.value = '';
+        if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
+        updateScheduleDescCounter();
+    });
+
+    regularForm.detailToggle?.addEventListener('click', () => {
+        const isOpen = regularForm.detailSection?.classList.contains('hidden') === false;
+        setRegularDetailState(!isOpen);
+    });
+
+    regularForm.icsFile?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        const infoEl = regularForm.icsInfo;
+        if (infoEl) infoEl.textContent = '';
+
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const event = parseIcsEvent(text);
+            if (!event) {
+                throw new Error('VEVENT not found');
+            }
+            applyIcsEventToForm(event);
+
+            if (infoEl) {
+                const parts = [];
+                if (event.title) parts.push(`件名: ${event.title}`);
+                if (event.allDay) {
+                    let label = `日付: ${event.date} (終日)`;
+                    if (event.endDate) {
+                        label += ` → ${event.endDate}`;
+                    }
+                    parts.push(label);
+                } else {
+                    const times = [event.startTime, event.endTime].filter(Boolean).join(' ~ ');
+                    const datePart = times ? `${event.date} ${times}` : `${event.date}`;
+                    parts.push(`日時: ${datePart}`);
+                    if (event.endDate && event.endDate !== event.date) {
+                        parts.push(`終了日: ${event.endDate}`);
+                    }
+                }
+                infoEl.textContent = parts.join(' / ') || `${file.name} を読み込みました`;
+            }
+
+            if (typeof Toast !== 'undefined' && typeof Toast.fire === 'function') {
+                Toast.fire({ icon: 'success', title: 'ICSファイルを読み込みました' });
+            } else {
+                Swal.fire({ icon: 'success', title: 'ICSファイルを読み込みました', showConfirmButton: false, timer: 2000 });
+            }
+        } catch (error) {
+            console.error('ICS読み込み失敗:', error);
+            Swal.fire({ icon: 'error', title: 'ICSの読み込みに失敗しました', text: 'ファイルの内容を確認してください。' });
+        } finally {
+            e.target.value = '';
+        }
+    });
+
     monitorDateChange();
 });
 
@@ -440,13 +558,7 @@ const KILO_BYTES = 1024;
 const MEGA_BYTES = KILO_BYTES * KILO_BYTES;
 const DESC_WARN_THRESHOLD = 50;
 
-function encodeDescriptionForSave(text) {
-    return (text || '').replace(/\n/g, '\\n');
-}
 
-function decodeDescriptionForEdit(text) {
-    return (text || '').replace(/\\n/g, '\n');
-}
 
 function updateScheduleDescCounter() {
     const { desc, descCounter: counter } = regularForm;
@@ -481,37 +593,6 @@ function formatFileSize(bytes) {
     return `${bytes} B`;
 }
 
-document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-range]');
-    if (!btn) return;
-    applyTimePreset(btn.dataset.range);
-});
-
-regularForm.allDay?.addEventListener('change', (e) => {
-    const disabled = e.target.checked;
-    regularForm.timeInputsRow?.classList.toggle('opacity-50', disabled);
-    if (regularForm.startTime) regularForm.startTime.disabled = disabled;
-    if (regularForm.endTime) regularForm.endTime.disabled = disabled;
-});
-
-regularForm.attachment?.addEventListener('change', (e) => {
-    const input = e.target;
-    if (!(input instanceof HTMLInputElement)) return;
-    const nameEl = regularForm.attachmentName;
-    if (!nameEl) return;
-    const file = input.files?.[0];
-    if (file) {
-        const sizeLabel = formatFileSize(file.size);
-        nameEl.textContent = `選択中: ${file.name}${sizeLabel ? ` (${sizeLabel})` : ''}`;
-    } else {
-        nameEl.textContent = '';
-    }
-});
-
-regularForm.location?.addEventListener('change', () => {
-    updateEmbedFromLocation();
-});
-
 function updateEmbedFromLocation() {
     if (!regularForm.embedAuto?.checked) return;
     const locationValue = regularForm.location?.value.trim();
@@ -519,39 +600,6 @@ function updateEmbedFromLocation() {
     const embed = convertToEmbedURL(locationValue);
     if (embed) regularForm.embedMap.value = embed;
 }
-
-document.getElementById('embedAuto')?.addEventListener('change', (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    const auto = target.checked;
-    regularForm.embedMap?.classList.toggle('td-input-disabled', auto);
-    if (regularForm.embedMap) {
-        regularForm.embedMap.disabled = auto;
-    }
-    if (auto) {
-        updateEmbedFromLocation();
-    }
-});
-
-regularForm.desc?.addEventListener('input', updateScheduleDescCounter);
-
-document.getElementById('regularClearLocation')?.addEventListener('click', () => {
-    if (regularForm.location) {
-        regularForm.location.value = '';
-        regularForm.location.focus();
-    }
-    if (regularForm.embedMap) regularForm.embedMap.value = '';
-});
-
-document.getElementById('regularClearMemo')?.addEventListener('click', () => {
-    if (regularForm.desc) {
-        regularForm.desc.value = '';
-        regularForm.desc.focus();
-    }
-    if (regularForm.attachment) regularForm.attachment.value = '';
-    if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
-    updateScheduleDescCounter();
-});
 
 function unfoldIcsLines(raw) {
     if (typeof raw !== 'string') return [];
@@ -758,53 +806,6 @@ function applyIcsEventToForm(event) {
     }
 }
 
-document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    const infoEl = document.getElementById('scheduleIcsInfo');
-    if (infoEl) infoEl.textContent = '';
-
-    if (!file) return;
-
-    try {
-        const text = await file.text();
-        const event = parseIcsEvent(text);
-        if (!event) {
-            throw new Error('VEVENT not found');
-        }
-        applyIcsEventToForm(event);
-
-        if (infoEl) {
-            const parts = [];
-            if (event.title) parts.push(`件名: ${event.title}`);
-            if (event.allDay) {
-                let label = `日付: ${event.date} (終日)`;
-                if (event.endDate) {
-                    label += ` → ${event.endDate}`;
-                }
-                parts.push(label);
-            } else {
-                const times = [event.startTime, event.endTime].filter(Boolean).join(' ~ ');
-                const datePart = times ? `${event.date} ${times}` : `${event.date}`;
-                parts.push(`日時: ${datePart}`);
-                if (event.endDate && event.endDate !== event.date) {
-                    parts.push(`終了日: ${event.endDate}`);
-                }
-            }
-            infoEl.textContent = parts.join(' / ') || `${file.name} を読み込みました`;
-        }
-
-        if (typeof Toast !== 'undefined' && typeof Toast.fire === 'function') {
-            Toast.fire({ icon: 'success', title: 'ICSファイルを読み込みました' });
-        } else {
-            Swal.fire({ icon: 'success', title: 'ICSファイルを読み込みました', showConfirmButton: false, timer: 2000 });
-        }
-    } catch (error) {
-        console.error('ICS読み込み失敗:', error);
-        Swal.fire({ icon: 'error', title: 'ICSの読み込みに失敗しました', text: 'ファイルの内容を確認してください。' });
-    } finally {
-        e.target.value = '';
-    }
-});
 
 function resetRegularScheduleForm() {
     if (regularForm.allDay) {
@@ -843,7 +844,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const time = assembleTimeString();
     const title = titleEl.value;
     const rawLocation = locationEl.value.trim();
-    const description = encodeDescriptionForSave(descEl.value);
+    const description = descEl.value;
     const embedmap = embedMapEl.value;
     const attachmentFile = attachmentEl.files[0];
 
@@ -954,7 +955,7 @@ function showScheduleDetail(sched) {
         ? "終日"
         : `${sched.date}${sched.time ? ` ${sched.time}` : ""}${sched.endTime ? `~${sched.endTime}` : ""}`;
 
-    const rawDescription = decodeDescriptionForEdit(sched.description || "なし");
+    const rawDescription = sched.description || "なし";
     const formattedDescription = escapeHTML(rawDescription).replace(/\n/g, "<br>");
 
     let locationHTML = "未指定";
@@ -1074,17 +1075,6 @@ document.getElementById("closeAllScheduleModal").addEventListener("click", () =>
     document.getElementById("allScheduleModal").classList.add("hidden");
 });
 
-document.getElementById('regularToggleDetail')?.addEventListener('click', () => {
-    const { detailSection } = regularForm;
-    if (!detailSection) return;
-    const isOpen = !detailSection.classList.contains('hidden');
-    setRegularDetailState(!isOpen);
-    if (!isOpen) {
-        regularForm.location?.focus();
-    }
-});
-
-updateScheduleDescCounter();
 
 const calendarManager = new CalendarManager();
 if (typeof window !== 'undefined') {
