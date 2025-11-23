@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.0_calendar-r5
+// This code Version: 5.13.0_calendar-r6
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -711,19 +711,27 @@ function parseIcsEvent(text) {
 
 function applyIcsEventToForm(event) {
     if (!event) return;
-    const dateEl = document.getElementById('scheduleDate');
+
+    const {
+        date: dateEl,
+        allDay: allDayEl,
+        startTime: startEl,
+        endTime: endEl,
+        title: titleEl,
+        location: locationEl,
+        embedAuto: autoEmbed,
+        embedMap: embedEl,
+        desc: descEl
+    } = regularForm;
+
     if (dateEl && event.date) {
         dateEl.value = event.date;
     }
 
-    const allDayEl = document.getElementById('scheduleAllDay');
     if (allDayEl) {
         allDayEl.checked = !!event.allDay;
         allDayEl.dispatchEvent(new Event('change'));
     }
-
-    const startEl = document.getElementById('scheduleStartTime');
-    const endEl = document.getElementById('scheduleEndTime');
 
     if (event.allDay) {
         if (startEl) startEl.value = '';
@@ -733,27 +741,32 @@ function applyIcsEventToForm(event) {
         if (endEl) endEl.value = event.endTime || '';
     }
 
-    const titleEl = document.getElementById('scheduleTitle');
     if (titleEl && event.title) {
         titleEl.value = event.title;
     }
 
-    const locationEl = document.getElementById('scheduleLocation');
     if (locationEl) {
         locationEl.value = event.location || '';
-        const autoEmbed = document.getElementById('embedAuto');
         if (autoEmbed?.checked && event.location) {
             const embed = convertToEmbedURL(event.location);
-            if (embed) {
-                const embedEl = document.getElementById('scheduleEmbedMap');
-                if (embedEl) embedEl.value = embed;
+            if (embed && embedEl) {
+                embedEl.value = embed;
             }
         }
     }
 
-    const { desc: descEl } = regularForm;
     if (descEl) {
-        descEl.value = decodeDescriptionForEdit(event.description || '');
+        // decodeDescriptionForEdit is no longer needed if we just use the raw text
+        // But if the ICS text has literal \n, we might want to keep them as newlines.
+        // The previous code used decodeDescriptionForEdit.
+        // Let's check decodeDescriptionForEdit implementation.
+        // It replaces \\n with \n.
+        // If event.description comes from parseIcsEvent -> decodeIcsText, it already handles some unescaping.
+        // Let's stick to the plan: "Remove decodeDescriptionForEdit usage in applyIcsEventToForm (and check other usages)."
+        // Wait, if I remove it, I should just assign event.description.
+        // However, decodeIcsText handles \\n -> \n.
+        // So event.description should be correct.
+        descEl.value = event.description || '';
         updateScheduleDescCounter();
     }
 }
@@ -820,7 +833,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const time = assembleTimeString();
     const title = titleEl.value;
     const rawLocation = locationEl.value.trim();
-    const description = encodeDescriptionForSave(descEl.value);
+    const description = descEl.value;
     const embedmap = embedMapEl.value;
     const attachmentFile = attachmentEl.files[0];
 
