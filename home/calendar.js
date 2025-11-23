@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.3_calendar-r1
+// This code Version: 5.13.4_calendar-r1
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -795,6 +795,10 @@ document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e)
 });
 
 function resetRegularScheduleForm() {
+    if (regularForm.allDay) {
+        regularForm.allDay.checked = false;
+        regularForm.allDay.dispatchEvent(new Event('change'));
+    }
     if (regularForm.startTime) regularForm.startTime.value = '';
     if (regularForm.endTime) regularForm.endTime.value = '';
     if (regularForm.time) regularForm.time.value = '';
