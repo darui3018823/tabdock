@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.0_calendar-r6
+// This code Version: 5.13.1_calendar-r1
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -818,6 +818,19 @@ document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e)
         e.target.value = '';
     }
 });
+
+function resetRegularScheduleForm() {
+    if (regularForm.startTime) regularForm.startTime.value = '';
+    if (regularForm.endTime) regularForm.endTime.value = '';
+    if (regularForm.location) regularForm.location.value = '';
+    if (regularForm.desc) regularForm.desc.value = '';
+    if (regularForm.embedMap) regularForm.embedMap.value = '';
+    if (regularForm.attachment) regularForm.attachment.value = '';
+    if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
+    if (regularForm.icsInfo) regularForm.icsInfo.textContent = '';
+    if (regularForm.icsFile) regularForm.icsFile.value = '';
+    updateScheduleDescCounter();
+}
 
 async function submitRegularSchedule({ continueAfter = false } = {}) {
     const {
