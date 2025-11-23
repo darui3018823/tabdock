@@ -323,90 +323,32 @@
                     <div id="scheduleIcsInfo" class="text-xs text-white/70 mt-1"></div>
                 </div>
 
-                <button
-                    id="regularToggleDetail"
-                    type="button"
-                    class="td-detail-toggle text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 mb-3"
-                    aria-expanded="false"
-                    aria-controls="regularDetailSection">
-                    <span class="td-detail-toggle-icon" aria-hidden="true">▼</span>
-                    <span class="td-detail-toggle-text">詳細設定を表示</span>
-                </button>
+                <button id="regularToggleDetail" class="text-sm text-blue-400 hover:underline mb-2">▼ 詳細設定を表示</button>
 
-                <div
-                    id="regularDetailSection"
-                    class="hidden td-detail-panel"
-                    role="region"
-                    aria-label="通常予定の詳細設定">
-                    <section class="td-detail-group">
-                        <div class="td-detail-header">
-                            <div>
-                                <h3>場所とリンク</h3>
-                                <p class="td-detail-caption">会議室やオンライン会議の情報をまとめて登録できます。</p>
-                            </div>
-                            <button type="button" id="regularClearLocation" class="td-detail-action">入力をクリア</button>
-                        </div>
+                <div id="regularDetailSection" class="hidden">
+                    <input type="text" id="scheduleLocation"
+                        placeholder="場所（例: 会議室 / aタグのみ許可）"
+                        class="w-full p-2 rounded bg-gray-700 text-white mb-2">
+                    <small class="text-white/50 block mb-2 ml-1">例: &lt;a href="https://..."&gt;会議室リンク&lt;/a&gt;</small>
 
-                        <div class="td-detail-grid">
-                            <div class="td-detail-field">
-                                <label for="scheduleLocation" class="td-detail-label">場所</label>
-                                <input
-                                    type="text"
-                                    id="scheduleLocation"
-                                    placeholder="場所（例: 会議室 / aタグのみ許可）"
-                                    class="w-full p-2 rounded bg-gray-700 text-white border border-slate-500/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
-                                <span class="td-detail-hint">例: <a href="https://example.com/">会議室リンク</a></span>
-                            </div>
-                            <div class="td-detail-field">
-                                <label for="scheduleEmbedMap" class="td-detail-label">埋め込みマップURL</label>
-                                <input
-                                    type="text"
-                                    id="scheduleEmbedMap"
-                                    placeholder="埋め込みマップURL（Google Mapsなど）"
-                                    class="w-full p-2 rounded bg-gray-700 text-white border border-slate-500/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
-                                <span class="td-detail-hint">Google Mapsの共有リンクなどを貼り付けると地図を表示できます。</span>
-                            </div>
-                        </div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="checkbox" id="embedAuto" class="accent-blue-500">
+                        <label for="embedAuto" class="text-sm">リンクから自動で埋め込みURLを生成</label>
+                    </div>
 
-                        <label class="td-detail-inline">
-                            <input type="checkbox" id="embedAuto" class="accent-blue-500">
-                            リンクから自動で埋め込みURLを生成
-                        </label>
-                    </section>
+                    <textarea id="scheduleDesc" placeholder="メモ（\\nで改行）" rows="3"
+                        class="w-full p-2 rounded bg-gray-700 text-white mb-2"></textarea>
 
-                    <section class="td-detail-group">
-                        <div class="td-detail-header">
-                            <div>
-                                <h3>メモと添付ファイル</h3>
-                                <p class="td-detail-caption">予定の補足や共有資料をまとめて管理できます。</p>
-                            </div>
-                            <button type="button" id="regularClearMemo" class="td-detail-action">入力をクリア</button>
-                        </div>
+                    <input type="text" id="scheduleEmbedMap"
+                        placeholder="埋め込みマップURL（Google Mapsなど）"
+                        class="w-full p-2 rounded bg-gray-700 text-white mb-2">
 
-                        <div class="td-detail-field">
-                            <label for="scheduleDesc" class="td-detail-label">メモ</label>
-                            <textarea
-                                id="scheduleDesc"
-                                placeholder="メモ（Enterで改行できます）"
-                                rows="3"
-                                maxlength="500"
-                                class="w-full p-2 rounded bg-gray-700 text-white border border-slate-500/40 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"></textarea>
-                            <div class="td-detail-helper-row">
-                                <span class="td-detail-hint">Enterキーで改行できます。保存時に自動変換されます。</span>
-                                <span id="scheduleDescCounter" class="td-detail-counter">0/500</span>
-                            </div>
-                        </div>
-
-                        <div class="td-detail-file">
-                            <label class="td-detail-label" for="scheduleAttachment">添付ファイル（JPG, PNG, PDF）</label>
-                            <input
-                                type="file"
-                                id="scheduleAttachment"
-                                accept=".jpg,.jpeg,.png,.pdf"
-                                class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
-                            <div id="scheduleAttachmentName" class="text-xs text-white/70"></div>
-                        </div>
-                    </section>
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm">添付ファイル（JPG, PNG, PDF）</label>
+                        <input type="file" id="scheduleAttachment"
+                               class="text-white file:bg-gray-600 file:text-white file:rounded file:px-2 file:py-1" />
+                        <div id="scheduleAttachmentName" class="text-xs text-white/70 mt-1"></div>
+                    </div>
                 </div>
 
                 <!-- 操作ボタン -->
