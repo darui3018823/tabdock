@@ -855,15 +855,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     schedules.push(scheduleData);
 
     if (continueAfter) {
-        if (regularForm.startTime) regularForm.startTime.value = '';
-        if (regularForm.endTime) regularForm.endTime.value = '';
-        if (regularForm.location) regularForm.location.value = '';
-        if (regularForm.desc) regularForm.desc.value = '';
-        if (regularForm.embedMap) regularForm.embedMap.value = '';
-        if (regularForm.attachment) regularForm.attachment.value = '';
-        if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
-        if (regularForm.icsInfo) regularForm.icsInfo.textContent = '';
-        if (regularForm.icsFile) regularForm.icsFile.value = '';
+        resetRegularScheduleForm();
         Toast?.fire({ icon: 'success', title: '追加しました（続けて入力できます）' });
         regularForm.title?.focus();
     } else {
