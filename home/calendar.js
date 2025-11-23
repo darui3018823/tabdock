@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.4_calendar-r1
+// This code Version: 5.14.0_calendar-r1
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -91,6 +91,13 @@ function getLoggedInUsername() {
     return null;
 }
 
+function escapeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 function renderSchedule(dateStr) {
     selectedDate = dateStr;
     if (typeof window !== 'undefined') {
@@ -104,7 +111,7 @@ function renderSchedule(dateStr) {
         const holidayItem = document.createElement('li');
         holidayItem.className = 'mb-2 rounded border border-red-400/40 bg-red-500/20 px-3 py-2 text-sm text-red-100 shadow';
         holidayItem.dataset.calendarFixed = 'holiday';
-        holidayItem.innerHTML = `<div class="font-semibold text-red-200">祝日: ${holidayName}</div>`;
+        holidayItem.innerHTML = `<div class="font-semibold text-red-200">祝日: ${escapeHTML(holidayName)}</div>`;
         scheduleList.appendChild(holidayItem);
     }
 
@@ -129,7 +136,7 @@ function renderSchedule(dateStr) {
             ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
             : "(時間未定)";
 
-        const line2 = sched.title || "無題の予定";
+        const line2 = escapeHTML(sched.title) || "無題の予定";
 
         const content = document.createElement("div");
         content.innerHTML = `
@@ -173,9 +180,11 @@ document.getElementById("upcomingBtn").addEventListener("click", () => {
 
     for (const sched of upcoming.slice(0, 5)) {
         const li = document.createElement("li");
+        const escapedTitle = escapeHTML(sched.title);
+        const escapedDesc = escapeHTML(sched.description);
         li.innerHTML = `
-            <div class="font-semibold">${sched.date} ${sched.time} - ${sched.title}</div>
-            <div class="text-xs text-white/70">${sched.description}</div>
+            <div class="font-semibold">${sched.date} ${sched.time} - ${escapedTitle}</div>
+            <div class="text-xs text-white/70">${escapedDesc}</div>
         `;
         scheduleList.appendChild(li);
     }
@@ -931,6 +940,8 @@ function convertToEmbedURL(url) {
     return null;
 }
 
+
+
 function showScheduleDetail(sched) {
     const content = document.getElementById("scheduleDetailContent");
 
@@ -938,31 +949,35 @@ function showScheduleDetail(sched) {
         ? "終日"
         : `${sched.date}${sched.time ? ` ${sched.time}` : ""}${sched.endTime ? `~${sched.endTime}` : ""}`;
 
-    const formattedDescription = decodeDescriptionForEdit(sched.description || "なし").replace(/\n/g, "<br>");
+    const rawDescription = decodeDescriptionForEdit(sched.description || "なし");
+    const formattedDescription = escapeHTML(rawDescription).replace(/\n/g, "<br>");
 
     let locationHTML = "未指定";
     if (sched.location && sched.location.startsWith("http")) {
-        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline break-all">${sched.location}</a>`;
+        const escapedLocation = escapeHTML(sched.location);
+        locationHTML = `<a href="${escapedLocation}" target="_blank" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
     } else if (sched.location) {
-        locationHTML = sched.location;
+        locationHTML = escapeHTML(sched.location);
     }
 
     const isImage = sched.attachment && /\.(jpe?g|png|gif|webp)$/i.test(sched.attachment);
+    const escapedAttachment = escapeHTML(sched.attachment);
     const attachmentHTML = sched.attachment && sched.attachment !== "null" ? `
         <div>
             <div class="font-semibold text-white/80">添付</div>
             <div class="break-all mb-2">
-                <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a>
+                <a href="/home/assets/calendar/${escapedAttachment}" class="text-blue-400 underline" target="_blank">${escapedAttachment}</a>
             </div>
             ${isImage ? `
             <div>
-                <img src="/home/assets/calendar/${sched.attachment}" alt="添付画像" class="max-w-full rounded border border-white/20">
+                <img src="/home/assets/calendar/${escapedAttachment}" alt="添付画像" class="max-w-full rounded border border-white/20">
             </div>` : ""}
         </div>
     ` : "";
 
+    const escapedEmbedMap = escapeHTML(sched.embedmap);
     const mapEmbed = sched.embedmap
-        ? `<iframe src="${sched.embedmap}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
+        ? `<iframe src="${escapedEmbedMap}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
         : "";
 
     content.innerHTML = `
@@ -970,7 +985,7 @@ function showScheduleDetail(sched) {
             <div class="md:w-1/2 space-y-3 leading-relaxed">
                 <div>
                     <div class="font-semibold text-white/80">タイトル</div>
-                    <div>${sched.title || "無題の予定"}</div>
+                    <div>${escapeHTML(sched.title) || "無題の予定"}</div>
                 </div>
                 <div>
                     <div class="font-semibold text-white/80">日付</div>
