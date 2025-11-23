@@ -436,6 +436,14 @@ const KILO_BYTES = 1024;
 const MEGA_BYTES = KILO_BYTES * KILO_BYTES;
 const DESC_WARN_THRESHOLD = 50;
 
+function encodeDescriptionForSave(text) {
+    return (text || '').replace(/\n/g, '\\n');
+}
+
+function decodeDescriptionForEdit(text) {
+    return (text || '').replace(/\\n/g, '\n');
+}
+
 function updateScheduleDescCounter() {
     const desc = document.getElementById('scheduleDesc');
     const counter = document.getElementById('scheduleDescCounter');
@@ -743,7 +751,7 @@ function applyIcsEventToForm(event) {
 
     const descEl = document.getElementById('scheduleDesc');
     if (descEl) {
-        descEl.value = event.description || '';
+        descEl.value = decodeDescriptionForEdit(event.description || '');
     }
 }
 
@@ -800,7 +808,8 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const time = assembleTimeString();
     const title = document.getElementById("scheduleTitle").value;
     const rawLocation = document.getElementById("scheduleLocation").value.trim();
-    const description = document.getElementById("scheduleDesc").value;
+    const rawDescription = document.getElementById("scheduleDesc").value;
+    const description = encodeDescriptionForSave(rawDescription);
     const embedmap = document.getElementById("scheduleEmbedMap").value;
     const attachmentFile = document.getElementById("scheduleAttachment").files[0];
 
