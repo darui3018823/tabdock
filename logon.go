@@ -291,7 +291,7 @@ func createAuthUser(username, email, password string) (*AuthUser, error) {
 
 	log.Printf("[DEBUG] ユーザー作成成功: %s", username)
 	return &AuthUser{
-		ID:        0, // SQLiteでは自動採番ではないため
+		ID:        0,
 		Username:  username,
 		Email:     email,
 		CreatedAt: now,
@@ -306,48 +306,57 @@ func authenticateAuthUser(username, password string) (*AuthUser, error) {
 		return nil, fmt.Errorf("データベース接続がありません")
 	}
 
-	query := `SELECT password, username, COALESCE(email, ''), COALESCE(profile_image, ''),
+	query := `SELECT id, password, username, COALESCE(email, ''), COALESCE(profile_image, ''),
                         COALESCE(created_at, CURRENT_TIMESTAMP),
                         COALESCE(updated_at, CURRENT_TIMESTAMP)
                         FROM users WHERE username = ?`
 	row := db.QueryRow(query, username)
 
 	var user AuthUser
-	var hashedPassword, createdAtStr, updatedAtStr string
-	err := row.Scan(&hashedPassword, &user.Username, &user.Email, &user.ProfileImage, &createdAtStr, &updatedAtStr)
+	var userID, storedPassword, createdAtStr, updatedAtStr string
+	err := row.Scan(&userID, &storedPassword, &user.Username, &user.Email, &user.ProfileImage, &createdAtStr, &updatedAtStr)
 	if err != nil {
-		log.Printf("[ERROR] 認証エラー: %v", err)
+		if err == sql.ErrNoRows {
+			log.Printf("[INFO] ユーザーが見つかりません: %s", username)
+		} else {
+			log.Printf("[ERROR] 認証エラー (ユーザー取得): %v", err)
+		}
 		return nil, err
 	}
 
-	if err := verifyPassword(hashedPassword, password); err != nil {
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+	err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
+	if err != nil {
+		log.Printf("[DEBUG] bcrypt比較失敗: %v. 平文比較を試みます。", err)
+
+		if storedPassword == password {
+			log.Printf("[INFO] ユーザー '%s' がハッシュ化されていないパスワードでログインしました。パスワードをハッシュ化します。", username)
+
+			newHashedPassword, hashErr := hashPassword(password)
+			if hashErr != nil {
+				log.Printf("[ERROR] ログイン成功後のパスワードハッシュ化に失敗: %v", hashErr)
+			} else {
+				_, updateErr := db.Exec("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", newHashedPassword, userID)
+				if updateErr != nil {
+					log.Printf("[ERROR] ハッシュ化済みパスワードのDB更新に失敗: %v", updateErr)
+				} else {
+					log.Printf("[INFO] ユーザー '%s' のパスワードを正常にハッシュ化して更新しました。", username)
+				}
+			}
+			err = nil
+		} else {
+			log.Printf("[INFO] ユーザー '%s' のパスワードが一致しませんでした。", username)
 			return nil, sql.ErrNoRows
 		}
-		log.Printf("[ERROR] パスワード検証エラー: %v", err)
-		return nil, err
 	}
 
-	// ログイン時刻を設定
-	user.LoginAt = time.Now().Unix()
-
-	// 文字列をtime.Timeに変換
-	user.CreatedAt, err = parseSQLiteTime(createdAtStr)
-	if err != nil {
-		// パースに失敗した場合は現在時刻を使用
-		user.CreatedAt = time.Now()
-		log.Printf("[WARN] created_at パース失敗、現在時刻を使用: %v", err)
+	if err == nil {
+		user.LoginAt = time.Now().Unix()
+		user.CreatedAt, _ = parseSQLiteTime(createdAtStr)
+		user.UpdatedAt, _ = parseSQLiteTime(updatedAtStr)
+		log.Printf("[INFO] ユーザー '%s' が正常にログインしました。", username)
 	}
 
-	user.UpdatedAt, err = parseSQLiteTime(updatedAtStr)
-	if err != nil {
-		// パースに失敗した場合は現在時刻を使用
-		user.UpdatedAt = time.Now()
-		log.Printf("[WARN] updated_at パース失敗、現在時刻を使用: %v", err)
-	}
-
-	log.Printf("[DEBUG] 認証成功: %s", username)
-	return &user, nil
+	return &user, err
 }
 
 func updateAuthUserPassword(username, newPassword string) error {

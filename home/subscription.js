@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.6.0_subsc-r3
+// This code Version: 5.10.1_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -23,6 +23,7 @@ class SubscriptionManager {
         this.hideAllPaymentDetails();
         this.setupEventListeners();
         this.registerCalendarListeners();
+        this.registerDateChangeListener();
     }
 
     setupEventListeners() {
@@ -56,6 +57,14 @@ class SubscriptionManager {
         });
 
         window.addEventListener('subscription:request-open', () => this.showAddModal());
+    }
+
+    registerDateChangeListener() {
+        window.addEventListener('date:changed', () => {
+            console.log('日付変更を検知しました。通知を再スケジュールします。');
+            this.scheduleNotifications({ reschedule: true, immediate: true })
+                .catch(err => console.error('日付変更による通知の再スケジュールに失敗しました:', err));
+        });
     }
 
     registerCalendarListeners() {
@@ -203,16 +212,16 @@ class SubscriptionManager {
         const listItems = dueSoon.map(item => {
             const name = escape(item.sub.serviceName || '名称未設定');
             const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
-            return `<li class="py-1">
-                <div class="font-semibold text-white/90">${name}</div>
-                <div class="text-white/60 text-[11px]">${escape(item.label)}に支払い予定 / ${escape(item.amount)} / ${cycle}</div>
+            return `<li class="py-2 px-3 bg-white/5 rounded-md">
+                <div class="font-bold text-base text-white mb-1">${name}</div>
+                <div class="text-white/70 text-xs">${escape(item.label)}に支払い予定 / <span class="font-medium">${escape(item.amount)}</span> / ${cycle}</div>
             </li>`;
         }).join('');
 
         await Swal.fire({
             icon: 'info',
             title: '支払い予定の確認',
-            html: `<div class="text-left text-xs"><p class="mb-2">近い支払予定のサブスクリプションがあります。</p><ul class="divide-y divide-white/10">${listItems}</ul></div>`,
+            html: `<div class="text-left text-sm"><p class="mb-3 text-base font-medium text-white/90">近い支払予定のサブスクリプションがあります。</p><ul class="space-y-3">${listItems}</ul></div>`,
             confirmButtonText: '閉じる'
         });
 
