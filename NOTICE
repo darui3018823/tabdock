@@ -12,3 +12,16 @@ License: https://www.apache.org/licenses/LICENSE-2.0
 The following Material Symbols are used in this project:
 - Clock grid toggle icon - Used for switching clock grid layout
 - Upload icon - Used in account management interface
+
+---
+
+This software also contains third-party materials licensed under CC BY 4.0:
+
+GeoLite2 Country Database
+Copyright (c) MaxMind, Inc.
+Licensed under the Creative Commons Attribution 4.0 International License
+Available at: https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+License: https://creativecommons.org/licenses/by/4.0/
+
+This product includes GeoLite2 data created by MaxMind, available from
+https://www.maxmind.com

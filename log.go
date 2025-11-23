@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.5.0_log-r1
+// This code Version: 5.12.0_log-r1
 
 package main
 
@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/oschwald/geoip2-golang"
 )
 
 var trustedCIDRs []*net.IPNet
@@ -59,9 +61,22 @@ var rateLimitMutex sync.RWMutex
 var dynamicBlockMap = map[string]time.Time{}
 var dynamicBlockMutex sync.RWMutex
 
-var sqlInjectionPattern = regexp.MustCompile(`(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|<script|onload|onerror|alert|confirm|prompt|document\.cookie)`)
-var xssPattern = regexp.MustCompile(`(?i)(<script|javascript:|onload|onerror|alert\(|confirm\(|prompt\(|document\.|window\.|eval\()`)
-var pathTraversalPattern = regexp.MustCompile(`(\.\./|\.\.\\|%2e%2e%2f|%2e%2e\\)`)
+var rateLimitExemptExtensions = []string{
+	".css", ".js",
+	".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+	".woff", ".woff2", ".ttf", ".eot",
+	".json",
+}
+
+var (
+	sqlInjectionPattern    *regexp.Regexp
+	xssPattern             *regexp.Regexp
+	pathTraversalPattern   *regexp.Regexp
+	maliciousUAPatterns    []string
+	suspiciousUAPatterns   []string
+	suspiciousPathPatterns []string
+	geoipDB                *geoip2.Reader
+)
 
 type RateLimit struct {
 	Count     int
@@ -69,27 +84,76 @@ type RateLimit struct {
 	Mutex     sync.Mutex
 }
 
-type SecurityConfig struct {
-	MaxRequestSize   int64
-	RateLimitPerMin  int
-	AllowedMethods   []string
-	BlockedCountries []string
-	DynamicBlockTime time.Duration
+type DetectionPatterns struct {
+	SQLInjection   string   `json:"sql_injection"`
+	XSS            string   `json:"xss"`
+	PathTraversal  string   `json:"path_traversal"`
+	MaliciousUA    []string `json:"malicious_ua"`
+	SuspiciousUA   []string `json:"suspicious_ua"`
+	SuspiciousPath []string `json:"suspicious_path"`
 }
 
-var secConfig = SecurityConfig{
-	MaxRequestSize:   10 * 1024 * 1024,
-	RateLimitPerMin:  60,
-	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"},
-	BlockedCountries: []string{"CN", "RU", "KP"},
-	DynamicBlockTime: 30 * time.Minute,
+type SecurityConfig struct {
+	MaxRequestSizeMB    int64             `json:"max_request_size_mb"`
+	RateLimitPerMin     int               `json:"rate_limit_per_min"`
+	DynamicBlockTimeMin int               `json:"dynamic_block_time_min"`
+	AllowedMethods      []string          `json:"allowed_methods"`
+	BlockedCountries    []string          `json:"blocked_countries"`
+	Patterns            DetectionPatterns `json:"detection_patterns"`
+	SecurityLevel       string            `json:"security_level"`
+}
+
+var secConfig SecurityConfig
+
+func loadSecurityConfig(filepath string) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return fmt.Errorf("セキュリティ設定ファイルが開けません: %w", err)
+	}
+	defer file.Close()
+
+	if err := json.NewDecoder(file).Decode(&secConfig); err != nil {
+		return fmt.Errorf("セキュリティ設定のJSONデコードに失敗: %w", err)
+	}
+
+	if secConfig.SecurityLevel == "" {
+		secConfig.SecurityLevel = "strict"
+	}
+
+	// 正規表現をコンパイル
+	sqlInjectionPattern, err = regexp.Compile(secConfig.Patterns.SQLInjection)
+	if err != nil {
+		return fmt.Errorf("SQL Injection パターンのコンパイルに失敗: %w", err)
+	}
+	xssPattern, err = regexp.Compile(secConfig.Patterns.XSS)
+	if err != nil {
+		return fmt.Errorf("XSS パターンのコンパイルに失敗: %w", err)
+	}
+	pathTraversalPattern, err = regexp.Compile(secConfig.Patterns.PathTraversal)
+	if err != nil {
+		return fmt.Errorf("Path Traversal パターンのコンパイルに失敗: %w", err)
+	}
+
+	maliciousUAPatterns = secConfig.Patterns.MaliciousUA
+	suspiciousUAPatterns = secConfig.Patterns.SuspiciousUA
+	suspiciousPathPatterns = secConfig.Patterns.SuspiciousPath
+
+	return nil
 }
 
 func init() {
-	err := loadTrustedIPs("./json/trusted_ips.json")
-	if err != nil {
+	if err := loadTrustedIPs("./json/trusted_ips.json"); err != nil {
 		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
 		os.Exit(1)
+	}
+
+	if err := loadSecurityConfig("./json/security_config.json"); err != nil {
+		fmt.Println("security_config.json の読み込みに失敗しました:", err)
+		os.Exit(1)
+	}
+
+	if err := loadGeoIPDatabase("./geoip/GeoLite2-Country.mmdb"); err != nil {
+		fmt.Println("警告: GeoIPデータベースが読み込めませんでした。国別ブロック機能は無効になります。:", err)
 	}
 
 	go startCleanupRoutine()
@@ -118,8 +182,9 @@ func cleanupMaps() {
 	rateLimitMutex.Unlock()
 
 	dynamicBlockMutex.Lock()
+	blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
 	for ip, blockTime := range dynamicBlockMap {
-		if now.Sub(blockTime) > secConfig.DynamicBlockTime {
+		if now.Sub(blockTime) > blockDuration {
 			delete(dynamicBlockMap, ip)
 		}
 	}
@@ -166,6 +231,39 @@ func isTrustedIP(ipStr string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func loadGeoIPDatabase(filepath string) error {
+	var err error
+	geoipDB, err = geoip2.Open(filepath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func isBlockedCountry(ipStr string) bool {
+	if geoipDB == nil || len(secConfig.BlockedCountries) == 0 {
+		return false
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	country, err := geoipDB.Country(ip)
+	if err != nil {
+		return false
+	}
+
+	for _, blocked := range secConfig.BlockedCountries {
+		if country.Country.IsoCode == blocked {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -236,25 +334,13 @@ func detectSuspiciousUA(ua string) string {
 		return "deny"
 	}
 
-	maliciousPatterns := []string{
-		"sqlmap", "nessus", "acunetix", "nikto", "dirb", "gobuster",
-		"masscan", "zmap", "nmap", "burpsuite", "metasploit",
-		"havij", "pangolin", "sqlninja", "beef", "w3af",
-	}
-
-	for _, pattern := range maliciousPatterns {
+	for _, pattern := range maliciousUAPatterns {
 		if strings.Contains(lower, pattern) {
 			return "deny"
 		}
 	}
 
-	suspiciousPatterns := []string{
-		"curl", "wget", "python", "perl", "ruby", "php", "java",
-		"bot", "crawler", "spider", "scraper", "scanner",
-		"test", "check", "monitor", "probe", "audit",
-	}
-
-	for _, pattern := range suspiciousPatterns {
+	for _, pattern := range suspiciousUAPatterns {
 		if strings.Contains(lower, pattern) {
 			return "warn"
 		}
@@ -273,13 +359,7 @@ func detectSuspiciousUA(ua string) string {
 
 func isSuspiciousPath(path string) bool {
 	lower := strings.ToLower(path)
-	attackPatterns := []string{
-		".php", ".env", ".bak", ".old", ".git", ".htaccess", "wp-", "admin", "login",
-		".config", ".ini", ".conf", ".log", ".sql", ".db", ".backup", ".tmp",
-		"phpmyadmin", "cpanel", "webmail", ".aws", ".ssh", "id_rsa", "passwd",
-		"shadow", "etc/", "proc/", "var/log", "boot.ini", "web.config",
-	}
-	for _, pattern := range attackPatterns {
+	for _, pattern := range suspiciousPathPatterns {
 		if strings.Contains(lower, pattern) {
 			return true
 		}
@@ -300,7 +380,13 @@ func isSuspiciousPath(path string) bool {
 	return false
 }
 
-func checkRateLimit(ip string) bool {
+func checkRateLimit(ip string, path string) bool {
+	for _, ext := range rateLimitExemptExtensions {
+		if strings.HasSuffix(strings.ToLower(path), ext) {
+			return true
+		}
+	}
+
 	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
 		return true
 	}
@@ -336,8 +422,9 @@ func isDynamicallyBlocked(ip string) bool {
 	dynamicBlockMutex.RLock()
 	defer dynamicBlockMutex.RUnlock()
 
+	blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
 	if blockTime, exists := dynamicBlockMap[ip]; exists {
-		if time.Since(blockTime) < secConfig.DynamicBlockTime {
+		if time.Since(blockTime) < blockDuration {
 			return true
 		}
 		delete(dynamicBlockMap, ip)
@@ -365,11 +452,13 @@ func isAllowedMethod(method string) bool {
 }
 
 func addSecurityHeaders(w http.ResponseWriter) {
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if secConfig.SecurityLevel != "relaxed" {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+	}
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1; mode=block")
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdn.daruks.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdn.daruks.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 
@@ -380,8 +469,9 @@ func addSecurityHeaders(w http.ResponseWriter) {
 }
 
 func detectAdvancedThreats(r *http.Request) string {
+	maxSize := secConfig.MaxRequestSizeMB * 1024 * 1024
 	if r.Method == "POST" || r.Method == "PUT" {
-		if r.ContentLength > secConfig.MaxRequestSize {
+		if r.ContentLength > maxSize {
 			return "oversized"
 		}
 	}
@@ -416,15 +506,36 @@ func detectAdvancedThreats(r *http.Request) string {
 	return "clean"
 }
 
-func logRequest(r *http.Request, ip, level string) {
-	now := time.Now().Format("[2006/01/02 15:04:05]")
+type LogEntry struct {
+	Timestamp   string `json:"timestamp"`
+	Level       string `json:"level"`
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	IP          string `json:"ip"`
+	UserAgent   string `json:"user_agent"`
+	RequestHash string `json:"request_hash"`
+}
 
+func logRequest(r *http.Request, ip, level string) {
 	reqData := fmt.Sprintf("%s%s%s%s", r.Method, r.URL.Path, r.UserAgent(), ip)
 	hasher := sha256.Sum256([]byte(reqData))
 	reqHash := hex.EncodeToString(hasher[:])[:16]
 
-	msg := fmt.Sprintf("%s [%s] %s %s UA: %s ReqIP: %s Hash: %s\n",
-		now, strings.ToUpper(level), r.Method, r.URL.Path, r.UserAgent(), ip, reqHash)
+	entry := LogEntry{
+		Timestamp:   time.Now().Format(time.RFC3339),
+		Level:       strings.ToUpper(level),
+		Method:      r.Method,
+		Path:        r.URL.Path,
+		IP:          ip,
+		UserAgent:   r.UserAgent(),
+		RequestHash: reqHash,
+	}
+
+	logData, err := json.Marshal(entry)
+	if err != nil {
+		fmt.Println("Failed to marshal log entry:", err)
+		return
+	}
 
 	switch level {
 	case "info", "warn", "attack", "error", "block":
@@ -433,7 +544,6 @@ func logRequest(r *http.Request, ip, level string) {
 	}
 
 	safeIP := sanitizeIP(ip)
-
 	baseDir := "./log"
 	dir := filepath.Join(baseDir, level, safeIP)
 	dir = filepath.Clean(dir)
@@ -450,7 +560,7 @@ func logRequest(r *http.Request, ip, level string) {
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer f.Close()
-		f.WriteString(msg)
+		f.WriteString(string(logData) + "\n")
 	}
 
 	if level == "warn" || level == "attack" || level == "block" {
@@ -475,7 +585,6 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		addSecurityHeaders(w)
 
-		// CORS プリフライトリクエストの処理
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -485,37 +594,31 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		ua := r.UserAgent()
 		loadScores()
 
-		// 最優先: localhost系のアクセスは常に許可
 		if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
 			next(w, r)
 			return
 		}
 
-		// WebAuthn APIは常に許可
 		if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
 			next(w, r)
 			return
 		}
 
-		// 信頼できるIPアドレスかどうかを早期に判定
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
+		isRelaxedMode := secConfig.SecurityLevel == "relaxed"
 
-		// 信頼できるIPの場合、スコアやブロック状態に関係なく基本的なチェックのみで通す
 		if isPrivateIP || isTrusted {
-			// 基本的なメソッドチェックのみ実行
 			if !isAllowedMethod(r.Method) {
-				logRequest(r, ip, "warn") // 信頼できるIPなのでスコア増加は行わない
+				logRequest(r, ip, "warn")
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
 
-			// レート制限は信頼できるIPには適用しない（ログのみ）
-			if !checkRateLimit(ip) {
-				logRequest(r, ip, "warn") // ログは残すがブロックはしない
+			if !checkRateLimit(ip, r.URL.Path) {
+				logRequest(r, ip, "warn")
 			}
 
-			// 疑わしいパスでもログのみでブロックしない
 			if isSuspiciousPath(r.URL.Path) {
 				logRequest(r, ip, "warn")
 			} else {
@@ -530,7 +633,12 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// 信頼できないIPに対する通常のセキュリティチェック
+		if !isRelaxedMode && isBlockedCountry(ip) {
+			logRequest(r, ip, "block")
+			http.Error(w, "Access Denied", http.StatusForbidden)
+			return
+		}
+
 		if !isAllowedMethod(r.Method) {
 			incrementScore(ip, 10)
 			logRequest(r, ip, "attack")
@@ -538,32 +646,38 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if !checkRateLimit(ip) {
-			incrementScore(ip, 5)
-			logRequest(r, ip, "block")
-			addDynamicBlock(ip)
-			http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
-			return
+		if !checkRateLimit(ip, r.URL.Path) {
+			if isRelaxedMode {
+				logRequest(r, ip, "warn")
+			} else {
+				incrementScore(ip, 5)
+				logRequest(r, ip, "block")
+				addDynamicBlock(ip)
+				http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+				return
+			}
 		}
 
-		if isDynamicallyBlocked(ip) {
+		if !isRelaxedMode && isDynamicallyBlocked(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
 		}
 
 		threatLevel := detectAdvancedThreats(r)
-		switch threatLevel {
-		case "oversized":
-			incrementScore(ip, 8)
-			logRequest(r, ip, "attack")
-			http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
-			return
-		case "header_manipulation", "long_header", "long_header_name":
-			incrementScore(ip, 7)
-			logRequest(r, ip, "attack")
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
+		if threatLevel != "clean" && !isRelaxedMode {
+			switch threatLevel {
+			case "oversized":
+				incrementScore(ip, 8)
+				logRequest(r, ip, "attack")
+				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
+				return
+			case "header_manipulation", "long_header", "long_header_name":
+				incrementScore(ip, 7)
+				logRequest(r, ip, "attack")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			}
 		}
 
 		internalLevelBoost := 0
@@ -571,7 +685,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			internalLevelBoost += 2
 		}
 
-		if isBlockedDirectIP(ip) {
+		if !isRelaxedMode && isBlockedDirectIP(ip) {
 			incrementScore(ip, 5+internalLevelBoost)
 			logRequest(r, ip, "warn")
 			http.Redirect(w, r, "/error/403", http.StatusFound)
@@ -594,29 +708,42 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		uaStatus := detectSuspiciousUA(ua)
 		switch uaStatus {
 		case "deny":
-			incrementScore(ip, 8+internalLevelBoost)
-			logRequest(r, ip, "attack")
-			addDynamicBlock(ip)
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
+			if isRelaxedMode {
+				incrementScore(ip, 1+internalLevelBoost)
+				logRequest(r, ip, "warn")
+			} else {
+				incrementScore(ip, 8+internalLevelBoost)
+				logRequest(r, ip, "attack")
+				addDynamicBlock(ip)
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			}
 		case "warn":
-			incrementScore(ip, 4+internalLevelBoost)
-			logRequest(r, ip, "warn")
+			if isRelaxedMode {
+				logRequest(r, ip, "info")
+			} else {
+				incrementScore(ip, 4+internalLevelBoost)
+				logRequest(r, ip, "warn")
+			}
 		default:
 			logRequest(r, ip, getLevel(ip))
 		}
 
-		if strings.HasPrefix(ip, "60.") {
+		if !isRelaxedMode && strings.HasPrefix(ip, "60.") {
 			incrementScore(ip, 3+internalLevelBoost)
 			logRequest(r, ip, "warn")
 		}
 
 		currentLevel := getLevel(ip)
 		if currentLevel == "block" {
-			addDynamicBlock(ip)
-			logRequest(r, ip, "block")
-			http.Redirect(w, r, "/error/503", http.StatusFound)
-			return
+			if isRelaxedMode {
+				logRequest(r, ip, "warn")
+			} else {
+				addDynamicBlock(ip)
+				logRequest(r, ip, "block")
+				http.Redirect(w, r, "/error/503", http.StatusFound)
+				return
+			}
 		}
 
 		next(w, r)

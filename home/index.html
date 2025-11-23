@@ -12,7 +12,7 @@
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <link rel="stylesheet" href="style.css">
-        <link rel="manifest" href="manifest.json">
+        <link rel="manifest" href="/manifest.json">
 
         <meta property="og:site_name" content="Tabdock">
         <meta property="og:title" content="Tabdock Home">
@@ -909,9 +909,22 @@
                     </div>
                 </div>
 
+                <!-- デバッグログモーダル -->
+                <div id="debugLogModal" class="hidden td-modal-overlay z-50">
+                    <div class="td-modal-panel td-modal-lg max-h-[90vh]">
+                        <h2 class="text-xl font-bold mb-4">デバッグ情報</h2>
+                
+                        <div id="debugLogContent" class="text-left text-xs space-y-4 overflow-y-auto">
+                        </div>
+                
+                        <div class="flex justify-end mt-6">
+                            <button id="closeDebugLogModal" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- アカウント管理 -->
                 <div id="accountModal" class="hidden fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
-                    <!-- 動的生成 -->
                 </div>
 
                 <!-- 画面焼け防止オーバーレイ -->
