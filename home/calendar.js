@@ -317,9 +317,14 @@ document.getElementById("closeScheduleTypeModal").addEventListener("click", () =
 });
 
 // 通常予定モーダルの制御
+const regularDetailToggle = document.getElementById('regularToggleDetail');
+const regularDetailSection = document.getElementById('regularDetailSection');
+
 const regularForm = {
     date: document.getElementById("scheduleDate"),
     time: document.getElementById("scheduleTime"),
+    startTime: document.getElementById('scheduleStartTime'),
+    endTime: document.getElementById('scheduleEndTime'),
     location: document.getElementById("scheduleLocation"),
     desc: document.getElementById("scheduleDesc"),
     embedMap: document.getElementById("scheduleEmbedMap"),
@@ -329,6 +334,10 @@ const regularForm = {
     icsInfo: document.getElementById("scheduleIcsInfo"),
     attachmentName: document.getElementById("scheduleAttachmentName"),
     title: document.getElementById("scheduleTitle"),
+    detailSection: regularDetailSection,
+    detailToggle: regularDetailToggle,
+    detailToggleIcon: regularDetailToggle?.querySelector('.td-detail-toggle-icon'),
+    detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
 };
 
 document.getElementById("openRegularScheduleBtn").addEventListener("click", () => {
@@ -348,12 +357,13 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
     }
 
     // 詳細セクションは最初閉じる
-    const detail = document.getElementById("regularDetailSection");
-    if (detail) {
+    if (regularForm.detailSection) {
         setRegularDetailState(false);
     }
 
     // 軽い初期化（タイトルは維持、説明/場所/時間/添付はクリア）
+    if (regularForm.startTime) regularForm.startTime.value = "";
+    if (regularForm.endTime) regularForm.endTime.value = "";
     if (regularForm.time) regularForm.time.value = "";
     if (regularForm.location) regularForm.location.value = "";
     if (regularForm.desc) regularForm.desc.value = "";
@@ -419,17 +429,14 @@ function applyTimePreset(range) {
 }
 
 function setRegularDetailState(shouldOpen) {
-    const section = document.getElementById('regularDetailSection');
-    const btn = document.getElementById('regularToggleDetail');
-    if (!section || !btn) return;
+    const { detailSection, detailToggle, detailToggleIcon, detailToggleText } = regularForm;
+    if (!detailSection || !detailToggle) return;
 
-    section.classList.toggle('hidden', !shouldOpen);
-    btn.setAttribute('aria-expanded', String(shouldOpen));
+    detailSection.classList.toggle('hidden', !shouldOpen);
+    detailToggle.setAttribute('aria-expanded', String(shouldOpen));
 
-    const icon = btn.querySelector('.td-detail-toggle-icon');
-    const label = btn.querySelector('.td-detail-toggle-text');
-    if (icon) icon.textContent = shouldOpen ? '▲' : '▼';
-    if (label) label.textContent = shouldOpen ? '詳細設定を隠す' : '詳細設定を表示';
+    if (detailToggleIcon) detailToggleIcon.textContent = shouldOpen ? '▲' : '▼';
+    if (detailToggleText) detailToggleText.textContent = shouldOpen ? '詳細設定を隠す' : '詳細設定を表示';
 }
 
 const KILO_BYTES = 1024;
@@ -1050,9 +1057,9 @@ document.getElementById("closeAllScheduleModal").addEventListener("click", () =>
 });
 
 document.getElementById('regularToggleDetail')?.addEventListener('click', () => {
-    const section = document.getElementById('regularDetailSection');
-    if (!section) return;
-    const isOpen = !section.classList.contains('hidden');
+    const { detailSection } = regularForm;
+    if (!detailSection) return;
+    const isOpen = !detailSection.classList.contains('hidden');
     setRegularDetailState(!isOpen);
     if (!isOpen) {
         document.getElementById('scheduleLocation')?.focus();
