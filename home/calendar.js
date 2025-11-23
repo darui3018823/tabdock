@@ -819,7 +819,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const title = titleEl.value;
     const rawLocation = locationEl.value.trim();
     const rawDescription = descEl.value;
-    const description = rawDescription; // encodeDescriptionForSave(rawDescription);
+    const description = rawDescription;
     const embedmap = embedMapEl.value;
     const attachmentFile = attachmentEl.files[0];
 
