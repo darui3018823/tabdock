@@ -317,29 +317,6 @@ document.getElementById("closeScheduleTypeModal").addEventListener("click", () =
 });
 
 // 通常予定モーダルの制御
-const regularDetailToggle = document.getElementById('regularToggleDetail');
-const regularDetailSection = document.getElementById('regularDetailSection');
-
-const regularForm = {
-    date: document.getElementById("scheduleDate"),
-    time: document.getElementById("scheduleTime"),
-    startTime: document.getElementById('scheduleStartTime'),
-    endTime: document.getElementById('scheduleEndTime'),
-    location: document.getElementById("scheduleLocation"),
-    desc: document.getElementById("scheduleDesc"),
-    embedMap: document.getElementById("scheduleEmbedMap"),
-    attachment: document.getElementById("scheduleAttachment"),
-    icsFile: document.getElementById("scheduleIcsFile"),
-    embedAuto: document.getElementById("embedAuto"),
-    icsInfo: document.getElementById("scheduleIcsInfo"),
-    attachmentName: document.getElementById("scheduleAttachmentName"),
-    title: document.getElementById("scheduleTitle"),
-    detailSection: regularDetailSection,
-    detailToggle: regularDetailToggle,
-    detailToggleIcon: regularDetailToggle?.querySelector('.td-detail-toggle-icon'),
-    detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
-};
-
 document.getElementById("openRegularScheduleBtn").addEventListener("click", () => {
     document.getElementById("scheduleTypeModal").classList.add("hidden");
     const modal = document.getElementById("regularScheduleModal");
@@ -352,35 +329,36 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
         const d = String(today.getDate()).padStart(2, "0");
         return `${y}-${m}-${d}`;
     })();
-    if (regularForm.date && !regularForm.date.value) {
-        regularForm.date.value = targetDate;
-    }
+    const dateEl = document.getElementById("scheduleDate");
+    if (dateEl && !dateEl.value) dateEl.value = targetDate;
 
     // 詳細セクションは最初閉じる
-    if (regularForm.detailSection) {
-        setRegularDetailState(false);
+    const detail = document.getElementById("regularDetailSection");
+    const toggle = document.getElementById("regularToggleDetail");
+    if (detail && toggle) {
+        detail.classList.add("hidden");
+        toggle.textContent = "▼ 詳細設定を表示";
     }
 
     // 軽い初期化（タイトルは維持、説明/場所/時間/添付はクリア）
-    if (regularForm.startTime) regularForm.startTime.value = "";
-    if (regularForm.endTime) regularForm.endTime.value = "";
-    if (regularForm.time) regularForm.time.value = "";
-    if (regularForm.location) regularForm.location.value = "";
-    if (regularForm.desc) regularForm.desc.value = "";
-    if (regularForm.embedMap) {
-        regularForm.embedMap.value = "";
-        regularForm.embedMap.disabled = false;
-        regularForm.embedMap.classList.remove("td-input-disabled");
-    }
-    if (regularForm.attachment) regularForm.attachment.value = "";
-    if (regularForm.icsFile) regularForm.icsFile.value = "";
-    if (regularForm.icsInfo) regularForm.icsInfo.textContent = "";
-    if (regularForm.embedAuto) regularForm.embedAuto.checked = false;
-    updateScheduleDescCounter();
-    if (regularForm.attachmentName) regularForm.attachmentName.textContent = "";
+    const timeEl = document.getElementById("scheduleTime");
+    if (timeEl) timeEl.value = "";
+    const locEl = document.getElementById("scheduleLocation");
+    if (locEl) locEl.value = "";
+    const descEl = document.getElementById("scheduleDesc");
+    if (descEl) descEl.value = "";
+    const mapEl = document.getElementById("scheduleEmbedMap");
+    if (mapEl) mapEl.value = "";
+    const attachEl = document.getElementById("scheduleAttachment");
+    if (attachEl) attachEl.value = "";
+    const icsEl = document.getElementById("scheduleIcsFile");
+    if (icsEl) icsEl.value = "";
+    const icsInfo = document.getElementById("scheduleIcsInfo");
+    if (icsInfo) icsInfo.textContent = "";
 
     // タイトルにフォーカス
-    regularForm.title?.focus();
+    const titleEl = document.getElementById("scheduleTitle");
+    titleEl?.focus();
 });
 
 document.getElementById("closeRegularScheduleModal").addEventListener("click", () => {
@@ -428,63 +406,6 @@ function applyTimePreset(range) {
     endEl.value = e || '';
 }
 
-function setRegularDetailState(shouldOpen) {
-    const { detailSection, detailToggle, detailToggleIcon, detailToggleText } = regularForm;
-    if (!detailSection || !detailToggle) return;
-
-    detailSection.classList.toggle('hidden', !shouldOpen);
-    detailToggle.setAttribute('aria-expanded', String(shouldOpen));
-
-    if (detailToggleIcon) detailToggleIcon.textContent = shouldOpen ? '▲' : '▼';
-    if (detailToggleText) detailToggleText.textContent = shouldOpen ? '詳細設定を隠す' : '詳細設定を表示';
-}
-
-const KILO_BYTES = 1024;
-const MEGA_BYTES = KILO_BYTES * KILO_BYTES;
-const DESC_WARN_THRESHOLD = 50;
-
-function encodeDescriptionForSave(text) {
-    return (text || '').replace(/\n/g, '\\n');
-}
-
-function decodeDescriptionForEdit(text) {
-    return (text || '').replace(/\\n/g, '\n');
-}
-
-function updateScheduleDescCounter() {
-    const desc = document.getElementById('scheduleDesc');
-    const counter = document.getElementById('scheduleDescCounter');
-    if (!desc || !counter) return;
-
-    const max = typeof desc.maxLength === 'number' && desc.maxLength > 0 ? desc.maxLength : null;
-    const length = desc.value.length;
-    const remaining = max ? max - length : null;
-
-    counter.textContent = max ? `${length}/${max}` : `${length}`;
-
-    let state = '';
-    if (remaining !== null) {
-        if (remaining <= 0) {
-            state = 'max';
-        } else if (remaining <= DESC_WARN_THRESHOLD) {
-            state = 'warn';
-        }
-    }
-
-    if (state) {
-        counter.dataset.state = state;
-    } else {
-        delete counter.dataset.state;
-    }
-}
-
-function formatFileSize(bytes) {
-    if (!Number.isFinite(bytes) || bytes < 0) return '';
-    if (bytes >= MEGA_BYTES) return `${(bytes / MEGA_BYTES).toFixed(1)} MB`;
-    if (bytes >= KILO_BYTES) return `${Math.round(bytes / KILO_BYTES)} KB`;
-    return `${bytes} B`;
-}
-
 // 時間プリセットのイベント設定
 document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-range]');
@@ -502,63 +423,20 @@ document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
 
 // 添付名表示
 document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
-    const input = e.target;
-    if (!(input instanceof HTMLInputElement)) return;
     const nameEl = document.getElementById('scheduleAttachmentName');
     if (!nameEl) return;
-    const file = input.files?.[0];
-    if (file) {
-        const sizeLabel = formatFileSize(file.size);
-        nameEl.textContent = `選択中: ${file.name}${sizeLabel ? ` (${sizeLabel})` : ''}`;
-    } else {
-        nameEl.textContent = '';
-    }
+    const file = e.target.files[0];
+    nameEl.textContent = file ? `選択中: ${file.name}` : '';
 });
 
 // ロケーションから埋め込み自動生成
 document.getElementById('scheduleLocation')?.addEventListener('change', () => {
-    updateEmbedFromLocation();
-});
-
-function updateEmbedFromLocation() {
-    if (!regularForm.embedAuto?.checked) return;
-    const locationValue = regularForm.location?.value.trim();
-    if (!locationValue || !regularForm.embedMap) return;
-    const embed = convertToEmbedURL(locationValue);
-    if (embed) regularForm.embedMap.value = embed;
-}
-
-document.getElementById('embedAuto')?.addEventListener('change', (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    const auto = target.checked;
-    regularForm.embedMap?.classList.toggle('td-input-disabled', auto);
-    if (regularForm.embedMap) {
-        regularForm.embedMap.disabled = auto;
-    }
-    if (auto) {
-        updateEmbedFromLocation();
-    }
-});
-
-document.getElementById('scheduleDesc')?.addEventListener('input', updateScheduleDescCounter);
-
-document.getElementById('regularClearLocation')?.addEventListener('click', () => {
-    if (regularForm.location) {
-        regularForm.location.value = '';
-        regularForm.location.focus();
-    }
-    if (regularForm.embedMap) regularForm.embedMap.value = '';
-});
-
-document.getElementById('regularClearMemo')?.addEventListener('click', () => {
-    if (regularForm.desc) {
-        regularForm.desc.value = '';
-        regularForm.desc.focus();
-    }
-    if (regularForm.attachment) regularForm.attachment.value = '';
-    if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
-    updateScheduleDescCounter();
+    const auto = document.getElementById('embedAuto')?.checked;
+    if (!auto) return;
+    const input = document.getElementById('scheduleLocation').value.trim();
+    if (!input) return;
+    const embed = convertToEmbedURL(input);
+    if (embed) document.getElementById('scheduleEmbedMap').value = embed;
 });
 
 function unfoldIcsLines(raw) {
@@ -758,7 +636,7 @@ function applyIcsEventToForm(event) {
 
     const descEl = document.getElementById('scheduleDesc');
     if (descEl) {
-        descEl.value = decodeDescriptionForEdit(event.description || '');
+        descEl.value = event.description || '';
     }
 }
 
@@ -815,8 +693,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const time = assembleTimeString();
     const title = document.getElementById("scheduleTitle").value;
     const rawLocation = document.getElementById("scheduleLocation").value.trim();
-    const rawDescription = document.getElementById("scheduleDesc").value;
-    const description = encodeDescriptionForSave(rawDescription);
+    const description = document.getElementById("scheduleDesc").value;
     const embedmap = document.getElementById("scheduleEmbedMap").value;
     const attachmentFile = document.getElementById("scheduleAttachment").files[0];
 
@@ -1056,17 +933,14 @@ document.getElementById("closeAllScheduleModal").addEventListener("click", () =>
     document.getElementById("allScheduleModal").classList.add("hidden");
 });
 
-document.getElementById('regularToggleDetail')?.addEventListener('click', () => {
-    const { detailSection } = regularForm;
-    if (!detailSection) return;
-    const isOpen = !detailSection.classList.contains('hidden');
-    setRegularDetailState(!isOpen);
-    if (!isOpen) {
-        document.getElementById('scheduleLocation')?.focus();
-    }
-});
+document.getElementById("regularToggleDetail").addEventListener("click", () => {
+  const section = document.getElementById("regularDetailSection");
+  const btn = document.getElementById("regularToggleDetail");
 
-updateScheduleDescCounter();
+  const isOpen = !section.classList.contains("hidden");
+  section.classList.toggle("hidden", isOpen);
+  btn.textContent = isOpen ? "▲ 詳細設定を隠す" : "▼ 詳細設定を表示";
+});
 
 const calendarManager = new CalendarManager();
 if (typeof window !== 'undefined') {
