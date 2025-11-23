@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.2_calendar-r1
+// This code Version: 5.13.3_calendar-r1
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -482,7 +482,7 @@ regularForm.allDay?.addEventListener('change', (e) => {
     if (regularForm.endTime) regularForm.endTime.disabled = disabled;
 });
 
-document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
+regularForm.attachment?.addEventListener('change', (e) => {
     const input = e.target;
     if (!(input instanceof HTMLInputElement)) return;
     const nameEl = regularForm.attachmentName;
@@ -496,7 +496,7 @@ document.getElementById('scheduleAttachment')?.addEventListener('change', (e) =>
     }
 });
 
-document.getElementById('scheduleLocation')?.addEventListener('change', () => {
+regularForm.location?.addEventListener('change', () => {
     updateEmbedFromLocation();
 });
 
@@ -521,7 +521,7 @@ document.getElementById('embedAuto')?.addEventListener('change', (e) => {
     }
 });
 
-document.getElementById('scheduleDesc')?.addEventListener('input', updateScheduleDescCounter);
+regularForm.desc?.addEventListener('input', updateScheduleDescCounter);
 
 document.getElementById('regularClearLocation')?.addEventListener('click', () => {
     if (regularForm.location) {
