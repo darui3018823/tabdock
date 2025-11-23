@@ -478,7 +478,7 @@ function updateScheduleDescCounter() {
 function formatFileSize(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) return '';
     if (bytes >= MEGA_BYTES) return `${(bytes / MEGA_BYTES).toFixed(1)} MB`;
-    if (bytes >= KILO_BYTES) return `${Math.round(bytes / KILO_BYTES)} KB`;
+    if (bytes >= KILO_BYTES) return `${(bytes / KILO_BYTES).toFixed(1)} KB`;
     return `${bytes} B`;
 }
 
@@ -498,7 +498,7 @@ document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
 document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
     const input = e.target;
     if (!(input instanceof HTMLInputElement)) return;
-    const nameEl = document.getElementById('scheduleAttachmentName');
+    const nameEl = regularForm.attachmentName;
     if (!nameEl) return;
     const file = input.files?.[0];
     if (file) {
@@ -819,7 +819,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const title = titleEl.value;
     const rawLocation = locationEl.value.trim();
     const rawDescription = descEl.value;
-    const description = rawDescription; // encodeDescriptionForSave(rawDescription);
+    const description = rawDescription;
     const embedmap = embedMapEl.value;
     const attachmentFile = attachmentEl.files[0];
 
@@ -1056,7 +1056,7 @@ document.getElementById('regularToggleDetail')?.addEventListener('click', () => 
     const isOpen = !detailSection.classList.contains('hidden');
     setRegularDetailState(!isOpen);
     if (!isOpen) {
-        document.getElementById('scheduleLocation')?.focus();
+        regularForm.location?.focus();
     }
 });
 
