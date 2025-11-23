@@ -1056,7 +1056,7 @@ document.getElementById('regularToggleDetail')?.addEventListener('click', () => 
     const isOpen = !detailSection.classList.contains('hidden');
     setRegularDetailState(!isOpen);
     if (!isOpen) {
-        document.getElementById('scheduleLocation')?.focus();
+        regularForm.location?.focus();
     }
 });
 
