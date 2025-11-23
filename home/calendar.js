@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_calendar-r1
+// This code Version: 5.13.0_calendar-r2
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -379,7 +379,6 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
     updateScheduleDescCounter();
     if (regularForm.attachmentName) regularForm.attachmentName.textContent = "";
 
-    // タイトルにフォーカス
     regularForm.title?.focus();
 });
 
@@ -388,7 +387,6 @@ document.getElementById("closeRegularScheduleModal").addEventListener("click", (
     document.getElementById("scheduleTypeModal").classList.remove("hidden");
 });
 
-// シフト予定モーダルの制御
 document.getElementById("openShiftScheduleBtn").addEventListener("click", () => {
     document.getElementById("scheduleTypeModal").classList.add("hidden");
     document.getElementById("shiftScheduleModal").classList.remove("hidden");
@@ -399,7 +397,6 @@ document.getElementById("closeShiftScheduleModal").addEventListener("click", () 
     document.getElementById("scheduleTypeModal").classList.remove("hidden");
 });
 
-// 通常予定追加
 function assembleTimeString() {
     const allDay = document.getElementById('scheduleAllDay')?.checked;
     if (allDay) return '';
@@ -485,14 +482,12 @@ function formatFileSize(bytes) {
     return `${bytes} B`;
 }
 
-// 時間プリセットのイベント設定
 document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-range]');
     if (!btn) return;
     applyTimePreset(btn.dataset.range);
 });
 
-// 終日トグルで時間入力の無効化/有効化
 document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
     const disabled = e.target.checked;
     document.getElementById('timeInputsRow')?.classList.toggle('opacity-50', disabled);
@@ -500,7 +495,6 @@ document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
     document.getElementById('scheduleEndTime').disabled = disabled;
 });
 
-// 添付名表示
 document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
     const input = e.target;
     if (!(input instanceof HTMLInputElement)) return;
@@ -515,7 +509,6 @@ document.getElementById('scheduleAttachment')?.addEventListener('change', (e) =>
     }
 });
 
-// ロケーションから埋め込み自動生成
 document.getElementById('scheduleLocation')?.addEventListener('change', () => {
     updateEmbedFromLocation();
 });
@@ -851,7 +844,6 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     schedules.push(scheduleData);
 
     if (continueAfter) {
-        // 連続追加: タイトル以外をクリアしてフォーカス維持
         document.getElementById('scheduleStartTime').value = '';
         document.getElementById('scheduleEndTime').value = '';
         document.getElementById('scheduleLocation').value = '';
@@ -879,7 +871,6 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
 document.getElementById("addRegularScheduleBtn").addEventListener("click", () => submitRegularSchedule({ continueAfter: false }));
 document.getElementById("addRegularScheduleAndContinueBtn")?.addEventListener("click", () => submitRegularSchedule({ continueAfter: true }));
 
-// Enter（textarea除く）で追加、Escでキャンセル
 document.addEventListener('keydown', (e) => {
     const modalOpen = !document.getElementById('regularScheduleModal')?.classList.contains('hidden');
     if (!modalOpen) return;
@@ -896,9 +887,6 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('closeRegularScheduleModal')?.click();
     }
 });
-
-// シフト予定追加は shift_modal.js 側で実装（Swal/Toast・連続追加対応）
-
 
 async function loadSchedules() {
     try {
@@ -929,7 +917,7 @@ function convertToEmbedURL(url) {
         if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
             return url.replace("/maps", "/maps/embed");
         }
-    } catch (_) {}
+    } catch (_) { }
     return null;
 }
 
@@ -1074,5 +1062,5 @@ if (typeof window !== 'undefined') {
 }
 
 window.addEventListener('auth:state-changed', () => {
-    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => {});
+    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => { });
 });
