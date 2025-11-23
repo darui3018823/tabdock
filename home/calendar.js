@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.0_calendar-r2
+// This code Version: 5.13.0_calendar-r3
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -327,6 +327,7 @@ const regularForm = {
     endTime: document.getElementById('scheduleEndTime'),
     location: document.getElementById("scheduleLocation"),
     desc: document.getElementById("scheduleDesc"),
+    descCounter: document.getElementById('scheduleDescCounter'),
     embedMap: document.getElementById("scheduleEmbedMap"),
     attachment: document.getElementById("scheduleAttachment"),
     icsFile: document.getElementById("scheduleIcsFile"),
@@ -449,8 +450,7 @@ function decodeDescriptionForEdit(text) {
 }
 
 function updateScheduleDescCounter() {
-    const desc = document.getElementById('scheduleDesc');
-    const counter = document.getElementById('scheduleDescCounter');
+    const { desc, descCounter: counter } = regularForm;
     if (!desc || !counter) return;
 
     const max = typeof desc.maxLength === 'number' && desc.maxLength > 0 ? desc.maxLength : null;
@@ -749,9 +749,10 @@ function applyIcsEventToForm(event) {
         }
     }
 
-    const descEl = document.getElementById('scheduleDesc');
+    const { desc: descEl } = regularForm;
     if (descEl) {
         descEl.value = decodeDescriptionForEdit(event.description || '');
+        updateScheduleDescCounter();
     }
 }
 
@@ -804,14 +805,23 @@ document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e)
 });
 
 async function submitRegularSchedule({ continueAfter = false } = {}) {
-    const date = document.getElementById("scheduleDate").value;
+    const {
+        date: dateEl,
+        title: titleEl,
+        location: locationEl,
+        desc: descEl,
+        embedMap: embedMapEl,
+        attachment: attachmentEl
+    } = regularForm;
+
+    const date = dateEl.value;
     const time = assembleTimeString();
-    const title = document.getElementById("scheduleTitle").value;
-    const rawLocation = document.getElementById("scheduleLocation").value.trim();
-    const rawDescription = document.getElementById("scheduleDesc").value;
-    const description = encodeDescriptionForSave(rawDescription);
-    const embedmap = document.getElementById("scheduleEmbedMap").value;
-    const attachmentFile = document.getElementById("scheduleAttachment").files[0];
+    const title = titleEl.value;
+    const rawLocation = locationEl.value.trim();
+    const rawDescription = descEl.value;
+    const description = rawDescription; // encodeDescriptionForSave(rawDescription);
+    const embedmap = embedMapEl.value;
+    const attachmentFile = attachmentEl.files[0];
 
     if (!date || !title) {
         Swal.fire({ icon: 'warning', title: '未入力があります', text: '日付とタイトルは必須です。' });
@@ -844,21 +854,17 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     schedules.push(scheduleData);
 
     if (continueAfter) {
-        document.getElementById('scheduleStartTime').value = '';
-        document.getElementById('scheduleEndTime').value = '';
-        document.getElementById('scheduleLocation').value = '';
-        document.getElementById('scheduleDesc').value = '';
-        document.getElementById('scheduleEmbedMap').value = '';
-        const attach = document.getElementById('scheduleAttachment');
-        if (attach) attach.value = '';
-        const nameEl = document.getElementById('scheduleAttachmentName');
-        if (nameEl) nameEl.textContent = '';
-        const icsInfoEl = document.getElementById('scheduleIcsInfo');
-        if (icsInfoEl) icsInfoEl.textContent = '';
-        const icsInput = document.getElementById('scheduleIcsFile');
-        if (icsInput) icsInput.value = '';
+        if (regularForm.startTime) regularForm.startTime.value = '';
+        if (regularForm.endTime) regularForm.endTime.value = '';
+        if (regularForm.location) regularForm.location.value = '';
+        if (regularForm.desc) regularForm.desc.value = '';
+        if (regularForm.embedMap) regularForm.embedMap.value = '';
+        if (regularForm.attachment) regularForm.attachment.value = '';
+        if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
+        if (regularForm.icsInfo) regularForm.icsInfo.textContent = '';
+        if (regularForm.icsFile) regularForm.icsFile.value = '';
         Toast?.fire({ icon: 'success', title: '追加しました（続けて入力できます）' });
-        document.getElementById('scheduleTitle')?.focus();
+        regularForm.title?.focus();
     } else {
         document.getElementById("regularScheduleModal").classList.add("hidden");
         document.getElementById("menuModal").classList.remove("hidden");
