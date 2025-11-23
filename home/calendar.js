@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.14.0_calendar-r1
+// This code Version: 5.14.0_calendar-r2
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -230,6 +230,33 @@ window.addEventListener("DOMContentLoaded", async () => {
     const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     renderSchedule(todayStr);
 
+    // Initialize regularForm after DOM is ready
+    const regularDetailToggle = document.getElementById('regularToggleDetail');
+    const regularDetailSection = document.getElementById('regularDetailSection');
+
+    regularForm = {
+        date: document.getElementById("scheduleDate"),
+        time: document.getElementById("scheduleTime"),
+        allDay: document.getElementById('scheduleAllDay'),
+        timeInputsRow: document.getElementById('timeInputsRow'),
+        startTime: document.getElementById('scheduleStartTime'),
+        endTime: document.getElementById('scheduleEndTime'),
+        location: document.getElementById("scheduleLocation"),
+        desc: document.getElementById("scheduleDesc"),
+        descCounter: document.getElementById('scheduleDescCounter'),
+        embedMap: document.getElementById("scheduleEmbedMap"),
+        attachment: document.getElementById("scheduleAttachment"),
+        icsFile: document.getElementById("scheduleIcsFile"),
+        embedAuto: document.getElementById("embedAuto"),
+        icsInfo: document.getElementById("scheduleIcsInfo"),
+        attachmentName: document.getElementById("scheduleAttachmentName"),
+        title: document.getElementById("scheduleTitle"),
+        detailSection: regularDetailSection,
+        detailToggle: regularDetailToggle,
+        detailToggleIcon: regularDetailToggle?.querySelector('.td-detail-toggle-icon'),
+        detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
+    };
+
     monitorDateChange();
 });
 
@@ -326,31 +353,7 @@ document.getElementById("closeScheduleTypeModal").addEventListener("click", () =
 });
 
 // 通常予定モーダルの制御
-const regularDetailToggle = document.getElementById('regularToggleDetail');
-const regularDetailSection = document.getElementById('regularDetailSection');
-
-const regularForm = {
-    date: document.getElementById("scheduleDate"),
-    time: document.getElementById("scheduleTime"),
-    allDay: document.getElementById('scheduleAllDay'),
-    timeInputsRow: document.getElementById('timeInputsRow'),
-    startTime: document.getElementById('scheduleStartTime'),
-    endTime: document.getElementById('scheduleEndTime'),
-    location: document.getElementById("scheduleLocation"),
-    desc: document.getElementById("scheduleDesc"),
-    descCounter: document.getElementById('scheduleDescCounter'),
-    embedMap: document.getElementById("scheduleEmbedMap"),
-    attachment: document.getElementById("scheduleAttachment"),
-    icsFile: document.getElementById("scheduleIcsFile"),
-    embedAuto: document.getElementById("embedAuto"),
-    icsInfo: document.getElementById("scheduleIcsInfo"),
-    attachmentName: document.getElementById("scheduleAttachmentName"),
-    title: document.getElementById("scheduleTitle"),
-    detailSection: regularDetailSection,
-    detailToggle: regularDetailToggle,
-    detailToggleIcon: regularDetailToggle?.querySelector('.td-detail-toggle-icon'),
-    detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
-};
+let regularForm = null;
 
 document.getElementById("openRegularScheduleBtn").addEventListener("click", () => {
     document.getElementById("scheduleTypeModal").classList.add("hidden");
@@ -936,7 +939,9 @@ function convertToEmbedURL(url) {
         if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
             return url.replace("/maps", "/maps/embed");
         }
-    } catch (error) { console.warn('Invalid URL for embed conversion:', url, error); }
+    } catch (error) {
+        // Silently fail for invalid URLs
+    }
     return null;
 }
 
