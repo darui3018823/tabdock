@@ -756,16 +756,6 @@ function applyIcsEventToForm(event) {
     }
 
     if (descEl) {
-        // decodeDescriptionForEdit is no longer needed if we just use the raw text
-        // But if the ICS text has literal \n, we might want to keep them as newlines.
-        // The previous code used decodeDescriptionForEdit.
-        // Let's check decodeDescriptionForEdit implementation.
-        // It replaces \\n with \n.
-        // If event.description comes from parseIcsEvent -> decodeIcsText, it already handles some unescaping.
-        // Let's stick to the plan: "Remove decodeDescriptionForEdit usage in applyIcsEventToForm (and check other usages)."
-        // Wait, if I remove it, I should just assign event.description.
-        // However, decodeIcsText handles \\n -> \n.
-        // So event.description should be correct.
         descEl.value = event.description || '';
         updateScheduleDescCounter();
     }
