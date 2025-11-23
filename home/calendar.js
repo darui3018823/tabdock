@@ -498,7 +498,7 @@ document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
 document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
     const input = e.target;
     if (!(input instanceof HTMLInputElement)) return;
-    const nameEl = document.getElementById('scheduleAttachmentName');
+    const nameEl = regularForm.attachmentName;
     if (!nameEl) return;
     const file = input.files?.[0];
     if (file) {
