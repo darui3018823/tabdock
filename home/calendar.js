@@ -1068,5 +1068,5 @@ if (typeof window !== 'undefined') {
 }
 
 window.addEventListener('auth:state-changed', () => {
-    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => { });
+    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(error => console.warn('Failed to refresh calendar on auth state change:', error));
 });
