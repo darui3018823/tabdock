@@ -812,14 +812,20 @@ document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e)
 function resetRegularScheduleForm() {
     if (regularForm.startTime) regularForm.startTime.value = '';
     if (regularForm.endTime) regularForm.endTime.value = '';
+    if (regularForm.time) regularForm.time.value = '';
     if (regularForm.location) regularForm.location.value = '';
     if (regularForm.desc) regularForm.desc.value = '';
-    if (regularForm.embedMap) regularForm.embedMap.value = '';
+    if (regularForm.embedMap) {
+        regularForm.embedMap.value = '';
+        regularForm.embedMap.disabled = false;
+        regularForm.embedMap.classList.remove('td-input-disabled');
+    }
     if (regularForm.attachment) regularForm.attachment.value = '';
-    if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
-    if (regularForm.icsInfo) regularForm.icsInfo.textContent = '';
     if (regularForm.icsFile) regularForm.icsFile.value = '';
+    if (regularForm.icsInfo) regularForm.icsInfo.textContent = '';
+    if (regularForm.embedAuto) regularForm.embedAuto.checked = false;
     updateScheduleDescCounter();
+    if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
 }
 
 async function submitRegularSchedule({ continueAfter = false } = {}) {
