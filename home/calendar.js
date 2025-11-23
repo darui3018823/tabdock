@@ -478,7 +478,7 @@ function updateScheduleDescCounter() {
 function formatFileSize(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) return '';
     if (bytes >= MEGA_BYTES) return `${(bytes / MEGA_BYTES).toFixed(1)} MB`;
-    if (bytes >= KILO_BYTES) return `${Math.round(bytes / KILO_BYTES)} KB`;
+    if (bytes >= KILO_BYTES) return `${(bytes / KILO_BYTES).toFixed(1)} KB`;
     return `${bytes} B`;
 }
 
