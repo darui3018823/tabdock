@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.13.0_calendar-r4
+// This code Version: 5.13.0_calendar-r5
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -323,6 +323,8 @@ const regularDetailSection = document.getElementById('regularDetailSection');
 const regularForm = {
     date: document.getElementById("scheduleDate"),
     time: document.getElementById("scheduleTime"),
+    allDay: document.getElementById('scheduleAllDay'),
+    timeInputsRow: document.getElementById('timeInputsRow'),
     startTime: document.getElementById('scheduleStartTime'),
     endTime: document.getElementById('scheduleEndTime'),
     location: document.getElementById("scheduleLocation"),
@@ -399,18 +401,18 @@ document.getElementById("closeShiftScheduleModal").addEventListener("click", () 
 });
 
 function assembleTimeString() {
-    const allDay = document.getElementById('scheduleAllDay')?.checked;
+    const { allDay: allDayEl, startTime: startEl, endTime: endEl } = regularForm;
+    const allDay = allDayEl?.checked;
     if (allDay) return '';
-    const start = document.getElementById('scheduleStartTime')?.value || '';
-    const end = document.getElementById('scheduleEndTime')?.value || '';
+    const start = startEl?.value || '';
+    const end = endEl?.value || '';
     if (start && end) return `${start}~${end}`;
     if (start) return start;
     return '';
 }
 
 function applyTimePreset(range) {
-    const startEl = document.getElementById('scheduleStartTime');
-    const endEl = document.getElementById('scheduleEndTime');
+    const { startTime: startEl, endTime: endEl } = regularForm;
     if (range === 'now+60') {
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
@@ -488,11 +490,11 @@ document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
     applyTimePreset(btn.dataset.range);
 });
 
-document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
+regularForm.allDay?.addEventListener('change', (e) => {
     const disabled = e.target.checked;
-    document.getElementById('timeInputsRow')?.classList.toggle('opacity-50', disabled);
-    document.getElementById('scheduleStartTime').disabled = disabled;
-    document.getElementById('scheduleEndTime').disabled = disabled;
+    regularForm.timeInputsRow?.classList.toggle('opacity-50', disabled);
+    if (regularForm.startTime) regularForm.startTime.disabled = disabled;
+    if (regularForm.endTime) regularForm.endTime.disabled = disabled;
 });
 
 document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
