@@ -842,7 +842,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const time = assembleTimeString();
     const title = titleEl.value;
     const rawLocation = locationEl.value.trim();
-    const description = descEl.value;
+    const description = encodeDescriptionForSave(descEl.value);
     const embedmap = embedMapEl.value;
     const attachmentFile = attachmentEl.files[0];
 
@@ -949,7 +949,7 @@ function showScheduleDetail(sched) {
         ? "終日"
         : `${sched.date}${sched.time ? ` ${sched.time}` : ""}${sched.endTime ? `~${sched.endTime}` : ""}`;
 
-    const formattedDescription = (sched.description || "なし").replace(/\n/g, "<br>");
+    const formattedDescription = decodeDescriptionForEdit(sched.description || "なし").replace(/\n/g, "<br>");
 
     let locationHTML = "未指定";
     if (sched.location && sched.location.startsWith("http")) {
