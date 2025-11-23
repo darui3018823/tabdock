@@ -923,7 +923,7 @@ function convertToEmbedURL(url) {
         if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
             return url.replace("/maps", "/maps/embed");
         }
-    } catch (_) { }
+    } catch (error) { console.warn('Invalid URL for embed conversion:', url, error); }
     return null;
 }
 
