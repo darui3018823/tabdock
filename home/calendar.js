@@ -365,22 +365,7 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
     }
 
     // 軽い初期化（タイトルは維持、説明/場所/時間/添付はクリア）
-    if (regularForm.startTime) regularForm.startTime.value = "";
-    if (regularForm.endTime) regularForm.endTime.value = "";
-    if (regularForm.time) regularForm.time.value = "";
-    if (regularForm.location) regularForm.location.value = "";
-    if (regularForm.desc) regularForm.desc.value = "";
-    if (regularForm.embedMap) {
-        regularForm.embedMap.value = "";
-        regularForm.embedMap.disabled = false;
-        regularForm.embedMap.classList.remove("td-input-disabled");
-    }
-    if (regularForm.attachment) regularForm.attachment.value = "";
-    if (regularForm.icsFile) regularForm.icsFile.value = "";
-    if (regularForm.icsInfo) regularForm.icsInfo.textContent = "";
-    if (regularForm.embedAuto) regularForm.embedAuto.checked = false;
-    updateScheduleDescCounter();
-    if (regularForm.attachmentName) regularForm.attachmentName.textContent = "";
+    resetRegularScheduleForm();
 
     regularForm.title?.focus();
 });
@@ -938,7 +923,7 @@ function convertToEmbedURL(url) {
         if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
             return url.replace("/maps", "/maps/embed");
         }
-    } catch (_) { }
+    } catch (error) { console.warn('Invalid URL for embed conversion:', url, error); }
     return null;
 }
 
@@ -1083,5 +1068,5 @@ if (typeof window !== 'undefined') {
 }
 
 window.addEventListener('auth:state-changed', () => {
-    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => { });
+    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(error => console.warn('Failed to refresh calendar on auth state change:', error));
 });
