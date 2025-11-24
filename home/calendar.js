@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.14.0_calendar-r3
+// This code Version: 5.14.0_calendar-r4
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -93,9 +93,12 @@ function getLoggedInUsername() {
 
 function escapeHTML(str) {
     if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function renderSchedule(dateStr) {
@@ -958,9 +961,9 @@ function showScheduleDetail(sched) {
     const formattedDescription = escapeHTML(rawDescription).replace(/\n/g, "<br>");
 
     let locationHTML = "未指定";
-    if (sched.location && sched.location.startsWith("http")) {
+    if (sched.location && (sched.location.startsWith("https://") || sched.location.startsWith("http://"))) {
         const escapedLocation = escapeHTML(sched.location);
-        locationHTML = `<a href="${escapedLocation}" target="_blank" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
+        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
     } else if (sched.location) {
         locationHTML = escapeHTML(sched.location);
     }
@@ -980,10 +983,13 @@ function showScheduleDetail(sched) {
         </div>
     ` : "";
 
-    const escapedEmbedMap = escapeHTML(sched.embedmap);
-    const mapEmbed = sched.embedmap
-        ? `<iframe src="${escapedEmbedMap}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
-        : "";
+    const mapEmbed = (() => {
+        if (!sched.embedmap || !sched.embedmap.startsWith('https://www.google.com/maps/embed')) {
+            return "";
+        }
+        const safeSrc = sched.embedmap.replace(/"/g, '&quot;');
+        return `<iframe src="${safeSrc}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin"></iframe>`;
+    })();
 
     content.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 text-sm">
