@@ -963,7 +963,7 @@ function showScheduleDetail(sched) {
     let locationHTML = "未指定";
     if (sched.location && (sched.location.startsWith("https://") || sched.location.startsWith("http://"))) {
         const escapedLocation = escapeHTML(sched.location);
-        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
+        locationHTML = `<a href="${sched.location.replace(/"/g, '&quot;')}" target="_blank" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
     } else if (sched.location) {
         locationHTML = escapeHTML(sched.location);
     }
