@@ -139,7 +139,7 @@ function renderSchedule(dateStr) {
             ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
             : "(時間未定)";
 
-        const line2 = escapeHTML(sched.title) || "無題の予定";
+        const line2 = escapeHTML(sched.title || "無題の予定");
 
         const content = document.createElement("div");
         content.innerHTML = `
