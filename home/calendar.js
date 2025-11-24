@@ -219,18 +219,7 @@ document.getElementById("nextMonth").addEventListener("click", () => {
     renderCalendar();
 });
 
-window.addEventListener("DOMContentLoaded", async () => {
-    await fetchHolidayData();
-    await loadSchedules();
-    renderCalendar();
-
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    renderSchedule(todayStr);
-
-    // Initialize regularForm after DOM is ready
+function initializeRegularForm() {
     const regularDetailToggle = document.getElementById('regularToggleDetail');
     const regularDetailSection = document.getElementById('regularDetailSection');
 
@@ -256,8 +245,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         detailToggleIcon: regularDetailToggle?.querySelector('.td-detail-toggle-icon'),
         detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
     };
+}
 
-    // Setup event listeners after regularForm is initialized
+function setupRegularFormEventListeners() {
     document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-range]');
         if (!btn) return;
@@ -374,7 +364,21 @@ window.addEventListener("DOMContentLoaded", async () => {
             e.target.value = '';
         }
     });
+}
 
+window.addEventListener("DOMContentLoaded", async () => {
+    await fetchHolidayData();
+    await loadSchedules();
+    renderCalendar();
+
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    renderSchedule(todayStr);
+
+    initializeRegularForm();
+    setupRegularFormEventListeners();
     monitorDateChange();
 });
 
