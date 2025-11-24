@@ -258,7 +258,9 @@ function setupRegularFormEventListeners() {
     });
 
     regularForm.allDay?.addEventListener('change', (e) => {
-        const disabled = e.target.checked;
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        const disabled = target.checked;
         regularForm.timeInputsRow?.classList.toggle('opacity-50', disabled);
         if (regularForm.startTime) regularForm.startTime.disabled = disabled;
         if (regularForm.endTime) regularForm.endTime.disabled = disabled;
