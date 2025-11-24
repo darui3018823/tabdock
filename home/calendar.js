@@ -961,9 +961,9 @@ function showScheduleDetail(sched) {
     const formattedDescription = escapeHTML(rawDescription).replace(/\n/g, "<br>");
 
     let locationHTML = "未指定";
-    if (sched.location && (sched.location.startsWith("https://") || sched.location.startsWith("http://"))) {
+    if (sched.location && (sched.location.trim().toLowerCase().startsWith("https://") || sched.location.trim().toLowerCase().startsWith("http://"))) {
         const escapedLocation = escapeHTML(sched.location);
-        locationHTML = `<a href="${sched.location.replace(/"/g, '&quot;')}" target="_blank" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
+        locationHTML = `<a href="${sched.location.trim().replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
     } else if (sched.location) {
         locationHTML = escapeHTML(sched.location);
     }
