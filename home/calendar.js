@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.14.0_calendar-r2
+// This code Version: 5.14.0_calendar-r3
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -847,7 +847,7 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     const date = dateEl.value;
     const time = assembleTimeString();
     const title = titleEl.value;
-    const rawLocation = locationEl.value.trim();
+    const location = locationEl.value.trim();
     const description = descEl.value;
     const embedmap = embedMapEl.value;
     const attachmentFile = attachmentEl.files[0];
@@ -855,11 +855,6 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     if (!date || !title) {
         Swal.fire({ icon: 'warning', title: '未入力があります', text: '日付とタイトルは必須です。' });
         return;
-    }
-
-    let location = rawLocation;
-    if (rawLocation.startsWith("https://maps.app.goo.gl")) {
-        location = `<a href="${rawLocation}" class="text-blue-400 underline" target="_blank">Google Maps</a>`;
     }
 
     const scheduleData = { date, time, title, location, description, embedmap };
