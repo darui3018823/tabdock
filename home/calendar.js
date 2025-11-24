@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.3.0_calendar-r1
+// This code Version: 5.14.0_calendar-r4
 
 const calendarGrid = document.getElementById("calendarGrid");
 const currentMonthElem = document.getElementById("currentMonth");
@@ -91,6 +91,16 @@ function getLoggedInUsername() {
     return null;
 }
 
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 function renderSchedule(dateStr) {
     selectedDate = dateStr;
     if (typeof window !== 'undefined') {
@@ -104,7 +114,7 @@ function renderSchedule(dateStr) {
         const holidayItem = document.createElement('li');
         holidayItem.className = 'mb-2 rounded border border-red-400/40 bg-red-500/20 px-3 py-2 text-sm text-red-100 shadow';
         holidayItem.dataset.calendarFixed = 'holiday';
-        holidayItem.innerHTML = `<div class="font-semibold text-red-200">祝日: ${holidayName}</div>`;
+        holidayItem.innerHTML = `<div class="font-semibold text-red-200">祝日: ${escapeHTML(holidayName)}</div>`;
         scheduleList.appendChild(holidayItem);
     }
 
@@ -129,7 +139,7 @@ function renderSchedule(dateStr) {
             ? `${sched.time}${sched.endTime ? `~${sched.endTime}` : ""}`
             : "(時間未定)";
 
-        const line2 = sched.title || "無題の予定";
+        const line2 = escapeHTML(sched.title || "無題の予定");
 
         const content = document.createElement("div");
         content.innerHTML = `
@@ -173,9 +183,11 @@ document.getElementById("upcomingBtn").addEventListener("click", () => {
 
     for (const sched of upcoming.slice(0, 5)) {
         const li = document.createElement("li");
+        const escapedTitle = escapeHTML(sched.title);
+        const escapedDesc = escapeHTML(sched.description);
         li.innerHTML = `
-            <div class="font-semibold">${sched.date} ${sched.time} - ${sched.title}</div>
-            <div class="text-xs text-white/70">${sched.description}</div>
+            <div class="font-semibold">${sched.date} ${sched.time} - ${escapedTitle}</div>
+            <div class="text-xs text-white/70">${escapedDesc}</div>
         `;
         scheduleList.appendChild(li);
     }
@@ -210,6 +222,155 @@ document.getElementById("nextMonth").addEventListener("click", () => {
     renderCalendar();
 });
 
+function initializeRegularForm() {
+    const regularDetailToggle = document.getElementById('regularToggleDetail');
+    const regularDetailSection = document.getElementById('regularDetailSection');
+
+    regularForm = {
+        date: document.getElementById("scheduleDate"),
+        time: document.getElementById("scheduleTime"),
+        allDay: document.getElementById('scheduleAllDay'),
+        timeInputsRow: document.getElementById('timeInputsRow'),
+        startTime: document.getElementById('scheduleStartTime'),
+        endTime: document.getElementById('scheduleEndTime'),
+        location: document.getElementById("scheduleLocation"),
+        desc: document.getElementById("scheduleDesc"),
+        descCounter: document.getElementById('scheduleDescCounter'),
+        embedMap: document.getElementById("scheduleEmbedMap"),
+        attachment: document.getElementById("scheduleAttachment"),
+        icsFile: document.getElementById("scheduleIcsFile"),
+        embedAuto: document.getElementById("embedAuto"),
+        icsInfo: document.getElementById("scheduleIcsInfo"),
+        attachmentName: document.getElementById("scheduleAttachmentName"),
+        title: document.getElementById("scheduleTitle"),
+        detailSection: regularDetailSection,
+        detailToggle: regularDetailToggle,
+        detailToggleIcon: regularDetailToggle?.querySelector('.td-detail-toggle-icon'),
+        detailToggleText: regularDetailToggle?.querySelector('.td-detail-toggle-text'),
+    };
+}
+
+function setupRegularFormEventListeners() {
+    document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-range]');
+        if (!btn) return;
+        applyTimePreset(btn.dataset.range);
+    });
+
+    regularForm.allDay?.addEventListener('change', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        const disabled = target.checked;
+        regularForm.timeInputsRow?.classList.toggle('opacity-50', disabled);
+        if (regularForm.startTime) regularForm.startTime.disabled = disabled;
+        if (regularForm.endTime) regularForm.endTime.disabled = disabled;
+    });
+
+    regularForm.attachment?.addEventListener('change', (e) => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        const nameEl = regularForm.attachmentName;
+        if (!nameEl) return;
+        const file = input.files?.[0];
+        if (file) {
+            const sizeLabel = formatFileSize(file.size);
+            nameEl.textContent = `選択中: ${file.name}${sizeLabel ? ` (${sizeLabel})` : ''}`;
+        } else {
+            nameEl.textContent = '';
+        }
+    });
+
+    regularForm.location?.addEventListener('change', () => {
+        updateEmbedFromLocation();
+    });
+
+    regularForm.embedAuto?.addEventListener('change', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        const auto = target.checked;
+        regularForm.embedMap?.classList.toggle('td-input-disabled', auto);
+        if (regularForm.embedMap) {
+            regularForm.embedMap.disabled = auto;
+        }
+        if (auto) {
+            updateEmbedFromLocation();
+        }
+    });
+
+    regularForm.desc?.addEventListener('input', updateScheduleDescCounter);
+
+    document.getElementById('regularClearLocation')?.addEventListener('click', () => {
+        if (regularForm.location) {
+            regularForm.location.value = '';
+            regularForm.location.focus();
+        }
+        if (regularForm.embedMap) regularForm.embedMap.value = '';
+    });
+
+    document.getElementById('regularClearMemo')?.addEventListener('click', () => {
+        if (regularForm.desc) {
+            regularForm.desc.value = '';
+            regularForm.desc.focus();
+        }
+        if (regularForm.attachment) regularForm.attachment.value = '';
+        if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
+        updateScheduleDescCounter();
+    });
+
+    regularForm.detailToggle?.addEventListener('click', () => {
+        const isOpen = regularForm.detailSection?.classList.contains('hidden') === false;
+        setRegularDetailState(!isOpen);
+    });
+
+    regularForm.icsFile?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        const infoEl = regularForm.icsInfo;
+        if (infoEl) infoEl.textContent = '';
+
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const event = parseIcsEvent(text);
+            if (!event) {
+                throw new Error('VEVENT not found');
+            }
+            applyIcsEventToForm(event);
+
+            if (infoEl) {
+                const parts = [];
+                if (event.title) parts.push(`件名: ${event.title}`);
+                if (event.allDay) {
+                    let label = `日付: ${event.date} (終日)`;
+                    if (event.endDate) {
+                        label += ` → ${event.endDate}`;
+                    }
+                    parts.push(label);
+                } else {
+                    const times = [event.startTime, event.endTime].filter(Boolean).join(' ~ ');
+                    const datePart = times ? `${event.date} ${times}` : `${event.date}`;
+                    parts.push(`日時: ${datePart}`);
+                    if (event.endDate && event.endDate !== event.date) {
+                        parts.push(`終了日: ${event.endDate}`);
+                    }
+                }
+                infoEl.textContent = parts.join(' / ') || `${file.name} を読み込みました`;
+            }
+
+            if (typeof Toast !== 'undefined' && typeof Toast.fire === 'function') {
+                Toast.fire({ icon: 'success', title: 'ICSファイルを読み込みました' });
+            } else {
+                Swal.fire({ icon: 'success', title: 'ICSファイルを読み込みました', showConfirmButton: false, timer: 2000 });
+            }
+        } catch (error) {
+            console.error('ICS読み込み失敗:', error);
+            Swal.fire({ icon: 'error', title: 'ICSの読み込みに失敗しました', text: 'ファイルの内容を確認してください。' });
+        } finally {
+            e.target.value = '';
+        }
+    });
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
     await fetchHolidayData();
     await loadSchedules();
@@ -221,6 +382,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     renderSchedule(todayStr);
 
+    initializeRegularForm();
+    setupRegularFormEventListeners();
     monitorDateChange();
 });
 
@@ -317,6 +480,8 @@ document.getElementById("closeScheduleTypeModal").addEventListener("click", () =
 });
 
 // 通常予定モーダルの制御
+let regularForm = null;
+
 document.getElementById("openRegularScheduleBtn").addEventListener("click", () => {
     document.getElementById("scheduleTypeModal").classList.add("hidden");
     const modal = document.getElementById("regularScheduleModal");
@@ -329,36 +494,19 @@ document.getElementById("openRegularScheduleBtn").addEventListener("click", () =
         const d = String(today.getDate()).padStart(2, "0");
         return `${y}-${m}-${d}`;
     })();
-    const dateEl = document.getElementById("scheduleDate");
-    if (dateEl && !dateEl.value) dateEl.value = targetDate;
+    if (regularForm.date && !regularForm.date.value) {
+        regularForm.date.value = targetDate;
+    }
 
     // 詳細セクションは最初閉じる
-    const detail = document.getElementById("regularDetailSection");
-    const toggle = document.getElementById("regularToggleDetail");
-    if (detail && toggle) {
-        detail.classList.add("hidden");
-        toggle.textContent = "▼ 詳細設定を表示";
+    if (regularForm.detailSection) {
+        setRegularDetailState(false);
     }
 
     // 軽い初期化（タイトルは維持、説明/場所/時間/添付はクリア）
-    const timeEl = document.getElementById("scheduleTime");
-    if (timeEl) timeEl.value = "";
-    const locEl = document.getElementById("scheduleLocation");
-    if (locEl) locEl.value = "";
-    const descEl = document.getElementById("scheduleDesc");
-    if (descEl) descEl.value = "";
-    const mapEl = document.getElementById("scheduleEmbedMap");
-    if (mapEl) mapEl.value = "";
-    const attachEl = document.getElementById("scheduleAttachment");
-    if (attachEl) attachEl.value = "";
-    const icsEl = document.getElementById("scheduleIcsFile");
-    if (icsEl) icsEl.value = "";
-    const icsInfo = document.getElementById("scheduleIcsInfo");
-    if (icsInfo) icsInfo.textContent = "";
+    resetRegularScheduleForm();
 
-    // タイトルにフォーカス
-    const titleEl = document.getElementById("scheduleTitle");
-    titleEl?.focus();
+    regularForm.title?.focus();
 });
 
 document.getElementById("closeRegularScheduleModal").addEventListener("click", () => {
@@ -366,7 +514,6 @@ document.getElementById("closeRegularScheduleModal").addEventListener("click", (
     document.getElementById("scheduleTypeModal").classList.remove("hidden");
 });
 
-// シフト予定モーダルの制御
 document.getElementById("openShiftScheduleBtn").addEventListener("click", () => {
     document.getElementById("scheduleTypeModal").classList.add("hidden");
     document.getElementById("shiftScheduleModal").classList.remove("hidden");
@@ -377,20 +524,19 @@ document.getElementById("closeShiftScheduleModal").addEventListener("click", () 
     document.getElementById("scheduleTypeModal").classList.remove("hidden");
 });
 
-// 通常予定追加
 function assembleTimeString() {
-    const allDay = document.getElementById('scheduleAllDay')?.checked;
+    const { allDay: allDayEl, startTime: startEl, endTime: endEl } = regularForm;
+    const allDay = allDayEl?.checked;
     if (allDay) return '';
-    const start = document.getElementById('scheduleStartTime')?.value || '';
-    const end = document.getElementById('scheduleEndTime')?.value || '';
+    const start = startEl?.value || '';
+    const end = endEl?.value || '';
     if (start && end) return `${start}~${end}`;
     if (start) return start;
     return '';
 }
 
 function applyTimePreset(range) {
-    const startEl = document.getElementById('scheduleStartTime');
-    const endEl = document.getElementById('scheduleEndTime');
+    const { startTime: startEl, endTime: endEl } = regularForm;
     if (range === 'now+60') {
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
@@ -406,38 +552,63 @@ function applyTimePreset(range) {
     endEl.value = e || '';
 }
 
-// 時間プリセットのイベント設定
-document.getElementById('timeQuickPresets')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-range]');
-    if (!btn) return;
-    applyTimePreset(btn.dataset.range);
-});
+function setRegularDetailState(shouldOpen) {
+    const { detailSection, detailToggle, detailToggleIcon, detailToggleText } = regularForm;
+    if (!detailSection || !detailToggle) return;
 
-// 終日トグルで時間入力の無効化/有効化
-document.getElementById('scheduleAllDay')?.addEventListener('change', (e) => {
-    const disabled = e.target.checked;
-    document.getElementById('timeInputsRow')?.classList.toggle('opacity-50', disabled);
-    document.getElementById('scheduleStartTime').disabled = disabled;
-    document.getElementById('scheduleEndTime').disabled = disabled;
-});
+    detailSection.classList.toggle('hidden', !shouldOpen);
+    detailToggle.setAttribute('aria-expanded', String(shouldOpen));
 
-// 添付名表示
-document.getElementById('scheduleAttachment')?.addEventListener('change', (e) => {
-    const nameEl = document.getElementById('scheduleAttachmentName');
-    if (!nameEl) return;
-    const file = e.target.files[0];
-    nameEl.textContent = file ? `選択中: ${file.name}` : '';
-});
+    if (detailToggleIcon) detailToggleIcon.textContent = shouldOpen ? '▲' : '▼';
+    if (detailToggleText) detailToggleText.textContent = shouldOpen ? '詳細設定を隠す' : '詳細設定を表示';
+}
 
-// ロケーションから埋め込み自動生成
-document.getElementById('scheduleLocation')?.addEventListener('change', () => {
-    const auto = document.getElementById('embedAuto')?.checked;
-    if (!auto) return;
-    const input = document.getElementById('scheduleLocation').value.trim();
-    if (!input) return;
-    const embed = convertToEmbedURL(input);
-    if (embed) document.getElementById('scheduleEmbedMap').value = embed;
-});
+const KILO_BYTES = 1024;
+const MEGA_BYTES = KILO_BYTES * KILO_BYTES;
+const DESC_WARN_THRESHOLD = 50;
+
+
+
+function updateScheduleDescCounter() {
+    const { desc, descCounter: counter } = regularForm;
+    if (!desc || !counter) return;
+
+    const max = typeof desc.maxLength === 'number' && desc.maxLength > 0 ? desc.maxLength : null;
+    const length = desc.value.length;
+    const remaining = max ? max - length : null;
+
+    counter.textContent = max ? `${length}/${max}` : `${length}`;
+
+    let state = '';
+    if (remaining !== null) {
+        if (remaining <= 0) {
+            state = 'max';
+        } else if (remaining <= DESC_WARN_THRESHOLD) {
+            state = 'warn';
+        }
+    }
+
+    if (state) {
+        counter.dataset.state = state;
+    } else {
+        delete counter.dataset.state;
+    }
+}
+
+function formatFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 0) return '';
+    if (bytes >= MEGA_BYTES) return `${(bytes / MEGA_BYTES).toFixed(1)} MB`;
+    if (bytes >= KILO_BYTES) return `${(bytes / KILO_BYTES).toFixed(1)} KB`;
+    return `${bytes} B`;
+}
+
+function updateEmbedFromLocation() {
+    if (!regularForm.embedAuto?.checked) return;
+    const locationValue = regularForm.location?.value.trim();
+    if (!locationValue || !regularForm.embedMap) return;
+    const embed = convertToEmbedURL(locationValue);
+    if (embed) regularForm.embedMap.value = embed;
+}
 
 function unfoldIcsLines(raw) {
     if (typeof raw !== 'string') return [];
@@ -594,19 +765,27 @@ function parseIcsEvent(text) {
 
 function applyIcsEventToForm(event) {
     if (!event) return;
-    const dateEl = document.getElementById('scheduleDate');
+
+    const {
+        date: dateEl,
+        allDay: allDayEl,
+        startTime: startEl,
+        endTime: endEl,
+        title: titleEl,
+        location: locationEl,
+        embedAuto: autoEmbed,
+        embedMap: embedEl,
+        desc: descEl
+    } = regularForm;
+
     if (dateEl && event.date) {
         dateEl.value = event.date;
     }
 
-    const allDayEl = document.getElementById('scheduleAllDay');
     if (allDayEl) {
         allDayEl.checked = !!event.allDay;
         allDayEl.dispatchEvent(new Event('change'));
     }
-
-    const startEl = document.getElementById('scheduleStartTime');
-    const endEl = document.getElementById('scheduleEndTime');
 
     if (event.allDay) {
         if (startEl) startEl.value = '';
@@ -616,95 +795,71 @@ function applyIcsEventToForm(event) {
         if (endEl) endEl.value = event.endTime || '';
     }
 
-    const titleEl = document.getElementById('scheduleTitle');
     if (titleEl && event.title) {
         titleEl.value = event.title;
     }
 
-    const locationEl = document.getElementById('scheduleLocation');
     if (locationEl) {
         locationEl.value = event.location || '';
-        const autoEmbed = document.getElementById('embedAuto');
         if (autoEmbed?.checked && event.location) {
             const embed = convertToEmbedURL(event.location);
-            if (embed) {
-                const embedEl = document.getElementById('scheduleEmbedMap');
-                if (embedEl) embedEl.value = embed;
+            if (embed && embedEl) {
+                embedEl.value = embed;
             }
         }
     }
 
-    const descEl = document.getElementById('scheduleDesc');
     if (descEl) {
         descEl.value = event.description || '';
+        updateScheduleDescCounter();
     }
 }
 
-document.getElementById('scheduleIcsFile')?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    const infoEl = document.getElementById('scheduleIcsInfo');
-    if (infoEl) infoEl.textContent = '';
 
-    if (!file) return;
-
-    try {
-        const text = await file.text();
-        const event = parseIcsEvent(text);
-        if (!event) {
-            throw new Error('VEVENT not found');
-        }
-        applyIcsEventToForm(event);
-
-        if (infoEl) {
-            const parts = [];
-            if (event.title) parts.push(`件名: ${event.title}`);
-            if (event.allDay) {
-                let label = `日付: ${event.date} (終日)`;
-                if (event.endDate) {
-                    label += ` → ${event.endDate}`;
-                }
-                parts.push(label);
-            } else {
-                const times = [event.startTime, event.endTime].filter(Boolean).join(' ~ ');
-                const datePart = times ? `${event.date} ${times}` : `${event.date}`;
-                parts.push(`日時: ${datePart}`);
-                if (event.endDate && event.endDate !== event.date) {
-                    parts.push(`終了日: ${event.endDate}`);
-                }
-            }
-            infoEl.textContent = parts.join(' / ') || `${file.name} を読み込みました`;
-        }
-
-        if (typeof Toast !== 'undefined' && typeof Toast.fire === 'function') {
-            Toast.fire({ icon: 'success', title: 'ICSファイルを読み込みました' });
-        } else {
-            Swal.fire({ icon: 'success', title: 'ICSファイルを読み込みました', showConfirmButton: false, timer: 2000 });
-        }
-    } catch (error) {
-        console.error('ICS読み込み失敗:', error);
-        Swal.fire({ icon: 'error', title: 'ICSの読み込みに失敗しました', text: 'ファイルの内容を確認してください。' });
-    } finally {
-        e.target.value = '';
+function resetRegularScheduleForm() {
+    if (regularForm.allDay) {
+        regularForm.allDay.checked = false;
+        regularForm.allDay.dispatchEvent(new Event('change'));
     }
-});
+    if (regularForm.startTime) regularForm.startTime.value = '';
+    if (regularForm.endTime) regularForm.endTime.value = '';
+    if (regularForm.time) regularForm.time.value = '';
+    if (regularForm.location) regularForm.location.value = '';
+    if (regularForm.desc) regularForm.desc.value = '';
+    if (regularForm.embedMap) {
+        regularForm.embedMap.value = '';
+        regularForm.embedMap.disabled = false;
+        regularForm.embedMap.classList.remove('td-input-disabled');
+    }
+    if (regularForm.attachment) regularForm.attachment.value = '';
+    if (regularForm.icsFile) regularForm.icsFile.value = '';
+    if (regularForm.icsInfo) regularForm.icsInfo.textContent = '';
+    if (regularForm.embedAuto) regularForm.embedAuto.checked = false;
+    updateScheduleDescCounter();
+    if (regularForm.attachmentName) regularForm.attachmentName.textContent = '';
+}
 
 async function submitRegularSchedule({ continueAfter = false } = {}) {
-    const date = document.getElementById("scheduleDate").value;
+    const {
+        date: dateEl,
+        title: titleEl,
+        location: locationEl,
+        desc: descEl,
+        embedMap: embedMapEl,
+        attachment: attachmentEl
+    } = regularForm;
+
+    const date = dateEl.value;
     const time = assembleTimeString();
-    const title = document.getElementById("scheduleTitle").value;
-    const rawLocation = document.getElementById("scheduleLocation").value.trim();
-    const description = document.getElementById("scheduleDesc").value;
-    const embedmap = document.getElementById("scheduleEmbedMap").value;
-    const attachmentFile = document.getElementById("scheduleAttachment").files[0];
+    const title = titleEl.value;
+    const location = locationEl.value.trim();
+    const description = descEl.value;
+    const embedmap = embedMapEl.value;
+    const attachmentFile = attachmentEl.files[0];
 
     if (!date || !title) {
         Swal.fire({ icon: 'warning', title: '未入力があります', text: '日付とタイトルは必須です。' });
         return;
-    }
-
-    let location = rawLocation;
-    if (rawLocation.startsWith("https://maps.app.goo.gl")) {
-        location = `<a href="${rawLocation}" class="text-blue-400 underline" target="_blank">Google Maps</a>`;
     }
 
     const scheduleData = { date, time, title, location, description, embedmap };
@@ -728,22 +883,9 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
     schedules.push(scheduleData);
 
     if (continueAfter) {
-        // 連続追加: タイトル以外をクリアしてフォーカス維持
-        document.getElementById('scheduleStartTime').value = '';
-        document.getElementById('scheduleEndTime').value = '';
-        document.getElementById('scheduleLocation').value = '';
-        document.getElementById('scheduleDesc').value = '';
-        document.getElementById('scheduleEmbedMap').value = '';
-        const attach = document.getElementById('scheduleAttachment');
-        if (attach) attach.value = '';
-        const nameEl = document.getElementById('scheduleAttachmentName');
-        if (nameEl) nameEl.textContent = '';
-        const icsInfoEl = document.getElementById('scheduleIcsInfo');
-        if (icsInfoEl) icsInfoEl.textContent = '';
-        const icsInput = document.getElementById('scheduleIcsFile');
-        if (icsInput) icsInput.value = '';
+        resetRegularScheduleForm();
         Toast?.fire({ icon: 'success', title: '追加しました（続けて入力できます）' });
-        document.getElementById('scheduleTitle')?.focus();
+        regularForm.title?.focus();
     } else {
         document.getElementById("regularScheduleModal").classList.add("hidden");
         document.getElementById("menuModal").classList.remove("hidden");
@@ -756,7 +898,6 @@ async function submitRegularSchedule({ continueAfter = false } = {}) {
 document.getElementById("addRegularScheduleBtn").addEventListener("click", () => submitRegularSchedule({ continueAfter: false }));
 document.getElementById("addRegularScheduleAndContinueBtn")?.addEventListener("click", () => submitRegularSchedule({ continueAfter: true }));
 
-// Enter（textarea除く）で追加、Escでキャンセル
 document.addEventListener('keydown', (e) => {
     const modalOpen = !document.getElementById('regularScheduleModal')?.classList.contains('hidden');
     if (!modalOpen) return;
@@ -773,9 +914,6 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('closeRegularScheduleModal')?.click();
     }
 });
-
-// シフト予定追加は shift_modal.js 側で実装（Swal/Toast・連続追加対応）
-
 
 async function loadSchedules() {
     try {
@@ -806,9 +944,13 @@ function convertToEmbedURL(url) {
         if (u.hostname.includes("google.com") && u.pathname.includes("/maps")) {
             return url.replace("/maps", "/maps/embed");
         }
-    } catch (_) {}
+    } catch (error) {
+        // Silently fail for invalid URLs
+    }
     return null;
 }
+
+
 
 function showScheduleDetail(sched) {
     const content = document.getElementById("scheduleDetailContent");
@@ -817,39 +959,46 @@ function showScheduleDetail(sched) {
         ? "終日"
         : `${sched.date}${sched.time ? ` ${sched.time}` : ""}${sched.endTime ? `~${sched.endTime}` : ""}`;
 
-    const formattedDescription = (sched.description || "なし").replace(/\n/g, "<br>");
+    const rawDescription = sched.description || "なし";
+    const formattedDescription = escapeHTML(rawDescription).replace(/\n/g, "<br>");
 
     let locationHTML = "未指定";
-    if (sched.location && sched.location.startsWith("http")) {
-        locationHTML = `<a href="${sched.location}" target="_blank" class="text-blue-400 underline break-all">${sched.location}</a>`;
+    if (sched.location && (sched.location.trim().toLowerCase().startsWith("https://") || sched.location.trim().toLowerCase().startsWith("http://"))) {
+        const escapedLocation = escapeHTML(sched.location);
+        locationHTML = `<a href="${sched.location.trim().replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline break-all">${escapedLocation}</a>`;
     } else if (sched.location) {
-        locationHTML = sched.location;
+        locationHTML = escapeHTML(sched.location);
     }
 
     const isImage = sched.attachment && /\.(jpe?g|png|gif|webp)$/i.test(sched.attachment);
+    const escapedAttachment = escapeHTML(sched.attachment);
     const attachmentHTML = sched.attachment && sched.attachment !== "null" ? `
         <div>
             <div class="font-semibold text-white/80">添付</div>
             <div class="break-all mb-2">
-                <a href="/home/assets/calendar/${sched.attachment}" class="text-blue-400 underline" target="_blank">${sched.attachment}</a>
+                <a href="/home/assets/calendar/${escapedAttachment}" class="text-blue-400 underline" target="_blank">${escapedAttachment}</a>
             </div>
             ${isImage ? `
             <div>
-                <img src="/home/assets/calendar/${sched.attachment}" alt="添付画像" class="max-w-full rounded border border-white/20">
+                <img src="/home/assets/calendar/${escapedAttachment}" alt="添付画像" class="max-w-full rounded border border-white/20">
             </div>` : ""}
         </div>
     ` : "";
 
-    const mapEmbed = sched.embedmap
-        ? `<iframe src="${sched.embedmap}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
-        : "";
+    const mapEmbed = (() => {
+        if (!sched.embedmap || !sched.embedmap.startsWith('https://www.google.com/maps/embed')) {
+            return "";
+        }
+        const safeSrc = sched.embedmap.replace(/"/g, '&quot;');
+        return `<iframe src="${safeSrc}" class="w-full h-64 rounded border border-white/20 mt-2" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin"></iframe>`;
+    })();
 
     content.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 text-sm">
             <div class="md:w-1/2 space-y-3 leading-relaxed">
                 <div>
                     <div class="font-semibold text-white/80">タイトル</div>
-                    <div>${sched.title || "無題の予定"}</div>
+                    <div>${escapeHTML(sched.title) || "無題の予定"}</div>
                 </div>
                 <div>
                     <div class="font-semibold text-white/80">日付</div>
@@ -933,14 +1082,6 @@ document.getElementById("closeAllScheduleModal").addEventListener("click", () =>
     document.getElementById("allScheduleModal").classList.add("hidden");
 });
 
-document.getElementById("regularToggleDetail").addEventListener("click", () => {
-  const section = document.getElementById("regularDetailSection");
-  const btn = document.getElementById("regularToggleDetail");
-
-  const isOpen = !section.classList.contains("hidden");
-  section.classList.toggle("hidden", isOpen);
-  btn.textContent = isOpen ? "▲ 詳細設定を隠す" : "▼ 詳細設定を表示";
-});
 
 const calendarManager = new CalendarManager();
 if (typeof window !== 'undefined') {
@@ -948,5 +1089,5 @@ if (typeof window !== 'undefined') {
 }
 
 window.addEventListener('auth:state-changed', () => {
-    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => {});
+    calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(error => console.warn('Failed to refresh calendar on auth state change:', error));
 });

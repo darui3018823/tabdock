@@ -3,7 +3,7 @@
 All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 
-This code Version: 5.3.0_css-r1
+This code Version: 5.13.1_css-r3
 */
 body {
     margin: 0;
@@ -38,12 +38,12 @@ body {
 }
 
 .card-standard {
-    border-radius: 1rem; /* rounded-2xl */
-    padding: 1rem;       /* p-4 */
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); /* shadow-md 相当 */
-    background-color: rgba(0,0,0,0.7); /* bg-black/70 */
-    backdrop-filter: blur(12px); /* backdrop-blur-md */
-    color: white;       /* text-white */
+    border-radius: 1rem;
+    padding: 1rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(12px);
+    color: white;
     min-height: 140px;
     display: flex;
     flex-direction: column;
@@ -57,7 +57,7 @@ body {
     bottom: 0;
     right: 0;
     padding: 10px;
-    color: #666; /* 灰色 */
+    color: #666;
     font-size: 0.8em;
     text-align: right;
     background-color: transparent;
@@ -78,51 +78,65 @@ body {
     z-index: -20;
 }
 
-/* --- Modal (Glassmorphism) ------------------------------------------------ */
-/* 画面全体のオーバーレイ */
 .td-modal-overlay {
     position: fixed;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.45); /* bg-black/50 相当 */
+    background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
 }
 
-/* モーダル本体（すりガラス） */
 .td-modal-panel {
-    background: rgba(20, 24, 28, 0.55); /* ダーク寄りの半透明。背景の色味が透ける */
+    background: rgba(20, 24, 28, 0.55);
     color: #fff;
     border-radius: 14px;
-    padding: 1.25rem; /* p-5 相当 */
+    padding: 1.25rem;
     width: 100%;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.35);
-    border: 1px solid rgba(255,255,255,0.12);
+    max-height: min(90vh, 960px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(16px) saturate(120%);
     -webkit-backdrop-filter: blur(16px) saturate(120%);
 }
 
-/* 最大幅ユーティリティ（必要に応じて追加） */
-.td-modal-sm { max-width: 28rem; }  /* ~448px */
-.td-modal-md { max-width: 36rem; }  /* ~576px */
-.td-modal-lg { max-width: 48rem; }  /* ~768px */
-.td-modal-xl { max-width: 64rem; }  /* ~1024px */
-.td-modal-2xl { max-width: 72rem; } /* ~1152px */
-.td-modal-4xl { max-width: 56rem; } /* Tailwind max-w-4xl 相当 */
+.td-modal-sm {
+    max-width: 28rem;
+}
 
-/* 壁紙プリセットのサムネイル */
+.td-modal-md {
+    max-width: 36rem;
+}
+
+.td-modal-lg {
+    max-width: 48rem;
+}
+
+.td-modal-xl {
+    max-width: 64rem;
+}
+
+.td-modal-2xl {
+    max-width: 72rem;
+}
+
+.td-modal-4xl {
+    max-width: 56rem;
+}
+
 #presetWallpapers img {
     width: 100%;
-    height: 120px; /* サムネイル高さ固定で行の高さを安定させる */
-    object-fit: cover; /* 一覧の見栄え優先でフィット */
+    height: 120px;
+    object-fit: cover;
     border-radius: 0.5rem;
 }
 
-/* モーダル内で 3x4 (12枚) はスクロール無しで収める: ラッパー高を状況に応じて調整 */
 #presetWallpapersWrapper {
-    max-height: 50vh; /* 元の挙動に近い高さ管理 */
+    max-height: 50vh;
     overflow-y: auto;
 }
 
@@ -164,7 +178,7 @@ body {
     width: 140px;
     height: 140px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
     animation: burnin-pulse 3.2s ease-in-out infinite;
 }
 
@@ -172,21 +186,21 @@ body {
     font-size: 1.25rem;
     font-weight: 600;
     letter-spacing: 0.08em;
-    text-shadow: 0 0 12px rgba(255,255,255,0.35);
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.35);
 }
 
 .burnin-sub {
     display: block;
     margin-top: 0.5rem;
     font-size: 0.85rem;
-    color: rgba(255,255,255,0.7);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .burnin-exit {
     padding: 0.6rem 2.4rem;
     border-radius: 9999px;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     color: #fff;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -194,7 +208,7 @@ body {
 }
 
 .burnin-exit:hover {
-    background: rgba(255,255,255,0.22);
+    background: rgba(255, 255, 255, 0.22);
     transform: scale(1.05);
 }
 
@@ -209,11 +223,173 @@ body {
 }
 
 @keyframes burnin-pulse {
-    0%, 100% { transform: scale(0.9); opacity: 0.6; }
-    50% { transform: scale(1.05); opacity: 1; }
+
+    0%,
+    100% {
+        transform: scale(0.9);
+        opacity: 0.6;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
 }
 
 @keyframes burnin-drift {
-    0% { background-position: 30% 30%; }
-    100% { background-position: 70% 70%; }
+    0% {
+        background-position: 30% 30%;
+    }
+
+    100% {
+        background-position: 70% 70%;
+    }
+}
+
+/* --- Regular schedule detail section ------------------------------------ */
+.td-detail-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    background: rgba(37, 99, 235, 0.12);
+    color: #bfdbfe;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.td-detail-toggle:hover {
+    background: rgba(37, 99, 235, 0.2);
+    color: #e0f2fe;
+    transform: translateY(-1px);
+}
+
+.td-detail-toggle-icon {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.td-detail-panel {
+    display: grid;
+    gap: 1.75rem;
+    padding: 1.5rem;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 1rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.td-detail-group {
+    display: grid;
+    gap: 1rem;
+}
+
+.td-detail-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.td-detail-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.td-detail-caption {
+    margin: 0;
+    color: rgba(226, 232, 240, 0.75);
+    font-size: 0.85rem;
+}
+
+.td-detail-action {
+    background: rgba(148, 163, 184, 0.15);
+    color: rgba(226, 232, 240, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 9999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.td-detail-action:hover {
+    background: rgba(148, 163, 184, 0.25);
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
+.td-detail-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .td-detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.td-detail-field {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.td-detail-label {
+    font-size: 0.85rem;
+    color: rgba(226, 232, 240, 0.85);
+}
+
+.td-detail-hint {
+    font-size: 0.75rem;
+    color: rgba(148, 163, 184, 0.75);
+}
+
+.td-detail-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: rgba(226, 232, 240, 0.85);
+}
+
+.td-detail-file {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.td-detail-file input[type="file"] {
+    padding: 0.65rem;
+    border-radius: 0.75rem;
+    background: rgba(30, 41, 59, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.td-detail-helper-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: rgba(148, 163, 184, 0.75);
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.td-detail-counter {
+    font-variant-numeric: tabular-nums;
+    color: rgba(191, 219, 254, 0.95);
+}
+
+.td-detail-counter[data-state="warn"] {
+    color: #facc15;
+}
+
+.td-detail-counter[data-state="max"] {
+    color: #f87171;
+}
+
+.td-input-disabled {
+    opacity: 0.5;
+    pointer-events: none;
 }
