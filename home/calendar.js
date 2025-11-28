@@ -43,20 +43,22 @@ function renderCalendar() {
 
     calendarGrid.innerHTML = "";
 
-    let totalCells = 35;
+    const totalCells = 35;
+    // Calculate overflow: days that don't fit in 35 cells
+    const overflow = Math.max(0, firstDay + lastDate - totalCells);
+    // The last day that gets its own cell (remaining days shown as progress on this cell)
+    const lastVisibleDay = lastDate - overflow;
+    
     let day = 1;
 
     for (let i = 0; i < totalCells; i++) {
         const cell = document.createElement("div");
 
-        if (i >= firstDay && day <= lastDate) {
+        if (i >= firstDay && day <= lastVisibleDay) {
             cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center relative";
             
-            if (day === lastDate) {
-                // 月の最終日：日付のみを表示
-                cell.textContent = day;
-            } else {
-                // 通常の日付：月の進行状況を表示
+            if (day === lastVisibleDay && overflow > 0) {
+                // Last visible cell with overflow days - show progress indicator
                 const daySpan = document.createElement("span");
                 daySpan.textContent = day;
                 
@@ -66,6 +68,9 @@ function renderCalendar() {
                 
                 cell.appendChild(daySpan);
                 cell.appendChild(progressSpan);
+            } else {
+                // Normal day - just show the date
+                cell.textContent = day;
             }
             
             applyColor(cell, i % 7, year, month, day);
