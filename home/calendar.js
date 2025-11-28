@@ -59,17 +59,10 @@ function renderCalendar() {
                 // 通常の日付：月の進行状況を表示
                 const daySpan = document.createElement("span");
                 daySpan.textContent = day;
-                daySpan.style.position = "relative";
-                daySpan.style.zIndex = "1";
                 
                 const progressSpan = document.createElement("span");
                 progressSpan.textContent = `/${lastDate}`;
-                progressSpan.style.position = "absolute";
-                progressSpan.style.right = "2px";
-                progressSpan.style.bottom = "1px";
-                progressSpan.style.fontSize = "0.55em";
-                progressSpan.style.opacity = "0.7";
-                progressSpan.style.lineHeight = "1";
+                progressSpan.style.cssText = "position:absolute;right:2px;bottom:1px;font-size:0.55em;opacity:0.7;line-height:1";
                 
                 cell.appendChild(daySpan);
                 cell.appendChild(progressSpan);
