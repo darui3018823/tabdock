@@ -50,8 +50,31 @@ function renderCalendar() {
         const cell = document.createElement("div");
 
         if (i >= firstDay && day <= lastDate) {
-            cell.textContent = day;
-            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center";
+            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center relative";
+            
+            if (day === lastDate) {
+                // 月の最終日：日付のみを表示
+                cell.textContent = day;
+            } else {
+                // 通常の日付：月の進行状況を表示
+                const daySpan = document.createElement("span");
+                daySpan.textContent = day;
+                daySpan.style.position = "relative";
+                daySpan.style.zIndex = "1";
+                
+                const progressSpan = document.createElement("span");
+                progressSpan.textContent = `/${lastDate}`;
+                progressSpan.style.position = "absolute";
+                progressSpan.style.right = "2px";
+                progressSpan.style.bottom = "1px";
+                progressSpan.style.fontSize = "0.55em";
+                progressSpan.style.opacity = "0.7";
+                progressSpan.style.lineHeight = "1";
+                
+                cell.appendChild(daySpan);
+                cell.appendChild(progressSpan);
+            }
+            
             applyColor(cell, i % 7, year, month, day);
 
             const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
