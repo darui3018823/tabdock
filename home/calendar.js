@@ -43,37 +43,21 @@ function renderCalendar() {
 
     calendarGrid.innerHTML = "";
 
-    const totalCells = 35;
-    const fifthRowStartIndex = 28; // First cell index of 5th row in 7×5 grid
-    // Calculate overflow: days that don't fit in 35 cells
-    const overflow = Math.max(0, firstDay + lastDate - totalCells);
-    // The first day of the 5th row - this is where overflow indicator goes
-    const fifthRowFirstDay = overflow > 0 ? fifthRowStartIndex - firstDay + 1 : -1;
-    // The last day that gets its own cell
-    const lastVisibleDay = lastDate - overflow;
-    
+    let totalCells = 35;
     let day = 1;
 
     for (let i = 0; i < totalCells; i++) {
         const cell = document.createElement("div");
 
-        if (i >= firstDay && day <= lastVisibleDay) {
+        if (i >= firstDay && day <= lastDate) {
             cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center relative";
             
-            if (day === fifthRowFirstDay && overflow > 0) {
-                // First cell of 5th row with overflow - show progress indicator
-                const daySpan = document.createElement("span");
-                daySpan.textContent = day;
-                
-                const progressSpan = document.createElement("span");
-                progressSpan.textContent = `/${lastDate}`;
-                progressSpan.style.cssText = "position:absolute;right:2px;bottom:1px;font-size:0.55em;opacity:0.7;line-height:1";
-                
-                cell.appendChild(daySpan);
-                cell.appendChild(progressSpan);
+            if (day === lastDate) {
+                // Last day of month - show only day number
+                cell.innerHTML = `<div class="date-main">${day}</div>`;
             } else {
-                // Normal day - just show the date
-                cell.textContent = day;
+                // Normal day - show day number and progress indicator
+                cell.innerHTML = `<div class="date-main">${day}</div><div class="date-sub">/${lastDate}</div>`;
             }
             
             applyColor(cell, i % 7, year, month, day);
