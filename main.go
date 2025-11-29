@@ -128,8 +128,17 @@ func serve(mux http.Handler) {
 	update4 := "Since Core is still required outside Windows, we would appreciate your code contributions."
 	update5 := "PWA is now supported (v5.8 and later). It may not be available on iOS."
 
-	port := os.Getenv("DOCKER_PORT")
-	useDocker := port != ""
+	port := strings.TrimSpace(os.Getenv("DOCKER_PORT"))
+	if port == "" {
+		port = strings.TrimSpace(os.Getenv("PORT"))
+	}
+	if port == "" {
+		port = "80"
+	}
+
+	certPath := "./cert/tabdock.crt"
+	keyPath := "./cert/tabdock.key"
+	certAvailable := fileExists(certPath) && fileExists(keyPath)
 
 	log.Println("Tabdock Version:", version)
 	log.Println("==== Updates ====")
@@ -140,20 +149,26 @@ func serve(mux http.Handler) {
 	log.Println(update5)
 	log.Println("=================")
 
-	if useDocker {
-		log.Println("Started on Docker Mode：HTTP on port")
-		log.Println("Serving on http://127.0.1:" + port)
-		err := http.ListenAndServe(":"+port, mux)
-		if err != nil {
-			log.Fatal("HTTP Server error:", err)
-		}
-	} else {
-		log.Println("Serving on https://127.0.0.1:443 ...")
-		err := http.ListenAndServeTLS(":443", "./cert/tabdock.crt", "./cert/tabdock.key", mux)
-		if err != nil {
+	if certAvailable {
+		log.Printf("HTTPS Mode: using certificate. Listening on https://127.0.0.1:%s ...", port)
+		if err := http.ListenAndServeTLS(":"+port, certPath, keyPath, mux); err != nil {
 			log.Fatal("HTTPS Server error:", err)
 		}
+		return
 	}
+
+	log.Printf("HTTP Mode: certificate not found. Falling back to HTTP. Listening on http://127.0.0.1:%s ...", port)
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
+		log.Fatal("HTTP Server error:", err)
+	}
+}
+
+func fileExists(p string) bool {
+	info, err := os.Stat(p)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
 }
 
 func main() {
