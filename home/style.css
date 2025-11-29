@@ -393,3 +393,19 @@ body {
     opacity: 0.5;
     pointer-events: none;
 }
+
+/* Calendar date cell progress indicator */
+.date-main {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 1rem;
+}
+
+.date-sub {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 0.6rem;
+    opacity: 0.7;
+}

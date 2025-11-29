@@ -50,8 +50,16 @@ function renderCalendar() {
         const cell = document.createElement("div");
 
         if (i >= firstDay && day <= lastDate) {
-            cell.textContent = day;
-            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center";
+            cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center relative";
+            
+            if (day === lastDate) {
+                // Last day of month - show only day number
+                cell.innerHTML = `<div class="date-main">${day}</div>`;
+            } else {
+                // Normal day - show day number and progress indicator
+                cell.innerHTML = `<div class="date-main">${day}</div><div class="date-sub">/${lastDate}</div>`;
+            }
+            
             applyColor(cell, i % 7, year, month, day);
 
             const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
