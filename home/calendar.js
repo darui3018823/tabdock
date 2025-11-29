@@ -44,9 +44,12 @@ function renderCalendar() {
     calendarGrid.innerHTML = "";
 
     const totalCells = 35;
+    const fifthRowStartIndex = 28; // First cell index of 5th row in 7×5 grid
     // Calculate overflow: days that don't fit in 35 cells
     const overflow = Math.max(0, firstDay + lastDate - totalCells);
-    // The last day that gets its own cell (remaining days shown as progress on this cell)
+    // The first day of the 5th row - this is where overflow indicator goes
+    const fifthRowFirstDay = overflow > 0 ? fifthRowStartIndex - firstDay + 1 : -1;
+    // The last day that gets its own cell
     const lastVisibleDay = lastDate - overflow;
     
     let day = 1;
@@ -57,8 +60,8 @@ function renderCalendar() {
         if (i >= firstDay && day <= lastVisibleDay) {
             cell.className = "p-1 rounded cursor-pointer hover:bg-white/20 transition flex items-center justify-center text-center relative";
             
-            if (day === lastVisibleDay && overflow > 0) {
-                // Last visible cell with overflow days - show progress indicator
+            if (day === fifthRowFirstDay && overflow > 0) {
+                // First cell of 5th row with overflow - show progress indicator
                 const daySpan = document.createElement("span");
                 daySpan.textContent = day;
                 
