@@ -30,7 +30,7 @@ import (
 )
 
 // const
-const version = "5.14.1"
+const version = "5.15.0"
 const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var
@@ -232,6 +232,7 @@ func main() {
 	mux.HandleFunc("/api/subscriptions/upcoming", secureHandler(subHandler.GetUpcoming))
 	mux.HandleFunc("/api/subscriptions/update", secureHandler(subHandler.Update))
 	mux.HandleFunc("/api/subscriptions/status", secureHandler(subHandler.UpdateStatus))
+	mux.HandleFunc("/api/subscriptions/renew", secureHandler(subHandler.RenewPaymentDates))
 	mux.HandleFunc("/api/subscriptions/delete", secureHandler(subHandler.Delete))
 	mux.HandleFunc("/api/pwa-status", secureHandler(handlePWAStatus))
 

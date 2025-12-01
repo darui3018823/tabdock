@@ -209,19 +209,30 @@ class SubscriptionManager {
             return 'skip';
         }
 
+        console.log('近い支払予定リスト:', dueSoon.map(item => ({
+            name: item.sub.serviceName || '名称未設定',
+            label: item.label,
+            amount: item.amount
+        })));
+
         const listItems = dueSoon.map(item => {
             const name = escape(item.sub.serviceName || '名称未設定');
             const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
-            return `<li class="py-2 px-3 bg-white/5 rounded-md">
-                <div class="font-bold text-base text-white mb-1">${name}</div>
-                <div class="text-white/70 text-xs">${escape(item.label)}に支払い予定 / <span class="font-medium">${escape(item.amount)}</span> / ${cycle}</div>
+            return `<li style="padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.9); border: 1px solid rgba(15,23,42,0.08);">
+                <div style="font-weight: 700; font-size: 1rem; margin-bottom: 4px; color: #0f172a;">${name}</div>
+                <div style="font-size: 0.8rem; color: #1f2937; line-height: 1.35;">${escape(item.label)}に支払い予定 / <span style="font-weight: 600; color: #0f172a;">${escape(item.amount)}</span> / ${cycle}</div>
             </li>`;
         }).join('');
+
+        const descriptionHtml = `<div style="text-align: left; font-size: 0.95rem; color: #111827;">
+            <p style="margin-bottom: 12px; font-size: 1rem; font-weight: 600;">近い支払予定のサブスクリプションがあります。</p>
+            <ul style="display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none;">${listItems}</ul>
+        </div>`;
 
         await Swal.fire({
             icon: 'info',
             title: '支払い予定の確認',
-            html: `<div class="text-left text-sm"><p class="mb-3 text-base font-medium text-white/90">近い支払予定のサブスクリプションがあります。</p><ul class="space-y-3">${listItems}</ul></div>`,
+            html: descriptionHtml,
             confirmButtonText: '閉じる'
         });
 

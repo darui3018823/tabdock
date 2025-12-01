@@ -7,6 +7,7 @@ package subscription
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -26,6 +27,14 @@ type Subscription struct {
 	UpdatedAt       time.Time       `json:"updatedAt"`
 }
 
+type RenewalResult struct {
+	ID           int64  `json:"id"`
+	ServiceName  string `json:"serviceName"`
+	PreviousDate string `json:"previousDate"`
+	NextDate     string `json:"nextDate"`
+	BillingCycle string `json:"billingCycle"`
+}
+
 type PaymentDetails struct {
 	CardLastFour string `json:"cardLastFour,omitempty"`
 	PaypalEmail  string `json:"paypalEmail,omitempty"`
@@ -39,6 +48,109 @@ type SubscriptionDB struct {
 
 func NewSubscriptionDB(db *sql.DB) *SubscriptionDB {
 	return &SubscriptionDB{db: db}
+}
+
+func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time, bool) {
+	nextDate := current
+	switch strings.ToLower(billingCycle) {
+	case "monthly":
+		nextDate = nextDate.AddDate(0, 1, 0)
+		if nextDate.Day() != current.Day() {
+			nextDate = nextDate.AddDate(0, 0, -nextDate.Day())
+		}
+	case "yearly":
+		nextDate = nextDate.AddDate(1, 0, 0)
+		if nextDate.Day() != current.Day() {
+			nextDate = nextDate.AddDate(0, 0, -nextDate.Day())
+		}
+	default:
+		return time.Time{}, false
+	}
+
+	return nextDate, true
+}
+
+func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]RenewalResult, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(`
+                SELECT id, service_name, plan_name, amount, currency, billing_cycle,
+                       payment_method, payment_details, next_payment_date
+                FROM subscriptions
+                WHERE user_id = ?
+                  AND status = 'active'
+                  AND next_payment_date < ?
+        `, userID, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []RenewalResult
+
+	for rows.Next() {
+		var sub Subscription
+		err := rows.Scan(
+			&sub.ID,
+			&sub.ServiceName,
+			&sub.PlanName,
+			&sub.Amount,
+			&sub.Currency,
+			&sub.BillingCycle,
+			&sub.PaymentMethod,
+			&sub.PaymentDetails,
+			&sub.NextPaymentDate,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		nextDate, ok := calculateNextPaymentDate(sub.NextPaymentDate, sub.BillingCycle)
+		if !ok {
+			continue
+		}
+
+		if _, err := tx.Exec(`UPDATE subscriptions SET status = 'expired' WHERE id = ?`, sub.ID); err != nil {
+			return nil, err
+		}
+
+		result, err := tx.Exec(`
+                    INSERT INTO subscriptions (
+                        user_id, service_name, plan_name, amount, currency,
+                        billing_cycle, payment_method, payment_details, next_payment_date, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            `, userID, sub.ServiceName, sub.PlanName, sub.Amount, sub.Currency, sub.BillingCycle, sub.PaymentMethod, sub.PaymentDetails, nextDate)
+		if err != nil {
+			return nil, err
+		}
+
+		newID, err := result.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, RenewalResult{
+			ID:           newID,
+			ServiceName:  sub.ServiceName,
+			PreviousDate: sub.NextPaymentDate.Format("2006-01-02"),
+			NextDate:     nextDate.Format("2006-01-02"),
+			BillingCycle: sub.BillingCycle,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 func (s *SubscriptionDB) Create(sub *Subscription) error {
