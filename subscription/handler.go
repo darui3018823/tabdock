@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -153,7 +154,8 @@ func (h *Handler) RenewPaymentDates(w http.ResponseWriter, r *http.Request) {
 
 	results, err := h.subDB.RenewOverduePayments(userIDStr, time.Now())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to renew payments: %v", err)
+		http.Error(w, "Failed to renew payments", http.StatusInternalServerError)
 		return
 	}
 
