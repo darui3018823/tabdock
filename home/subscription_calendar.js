@@ -1231,7 +1231,7 @@ class SubscriptionCalendarManager {
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     title: '支払い予定を更新',
-                    html: `<div style="text-align: left; color: #111827;">日付が更新されました。<ul style="padding-left: 16px; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; list-style: none;">${htmlItems}</ul></div>`,
+                    html: `<div class="swal-renewal-container">日付が更新されました。<ul class="swal-renewal-list">${htmlItems}</ul></div>`,
                     icon: 'info',
                     confirmButtonText: '了解'
                 });
