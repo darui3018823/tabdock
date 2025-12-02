@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.10.1_subsc-r1
+// This code Version: 5.15.3_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -162,7 +162,7 @@ class SubscriptionManager {
         const baseToday = new Date(`${todayStr}T00:00:00`);
         const dueSoon = [];
 
-        const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
         for (const sub of this.cachedUpcoming) {
             if (!sub?.nextPaymentDate) continue;
@@ -210,18 +210,23 @@ class SubscriptionManager {
         }
 
         const listItems = dueSoon.map(item => {
-            const name = escape(item.sub.serviceName || '名称未設定');
-            const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
-            return `<li class="py-2 px-3 bg-white/5 rounded-md">
-                <div class="font-bold text-base text-white mb-1">${name}</div>
-                <div class="text-white/70 text-xs">${escape(item.label)}に支払い予定 / <span class="font-medium">${escape(item.amount)}</span> / ${cycle}</div>
+            const name = escapeHtml(item.sub.serviceName || '名称未設定');
+            const cycle = escapeHtml(this.formatBillingCycleLabel(item.sub.billingCycle));
+            return `<li class="swal-subscription-item">
+                <div class="swal-subscription-name">${name}</div>
+                <div class="swal-subscription-details">${escapeHtml(item.label)}に支払い予定 / <span class="swal-subscription-amount">${escapeHtml(item.amount)}</span> / ${cycle}</div>
             </li>`;
         }).join('');
+
+        const descriptionHtml = `<div class="swal-subscription-container">
+            <p class="swal-subscription-title">近い支払予定のサブスクリプションがあります。</p>
+            <ul class="swal-subscription-list">${listItems}</ul>
+        </div>`;
 
         await Swal.fire({
             icon: 'info',
             title: '支払い予定の確認',
-            html: `<div class="text-left text-sm"><p class="mb-3 text-base font-medium text-white/90">近い支払予定のサブスクリプションがあります。</p><ul class="space-y-3">${listItems}</ul></div>`,
+            html: descriptionHtml,
             confirmButtonText: '閉じる'
         });
 

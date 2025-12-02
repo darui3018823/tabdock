@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -137,6 +138,29 @@ func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(subs)
+}
+
+func (h *Handler) RenewPaymentDates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userIDStr, err := h.getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	results, err := h.subDB.RenewOverduePayments(userIDStr, time.Now())
+	if err != nil {
+		log.Printf("Failed to renew payments: %v", err)
+		http.Error(w, "Failed to renew payments", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(results)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
