@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.15.0_subsc-r3
+// This code Version: 5.15.3_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -227,10 +227,7 @@ class SubscriptionManager {
             icon: 'info',
             title: '支払い予定の確認',
             html: descriptionHtml,
-            confirmButtonText: '閉じる',
-            customClass: {
-                htmlContainer: 'swal-text-dark'
-            }
+            confirmButtonText: '閉じる'
         });
 
         dueSoon.forEach(item => this.notifiedKeys.add(item.key));

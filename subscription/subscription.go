@@ -51,21 +51,23 @@ func NewSubscriptionDB(db *sql.DB) *SubscriptionDB {
 }
 
 func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time, bool) {
-	nextDate := current
+	var nextDate time.Time
 	switch strings.ToLower(billingCycle) {
 	case "monthly":
-		// If current is the last day of the month, set nextDate to last day of next month
-		if current.Day() == time.Date(current.Year(), current.Month()+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location()).Day() {
-			nextDate = time.Date(current.Year(), current.Month()+2, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location())
-		} else {
-			nextDate = current.AddDate(0, 1, 0)
+		nextDate = current.AddDate(0, 1, 0)
+		if nextDate.Day() != current.Day() {
+			// Set to last day of target month (the previous month)
+			nextDate = time.Date(nextDate.Year(), nextDate.Month(), 0,
+				nextDate.Hour(), nextDate.Minute(), nextDate.Second(),
+				nextDate.Nanosecond(), nextDate.Location())
 		}
 	case "yearly":
-		// If current is the last day of the month, set nextDate to last day of same month next year
-		if current.Day() == time.Date(current.Year(), current.Month()+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location()).Day() {
-			nextDate = time.Date(current.Year()+1, current.Month()+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location())
-		} else {
-			nextDate = current.AddDate(1, 0, 0)
+		nextDate = current.AddDate(1, 0, 0)
+		if nextDate.Day() != current.Day() {
+			// Set to last day of target month in next year
+			nextDate = time.Date(nextDate.Year(), nextDate.Month(), 0,
+				nextDate.Hour(), nextDate.Minute(), nextDate.Second(),
+				nextDate.Nanosecond(), nextDate.Location())
 		}
 	default:
 		return time.Time{}, false
@@ -98,7 +100,6 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 
 	for rows.Next() {
 		var sub Subscription
-		var result sql.Result
 		err := rows.Scan(
 			&sub.ID,
 			&sub.ServiceName,
@@ -119,28 +120,18 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 			continue
 		}
 
-		// Update existing subscription to expired and set next payment date
-		if _, err := tx.Exec(`UPDATE subscriptions SET status = 'expired', next_payment_date = ? WHERE id = ?`, nextDate, sub.ID); err != nil {
-			return nil, err
-		}
-
-		result, err = tx.Exec(`
-                    INSERT INTO subscriptions (
-                        user_id, service_name, plan_name, amount, currency,
-                        billing_cycle, payment_method, payment_details, next_payment_date, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-            `, userID, sub.ServiceName, sub.PlanName, sub.Amount, sub.Currency, sub.BillingCycle, sub.PaymentMethod, sub.PaymentDetails, nextDate)
-		if err != nil {
-			return nil, err
-		}
-
-		newID, err := result.LastInsertId()
+		// Update existing subscription: set next payment date, status to 'active', and updated_at
+		_, err = tx.Exec(`
+			UPDATE subscriptions 
+			SET next_payment_date = ?, status = 'active', updated_at = ? 
+			WHERE id = ?
+		`, nextDate, time.Now(), sub.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		results = append(results, RenewalResult{
-			ID:           newID,
+			ID:           sub.ID,
 			ServiceName:  sub.ServiceName,
 			PreviousDate: sub.NextPaymentDate.Format("2006-01-02"),
 			NextDate:     nextDate.Format("2006-01-02"),
