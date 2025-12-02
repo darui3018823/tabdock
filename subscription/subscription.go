@@ -114,7 +114,8 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 			continue
 		}
 
-		if _, err := tx.Exec(`UPDATE subscriptions SET status = 'expired' WHERE id = ?`, sub.ID); err != nil {
+		// Update existing subscription to expired and set next payment date
+		if _, err := tx.Exec(`UPDATE subscriptions SET status = 'expired', next_payment_date = ? WHERE id = ?`, nextDate, sub.ID); err != nil {
 			return nil, err
 		}
 
