@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.15.0_subsccal-r1
+// This code Version: 5.15.0_subsccal-r2
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -1240,9 +1240,7 @@ class SubscriptionCalendarManager {
             renewalResults.forEach(result => {
                 const message = `${result.serviceName}の次回支払日を${result.nextDate}に更新しました`;
                 console.log(message);
-                if (typeof Toast !== 'undefined') {
-                    Toast.fire({ icon: 'info', title: message });
-                } else if (typeof Swal !== 'undefined') {
+                if (typeof Swal !== 'undefined') {
                     Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: message, showConfirmButton: false, timer: 4000 });
                 }
             });

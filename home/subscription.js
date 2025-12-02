@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.15.0_subsc-r2
+// This code Version: 5.15.0_subsc-r3
 
 class SubscriptionManager {
     constructor() {
@@ -212,15 +212,15 @@ class SubscriptionManager {
         const listItems = dueSoon.map(item => {
             const name = escape(item.sub.serviceName || '名称未設定');
             const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
-            return `<li style="padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.9); border: 1px solid rgba(15,23,42,0.08);">
-                <div style="font-weight: 700; font-size: 1rem; margin-bottom: 4px; color: #0f172a;">${name}</div>
-                <div style="font-size: 0.8rem; color: #1f2937; line-height: 1.35;">${escape(item.label)}に支払い予定 / <span style="font-weight: 600; color: #0f172a;">${escape(item.amount)}</span> / ${cycle}</div>
+            return `<li class="swal-subscription-item">
+                <div class="swal-subscription-name">${name}</div>
+                <div class="swal-subscription-details">${escape(item.label)}に支払い予定 / <span class="swal-subscription-amount">${escape(item.amount)}</span> / ${cycle}</div>
             </li>`;
         }).join('');
 
-        const descriptionHtml = `<div style="text-align: left; font-size: 0.95rem; color: #111827;">
-            <p style="margin-bottom: 12px; font-size: 1rem; font-weight: 600; color: #0f172a;">近い支払予定のサブスクリプションがあります。</p>
-            <ul style="display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none;">${listItems}</ul>
+        const descriptionHtml = `<div class="swal-subscription-container">
+            <p class="swal-subscription-title">近い支払予定のサブスクリプションがあります。</p>
+            <ul class="swal-subscription-list">${listItems}</ul>
         </div>`;
 
         await Swal.fire({
