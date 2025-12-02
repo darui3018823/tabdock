@@ -162,7 +162,7 @@ class SubscriptionManager {
         const baseToday = new Date(`${todayStr}T00:00:00`);
         const dueSoon = [];
 
-        const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
         for (const sub of this.cachedUpcoming) {
             if (!sub?.nextPaymentDate) continue;
@@ -210,11 +210,11 @@ class SubscriptionManager {
         }
 
         const listItems = dueSoon.map(item => {
-            const name = escape(item.sub.serviceName || '名称未設定');
-            const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
+            const name = escapeHtml(item.sub.serviceName || '名称未設定');
+            const cycle = escapeHtml(this.formatBillingCycleLabel(item.sub.billingCycle));
             return `<li class="swal-subscription-item">
                 <div class="swal-subscription-name">${name}</div>
-                <div class="swal-subscription-details">${escape(item.label)}に支払い予定 / <span class="swal-subscription-amount">${escape(item.amount)}</span> / ${cycle}</div>
+                <div class="swal-subscription-details">${escapeHtml(item.label)}に支払い予定 / <span class="swal-subscription-amount">${escapeHtml(item.amount)}</span> / ${cycle}</div>
             </li>`;
         }).join('');
 

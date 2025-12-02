@@ -98,7 +98,18 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 			return nil, err
 		}
 
-		nextDate, ok := calculateNextPaymentDate(sub.NextPaymentDate, sub.BillingCycle)
+		nextDate := sub.NextPaymentDate
+		var ok bool
+		// Loop until the next payment date is in the future
+		for nextDate.Before(now) {
+			nextDate, ok = calculateNextPaymentDate(nextDate, sub.BillingCycle)
+			if !ok {
+				// Stop if we have an invalid billing cycle to prevent infinite loops
+				break
+			}
+		}
+
+		// If we failed to calculate a valid future date, skip this subscription
 		if !ok {
 			continue
 		}
