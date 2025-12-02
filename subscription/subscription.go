@@ -54,21 +54,19 @@ func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time
 	var nextDate time.Time
 	switch strings.ToLower(billingCycle) {
 	case "monthly":
-		nextDate = current.AddDate(0, 1, 0)
-		if nextDate.Day() != current.Day() {
-			// Set to last day of target month (the previous month)
-			nextDate = time.Date(nextDate.Year(), nextDate.Month(), 0,
-				nextDate.Hour(), nextDate.Minute(), nextDate.Second(),
-				nextDate.Nanosecond(), nextDate.Location())
-		}
+		// To get the last day of the target month, set day=1 of the next month,
+		// then subtract one day
+		firstOfNextMonth := time.Date(current.Year(), current.Month()+1, 1,
+			current.Hour(), current.Minute(), current.Second(),
+			current.Nanosecond(), current.Location())
+		nextDate = firstOfNextMonth.AddDate(0, 0, -1)
 	case "yearly":
-		nextDate = current.AddDate(1, 0, 0)
-		if nextDate.Day() != current.Day() {
-			// Set to last day of target month in next year
-			nextDate = time.Date(nextDate.Year(), nextDate.Month(), 0,
-				nextDate.Hour(), nextDate.Minute(), nextDate.Second(),
-				nextDate.Nanosecond(), nextDate.Location())
-		}
+		// To get the last day of the target month, set day=1 of the next month,
+		// then subtract one day
+		firstOfNextMonth := time.Date(current.Year(), current.Month()+1, 1,
+			current.Hour(), current.Minute(), current.Second(),
+			current.Nanosecond(), current.Location())
+		nextDate = firstOfNextMonth.AddDate(0, 0, -1)
 	default:
 		return time.Time{}, false
 	}
@@ -120,12 +118,12 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 			continue
 		}
 
-		// Update existing subscription: set next payment date, status to 'active', and updated_at
+		// Update existing subscription: set next payment date and updated_at
 		_, err = tx.Exec(`
 			UPDATE subscriptions 
-			SET next_payment_date = ?, status = 'active', updated_at = ? 
+			SET next_payment_date = ?, updated_at = ? 
 			WHERE id = ?
-		`, nextDate, time.Now(), sub.ID)
+		`, nextDate, now, sub.ID)
 		if err != nil {
 			return nil, err
 		}

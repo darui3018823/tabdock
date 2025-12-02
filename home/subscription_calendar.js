@@ -442,7 +442,7 @@ class SubscriptionCalendarManager {
             if (!createdAt || isNaN(createdAt.getTime())) {
                 return '開始日情報なし';
             }
-            return createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+            return createdAt.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short' });
         })();
 
         const modalHtml = `
@@ -1225,7 +1225,7 @@ class SubscriptionCalendarManager {
             const htmlItems = renewalResults.map(result => {
                 const nextDate = result.nextDate || '';
                 const previousDate = result.previousDate ? ` (前回: ${result.previousDate})` : '';
-                return `<li style="margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.9); color: #0f172a;">${result.serviceName}の次回支払日を${nextDate}に更新しました${previousDate}</li>`;
+                return `<li class="swsl-subscription-item">${result.serviceName}の次回支払日を${nextDate}に更新しました${previousDate}</li>`;
             }).join('');
 
             if (typeof Swal !== 'undefined') {
