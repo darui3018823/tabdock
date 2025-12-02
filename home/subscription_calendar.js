@@ -1217,7 +1217,7 @@ class SubscriptionCalendarManager {
                 return;
             }
 
-            const renewalResults = await response.json().catch(() => []);
+            const renewalResults = await response.json().catch(err => { console.error('Failed to parse renewal results:', err); return []; });
             if (!Array.isArray(renewalResults) || renewalResults.length === 0) {
                 return;
             }
