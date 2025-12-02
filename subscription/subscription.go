@@ -123,23 +123,17 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 			return nil, err
 		}
 
-		result, err := tx.Exec(`
-                    INSERT INTO subscriptions (
-                        user_id, service_name, plan_name, amount, currency,
-                        billing_cycle, payment_method, payment_details, next_payment_date, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-            `, userID, sub.ServiceName, sub.PlanName, sub.Amount, sub.Currency, sub.BillingCycle, sub.PaymentMethod, sub.PaymentDetails, nextDate)
-		if err != nil {
-			return nil, err
-		}
-
-		newID, err := result.LastInsertId()
+		_, err := tx.Exec(`
+                    UPDATE subscriptions
+                    SET next_payment_date = ?, status = 'active', updated_at = ?
+                    WHERE id = ?
+            `, nextDate, time.Now(), sub.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		results = append(results, RenewalResult{
-			ID:           newID,
+			ID:           sub.ID,
 			ServiceName:  sub.ServiceName,
 			PreviousDate: sub.NextPaymentDate.Format("2006-01-02"),
 			NextDate:     nextDate.Format("2006-01-02"),
