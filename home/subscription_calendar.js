@@ -439,7 +439,7 @@ class SubscriptionCalendarManager {
 
         const continuedFrom = (() => {
             const createdAt = sub.createdAt ? new Date(sub.createdAt) : null;
-            if (!createdAt || Number.isNaN(createdAt.getTime())) {
+            if (!createdAt || isNaN(createdAt.getTime())) {
                 return '開始日情報なし';
             }
             return createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
@@ -1217,7 +1217,7 @@ class SubscriptionCalendarManager {
                 return;
             }
 
-            const renewalResults = await response.json().catch(() => []);
+            const renewalResults = await response.json().catch(err => { console.error('Failed to parse renewal results:', err); return []; });
             if (!Array.isArray(renewalResults) || renewalResults.length === 0) {
                 return;
             }

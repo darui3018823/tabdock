@@ -54,14 +54,18 @@ func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time
 	nextDate := current
 	switch strings.ToLower(billingCycle) {
 	case "monthly":
-		nextDate = nextDate.AddDate(0, 1, 0)
-		if nextDate.Day() != current.Day() {
-			nextDate = nextDate.AddDate(0, 0, -nextDate.Day())
+		// If current is the last day of the month, set nextDate to last day of next month
+		if current.Day() == time.Date(current.Year(), current.Month()+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location()).Day() {
+			nextDate = time.Date(current.Year(), current.Month()+2, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location())
+		} else {
+			nextDate = current.AddDate(0, 1, 0)
 		}
 	case "yearly":
-		nextDate = nextDate.AddDate(1, 0, 0)
-		if nextDate.Day() != current.Day() {
-			nextDate = nextDate.AddDate(0, 0, -nextDate.Day())
+		// If current is the last day of the month, set nextDate to last day of same month next year
+		if current.Day() == time.Date(current.Year(), current.Month()+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location()).Day() {
+			nextDate = time.Date(current.Year()+1, current.Month()+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location())
+		} else {
+			nextDate = current.AddDate(1, 0, 0)
 		}
 	default:
 		return time.Time{}, false
