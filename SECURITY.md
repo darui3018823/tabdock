@@ -6,7 +6,7 @@ The following versions of this project are currently supported with security upd
 
 | Version        | Supported               | Notes |
 |---------------|-------------------------|-------|
-| 5.10.0 (latest) | ✅ Full support         | Latest stable version |
+| 5.15.3 (latest) | ✅ Full support         | Latest stable version |
 | 5.x.x         | ✅ Ongoing optimization | Actively maintained with gradual improvements |
 | 4.x.x / 3.x.x | ❌ Not officially supported | Exists but not officially released; use is not recommended |
 | 2.9.6         | ⚠️ Basic support       | Only critical fixes |
