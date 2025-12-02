@@ -1225,7 +1225,7 @@ class SubscriptionCalendarManager {
             const htmlItems = renewalResults.map(result => {
                 const nextDate = result.nextDate || '';
                 const previousDate = result.previousDate ? ` (前回: ${result.previousDate})` : '';
-                return `<li class="swal-subscription-item">${result.serviceName}の次回支払日を${nextDate}に更新しました${previousDate}</li>`;
+                return `<li class="swal-subscription-item">${String(result.serviceName || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}の次回支払日を${nextDate}に更新しました${previousDate}</li>`;
             }).join('');
 
             if (typeof Swal !== 'undefined') {
