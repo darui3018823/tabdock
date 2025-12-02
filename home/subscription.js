@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.15.0_subsc-r1
+// This code Version: 5.15.0_subsc-r2
 
 class SubscriptionManager {
     constructor() {
@@ -209,12 +209,6 @@ class SubscriptionManager {
             return 'skip';
         }
 
-        console.log('近い支払予定リスト:', dueSoon.map(item => ({
-            name: item.sub.serviceName || '名称未設定',
-            label: item.label,
-            amount: item.amount
-        })));
-
         const listItems = dueSoon.map(item => {
             const name = escape(item.sub.serviceName || '名称未設定');
             const cycle = escape(this.formatBillingCycleLabel(item.sub.billingCycle));
@@ -225,7 +219,7 @@ class SubscriptionManager {
         }).join('');
 
         const descriptionHtml = `<div style="text-align: left; font-size: 0.95rem; color: #111827;">
-            <p style="margin-bottom: 12px; font-size: 1rem; font-weight: 600;">近い支払予定のサブスクリプションがあります。</p>
+            <p style="margin-bottom: 12px; font-size: 1rem; font-weight: 600; color: #0f172a;">近い支払予定のサブスクリプションがあります。</p>
             <ul style="display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none;">${listItems}</ul>
         </div>`;
 
@@ -233,7 +227,10 @@ class SubscriptionManager {
             icon: 'info',
             title: '支払い予定の確認',
             html: descriptionHtml,
-            confirmButtonText: '閉じる'
+            confirmButtonText: '閉じる',
+            customClass: {
+                htmlContainer: 'swal-text-dark'
+            }
         });
 
         dueSoon.forEach(item => this.notifiedKeys.add(item.key));
