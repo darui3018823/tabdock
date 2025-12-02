@@ -51,27 +51,14 @@ func NewSubscriptionDB(db *sql.DB) *SubscriptionDB {
 }
 
 func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time, bool) {
-	var nextDate time.Time
 	switch strings.ToLower(billingCycle) {
 	case "monthly":
-		// To get the last day of the target month, set day=1 of the next month,
-		// then subtract one day
-		firstOfNextMonth := time.Date(current.Year(), current.Month()+1, 1,
-			current.Hour(), current.Minute(), current.Second(),
-			current.Nanosecond(), current.Location())
-		nextDate = firstOfNextMonth.AddDate(0, 0, -1)
+		return current.AddDate(0, 1, 0), true
 	case "yearly":
-		// To get the last day of the target month, set day=1 of the next month,
-		// then subtract one day
-		firstOfNextMonth := time.Date(current.Year(), current.Month()+1, 1,
-			current.Hour(), current.Minute(), current.Second(),
-			current.Nanosecond(), current.Location())
-		nextDate = firstOfNextMonth.AddDate(0, 0, -1)
+		return current.AddDate(1, 0, 0), true
 	default:
 		return time.Time{}, false
 	}
-
-	return nextDate, true
 }
 
 func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]RenewalResult, error) {
