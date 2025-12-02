@@ -94,6 +94,7 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 
 	for rows.Next() {
 		var sub Subscription
+		var result sql.Result
 		err := rows.Scan(
 			&sub.ID,
 			&sub.ServiceName,
@@ -119,7 +120,7 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 			return nil, err
 		}
 
-		result, err := tx.Exec(`
+		result, err = tx.Exec(`
                     INSERT INTO subscriptions (
                         user_id, service_name, plan_name, amount, currency,
                         billing_cycle, payment_method, payment_details, next_payment_date, status

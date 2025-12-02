@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -212,13 +211,6 @@ func hashPassword(password string) (string, error) {
 		return "", err
 	}
 	return string(hashed), nil
-}
-
-func verifyPassword(hashedPassword, candidate string) error {
-	if hashedPassword == "" {
-		return errors.New("stored password hash is empty")
-	}
-	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(candidate))
 }
 
 func validatePasswordStrength(password string) error {
