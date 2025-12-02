@@ -56,6 +56,10 @@ func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time
 		return current.AddDate(0, 1, 0), true
 	case "yearly":
 		return current.AddDate(1, 0, 0), true
+	case "weekly":
+		return current.AddDate(0, 0, 7), true
+	case "daily":
+		return current.AddDate(0, 0, 1), true
 	default:
 		return time.Time{}, false
 	}
@@ -69,8 +73,7 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 	defer tx.Rollback()
 
 	rows, err := tx.Query(`
-                SELECT id, service_name, plan_name, amount, currency, billing_cycle,
-                       payment_method, payment_details, next_payment_date
+                SELECT id, service_name, billing_cycle, next_payment_date
                 FROM subscriptions
                 WHERE user_id = ?
                   AND status = 'active'
@@ -88,12 +91,7 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 		err := rows.Scan(
 			&sub.ID,
 			&sub.ServiceName,
-			&sub.PlanName,
-			&sub.Amount,
-			&sub.Currency,
 			&sub.BillingCycle,
-			&sub.PaymentMethod,
-			&sub.PaymentDetails,
 			&sub.NextPaymentDate,
 		)
 		if err != nil {
