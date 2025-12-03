@@ -30,7 +30,7 @@ import (
 )
 
 // const
-const version = "5.15.3"
+const version = "5.15.4"
 const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var
@@ -132,13 +132,18 @@ func serve(mux http.Handler) {
 	if port == "" {
 		port = strings.TrimSpace(os.Getenv("PORT"))
 	}
-	if port == "" {
-		port = "80"
-	}
 
 	certPath := "./cert/tabdock.crt"
 	keyPath := "./cert/tabdock.key"
 	certAvailable := fileExists(certPath) && fileExists(keyPath)
+
+	if port == "" {
+		if certAvailable {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
 
 	log.Println("Tabdock Version:", version)
 	log.Println("==== Updates ====")
