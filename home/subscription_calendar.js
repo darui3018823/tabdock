@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.4.0_subsccal-r1
+// This code Version: 5.15.3_subsccal-r1
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -437,6 +437,14 @@ class SubscriptionCalendarManager {
         }
         const detailsHTML = this.formatPaymentDetails(paymentDetails, sub.paymentMethod);
 
+        const continuedFrom = (() => {
+            const createdAt = sub.createdAt ? new Date(sub.createdAt) : null;
+            if (!createdAt || isNaN(createdAt.getTime())) {
+                return '開始日情報なし';
+            }
+            return createdAt.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short' });
+        })();
+
         const modalHtml = `
             <div class="td-modal-panel td-modal-lg max-h-screen overflow-y-auto">
                 <h2 class="text-xl font-bold mb-6">${sub.serviceName} - ${sub.planName}</h2>
@@ -458,7 +466,10 @@ class SubscriptionCalendarManager {
 
                     <div class="bg-black/20 rounded-lg p-4">
                         <h3 class="text-lg font-semibold mb-3">次回支払い</h3>
-                        <div class="text-lg">${new Date(sub.nextPaymentDate).toLocaleDateString()}</div>
+                        <div class="text-lg flex items-center justify-between gap-3">
+                            <span>${new Date(sub.nextPaymentDate).toLocaleDateString()}</span>
+                            <span class="text-sm text-white/70">継続開始: ${continuedFrom}</span>
+                        </div>
                     </div>
 
                     <div class="bg-black/20 rounded-lg p-4">
@@ -1193,58 +1204,42 @@ class SubscriptionCalendarManager {
             const username = this.getUsername();
             if (!username) return;
 
-            await this.loadSubscriptions();
-
-            const today = new Date();
-            let updatedAny = false;
-            for (const sub of this.subscriptions) {
-                if (!sub.nextPaymentDate || sub.status !== 'active') continue;
-
-                const paymentDate = new Date(sub.nextPaymentDate);
-                if (paymentDate >= today) continue;
-
-                const nextPaymentDate = this.calculateNextPaymentDate(paymentDate, sub.billingCycle);
-                
-                if (!nextPaymentDate) continue;
-
-                try {
-                    const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Username': encodeURIComponent(username)
-                        },
-                        body: JSON.stringify({
-                            ...sub,
-                            nextPaymentDate: nextPaymentDate.toISOString().split('T')[0]
-                        })
-                    });
-
-                    if (response.ok) {
-                        console.log(`${sub.serviceName}の次回支払い日を${nextPaymentDate.toISOString().split('T')[0]}に更新しました`);
-
-                        sub.nextPaymentDate = nextPaymentDate.toISOString().split('T')[0];
-                        updatedAny = true;
-
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                title: '支払い日を更新',
-                                text: `${sub.serviceName}の次回支払い日が更新されました`,
-                                icon: 'info',
-                                toast: true,
-                                position: 'top-end',
-                                showConfirmButton: false,
-                                timer: 3000,
-                                timerProgressBar: true
-                            });
-                        }
-                    }
-                } catch (updateError) {
-                    console.error(`${sub.serviceName}の支払い日更新に失敗:`, updateError);
+            const response = await fetch('/api/subscriptions/renew', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Username': encodeURIComponent(username)
                 }
+            });
+
+            if (!response.ok) {
+                console.error('支払い日自動更新APIが失敗しました', await response.text());
+                return;
             }
 
-            if (updatedAny && window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
+            const renewalResults = await response.json().catch(err => { console.error('Failed to parse renewal results:', err); return []; });
+            if (!Array.isArray(renewalResults) || renewalResults.length === 0) {
+                return;
+            }
+
+            const htmlItems = renewalResults.map(result => {
+                const nextDate = result.nextDate || '';
+                const previousDate = result.previousDate ? ` (前回: ${result.previousDate})` : '';
+                return `<li class="swal-subscription-item">${String(result.serviceName || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}の次回支払日を${nextDate}に更新しました${previousDate}</li>`;
+            }).join('');
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: '支払い予定を更新',
+                    html: `<div class="swal-renewal-container">日付が更新されました。<ul class="swal-renewal-list">${htmlItems}</ul></div>`,
+                    icon: 'info',
+                    confirmButtonText: '了解'
+                });
+            }
+
+            await this.loadSubscriptions();
+
+            if (window.subscriptionManager && typeof window.subscriptionManager.scheduleNotifications === 'function') {
                 await window.subscriptionManager.scheduleNotifications({ reschedule: true });
             }
         } catch (error) {
