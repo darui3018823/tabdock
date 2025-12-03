@@ -148,6 +148,7 @@ func serve(mux http.Handler) {
 	log.Println(update4)
 	log.Println(update5)
 	log.Println("=================")
+	go checkForUpdates()
 
 	if certAvailable {
 		log.Printf("HTTPS Mode: using certificate. Listening on https://127.0.0.1:%s ...", port)
@@ -172,7 +173,6 @@ func fileExists(p string) bool {
 }
 
 func main() {
-	go checkForUpdates()
 	mux := http.NewServeMux()
 	fallbackHolidays = preloadHolidays()
 
