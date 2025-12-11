@@ -9,9 +9,9 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	golang.org/x/crypto v0.45.0
-	golang.org/x/sys v0.39.0
+	golang.org/x/crypto v0.46.0
 	golang.org/x/mod v0.31.0
+	golang.org/x/sys v0.39.0
 	modernc.org/sqlite v1.40.1
 )
 
