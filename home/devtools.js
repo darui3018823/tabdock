@@ -1325,6 +1325,15 @@ document.getElementById("deleteAllShiftsBtn").addEventListener("click", async ()
     await deleteAllShiftsForUser();
 });
 
+document.getElementById("showSubscriptionPreviewBtn")?.addEventListener("click", async () => {
+    try {
+        await showDevtoolsSubscriptionPreview();
+    } catch (error) {
+        console.error('支払予定プレビューの表示に失敗しました:', error);
+        Toast?.fire({ icon: 'error', title: 'プレビューの表示に失敗しました' });
+    }
+});
+
 document.getElementById("runPerfTestBtn").addEventListener("click", async () => {
     console.log('=== パフォーマンステストボタンが押されました ===');
     if (isPerfTestRunning) {
@@ -1573,6 +1582,148 @@ function performQuickDiagnostics() {
     addDebugLog('info', 'クイック診断実行', diagnostics);
 
     return diagnostics;
+}
+
+function resolveSubscriptionUsername() {
+    try {
+        if (typeof window.getLoggedInUser === 'function') {
+            const user = window.getLoggedInUser();
+            if (user?.username) return user.username;
+        }
+    } catch (error) {
+        console.warn('ログインユーザー取得に失敗しました:', error);
+    }
+
+    try {
+        const storedUser = localStorage.getItem('tabdock_user');
+        if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            if (parsed?.username) return parsed.username;
+        }
+    } catch (error) {
+        console.warn('ローカルストレージのユーザー情報解析に失敗しました:', error);
+    }
+
+    return null;
+}
+
+async function fetchUpcomingSubscriptionsForDevtools() {
+    const manager = window.subscriptionManager;
+    if (manager?.cachedUpcoming?.length) {
+        return { entries: manager.cachedUpcoming, source: 'cache' };
+    }
+
+    const username = resolveSubscriptionUsername();
+    if (!username) {
+        return { entries: [], source: 'no-user' };
+    }
+
+    try {
+        const response = await fetch('/api/subscriptions/upcoming', {
+            headers: { 'X-Username': encodeURIComponent(username) },
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('支払予定の取得に失敗しました');
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data) || data.length === 0) {
+            return { entries: [], source: 'empty' };
+        }
+
+        return { entries: data, source: 'fetched' };
+    } catch (error) {
+        console.error('支払予定プレビューの取得に失敗しました:', error);
+        addDebugLog('error', '支払予定プレビューの取得に失敗', error);
+        return { entries: [], source: 'error', error };
+    }
+}
+
+function createSubscriptionPreviewHtml(entries = [], source = 'unknown') {
+    const sourceLabel = {
+        cache: 'キャッシュ済みデータを表示',
+        fetched: '最新の支払予定を取得しました',
+        empty: '検索結果: 予定は見つかりませんでした',
+        'no-user': 'ユーザー未特定のため取得できません',
+        error: '取得時にエラーが発生しました'
+    }[source] || '支払予定の確認';
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return `
+            <div class="devtools-subscription-container">
+                <p class="devtools-subscription-title">近い支払予定はありません</p>
+                <p class="devtools-subscription-hint">${escapeHtml(sourceLabel)}</p>
+                <div class="devtools-subscription-empty">検索結果に該当する予定が見つかりませんでした。</div>
+            </div>
+        `;
+    }
+
+    const items = entries.map((sub) => {
+        const name = escapeHtml(sub?.serviceName || '名称未設定');
+        const amount = (() => {
+            if (typeof sub?.amount === 'number') {
+                return `${sub.amount.toLocaleString()} ${sub.currency || ''}`.trim();
+            }
+            if (typeof sub?.amount === 'string' && sub.amount.trim() !== '') {
+                return `${sub.amount} ${sub.currency || ''}`.trim();
+            }
+            return '金額未設定';
+        })();
+        const paymentDate = sub?.nextPaymentDate ? new Date(sub.nextPaymentDate) : null;
+        const dateLabel = paymentDate && !Number.isNaN(paymentDate.getTime())
+            ? paymentDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })
+            : '日付未設定';
+        const cycle = escapeHtml(sub?.billingCycle || '周期未設定');
+        return `
+            <li class="devtools-subscription-item">
+                <div class="devtools-subscription-header">
+                    <span class="devtools-subscription-name">${name}</span>
+                    <span class="devtools-subscription-amount">${escapeHtml(amount)}</span>
+                </div>
+                <div class="devtools-subscription-meta">
+                    <span class="devtools-subscription-badge">${escapeHtml(dateLabel)}</span>
+                    <span class="devtools-subscription-cycle">${cycle}</span>
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    return `
+        <div class="devtools-subscription-container">
+            <p class="devtools-subscription-title">支払予定プレビュー</p>
+            <p class="devtools-subscription-hint">${escapeHtml(sourceLabel)}</p>
+            <ul class="devtools-subscription-list">${items}</ul>
+        </div>
+    `;
+}
+
+async function showDevtoolsSubscriptionPreview() {
+    if (typeof Swal === 'undefined') {
+        console.warn('SweetAlert2 が読み込まれていないため、支払予定プレビューを表示できません。');
+        return;
+    }
+
+    const { entries, source } = await fetchUpcomingSubscriptionsForDevtools();
+    addDebugLog('info', '支払予定プレビューを開きました', { count: entries?.length || 0, source });
+
+    const html = createSubscriptionPreviewHtml(entries, source);
+
+    await Swal.fire({
+        title: '支払予定 (確認用)',
+        html,
+        icon: entries?.length ? 'info' : 'question',
+        confirmButtonText: '閉じる',
+        width: '640px',
+        customClass: {
+            popup: 'devtools-subscription-popup',
+            title: 'text-white',
+            htmlContainer: 'text-white'
+        },
+        background: '#0b1220',
+        color: '#e5e7eb'
+    });
 }
 
 // シフト削除機能

@@ -441,3 +441,104 @@ body {
     font-weight: 600;
     color: #0f172a;
 }
+
+/* DevTools subscription preview styles */
+.devtools-subscription-popup {
+    background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08), transparent 35%),
+                radial-gradient(circle at 80% 0%, rgba(244, 114, 182, 0.08), transparent 25%),
+                #0b1220;
+    color: #e5e7eb;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.devtools-subscription-container {
+    text-align: left;
+    font-size: 0.95rem;
+    color: #e5e7eb;
+}
+
+.devtools-subscription-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: #f9fafb;
+}
+
+.devtools-subscription-hint {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+
+.devtools-subscription-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.devtools-subscription-item {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.devtools-subscription-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.devtools-subscription-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #f8fafc;
+}
+
+.devtools-subscription-amount {
+    font-weight: 700;
+    color: #fbbf24;
+    font-variant-numeric: tabular-nums;
+}
+
+.devtools-subscription-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+}
+
+.devtools-subscription-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(96, 165, 250, 0.1));
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: #bfdbfe;
+    font-size: 0.75rem;
+}
+
+.devtools-subscription-cycle {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.devtools-subscription-empty {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: #cbd5e1;
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+}
