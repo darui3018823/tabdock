@@ -509,7 +509,7 @@ body {
 
 .devtools-subscription-meta {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
     margin-top: 6px;
     color: #cbd5e1;
@@ -529,7 +529,6 @@ body {
 }
 
 .devtools-subscription-cycle {
-    margin-top: 6px;
     font-size: 0.8rem;
     color: #94a3b8;
 }

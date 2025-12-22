@@ -1641,6 +1641,16 @@ async function fetchUpcomingSubscriptionsForDevtools() {
     }
 }
 
+function formatSubscriptionAmount(sub) {
+    if (typeof sub?.amount === 'number') {
+        return `${sub.amount.toLocaleString()} ${sub.currency || ''}`.trim();
+    }
+    if (typeof sub?.amount === 'string' && sub.amount.trim() !== '') {
+        return `${sub.amount} ${sub.currency || ''}`.trim();
+    }
+    return '金額未設定';
+}
+
 function createSubscriptionPreviewHtml(entries = [], source = 'unknown') {
     const sourceLabel = {
         cache: 'キャッシュ済みデータを表示',
@@ -1655,22 +1665,14 @@ function createSubscriptionPreviewHtml(entries = [], source = 'unknown') {
             <div class="devtools-subscription-container">
                 <p class="devtools-subscription-title">近い支払予定はありません</p>
                 <p class="devtools-subscription-hint">${escapeHtml(sourceLabel)}</p>
-                <div class="devtools-subscription-empty">検索結果に該当する予定が見つかりませんでした。</div>
+                <div class="devtools-subscription-empty"></div>
             </div>
         `;
     }
 
     const items = entries.map((sub) => {
         const name = escapeHtml(sub?.serviceName || '名称未設定');
-        const amount = (() => {
-            if (typeof sub?.amount === 'number') {
-                return `${sub.amount.toLocaleString()} ${sub.currency || ''}`.trim();
-            }
-            if (typeof sub?.amount === 'string' && sub.amount.trim() !== '') {
-                return `${sub.amount} ${sub.currency || ''}`.trim();
-            }
-            return '金額未設定';
-        })();
+        const amount = escapeHtml(formatSubscriptionAmount(sub));
         const paymentDate = sub?.nextPaymentDate ? new Date(sub.nextPaymentDate) : null;
         const dateLabel = paymentDate && !Number.isNaN(paymentDate.getTime())
             ? paymentDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -1680,7 +1682,7 @@ function createSubscriptionPreviewHtml(entries = [], source = 'unknown') {
             <li class="devtools-subscription-item">
                 <div class="devtools-subscription-header">
                     <span class="devtools-subscription-name">${name}</span>
-                    <span class="devtools-subscription-amount">${escapeHtml(amount)}</span>
+                    <span class="devtools-subscription-amount">${amount}</span>
                 </div>
                 <div class="devtools-subscription-meta">
                     <span class="devtools-subscription-badge">${escapeHtml(dateLabel)}</span>
