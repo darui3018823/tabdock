@@ -5,6 +5,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -85,7 +86,7 @@ func TestIsFirstAccessIP(t *testing.T) {
 
 func TestRecordFirstAccessIP(t *testing.T) {
 	// Setup temp file
-	tmpFile := "/tmp/test_first_access_ips.json"
+	tmpFile := filepath.Join(os.TempDir(), "test_first_access_ips.json")
 	firstAccessIPsFile = tmpFile
 	defer os.Remove(tmpFile)
 

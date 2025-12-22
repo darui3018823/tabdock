@@ -84,6 +84,14 @@ var (
 	geoipDB                *geoip2.Reader
 )
 
+// Default score thresholds for auto-reset mechanism
+const (
+	ScoreThresholdBlock  = 50
+	ScoreThresholdHigh   = 25
+	ScoreThresholdMedium = 15
+	ScoreThresholdLow    = 0
+)
+
 type RateLimit struct {
 	Count     int
 	LastReset time.Time
@@ -244,11 +252,11 @@ func recordFirstAccessIP(ip string) {
 func getResetDuration(score int) time.Duration {
 	if secConfig.SecurityLevel != "balanced-secure" || secConfig.BalancedSecure == nil {
 		// For strict/relaxed modes, use default thresholds
-		if score >= 50 {
+		if score >= ScoreThresholdBlock {
 			return 0 // block
-		} else if score >= 25 {
+		} else if score >= ScoreThresholdHigh {
 			return 12 * time.Hour
-		} else if score >= 15 {
+		} else if score >= ScoreThresholdMedium {
 			return 6 * time.Hour
 		}
 		return 24 * time.Hour
@@ -257,21 +265,21 @@ func getResetDuration(score int) time.Duration {
 	// Balanced-secure mode uses configured thresholds
 	thresholds := secConfig.BalancedSecure.ResetThresholds
 
-	if score >= 50 {
+	if score >= ScoreThresholdBlock {
 		if val, ok := thresholds["50"]; ok {
 			if strVal, ok := val.(string); ok && strVal == "block_with_contact" {
 				return 0 // block
 			}
 		}
 		return 0
-	} else if score >= 25 {
+	} else if score >= ScoreThresholdHigh {
 		if val, ok := thresholds["25"]; ok {
 			if minutes, ok := val.(float64); ok {
 				return time.Duration(minutes) * time.Minute
 			}
 		}
 		return 12 * time.Hour
-	} else if score >= 15 {
+	} else if score >= ScoreThresholdMedium {
 		if val, ok := thresholds["15"]; ok {
 			if minutes, ok := val.(float64); ok {
 				return time.Duration(minutes) * time.Minute
@@ -289,15 +297,14 @@ func getResetDuration(score int) time.Duration {
 }
 
 func shouldResetScore(ip string, currentScore int) bool {
-	ipScoreResetMutex.RLock()
+	ipScoreResetMutex.Lock()
+	defer ipScoreResetMutex.Unlock()
+
 	lastReset, exists := ipScoreLastReset[ip]
-	ipScoreResetMutex.RUnlock()
 
 	if !exists {
 		// First time seeing this IP with a score, record reset time
-		ipScoreResetMutex.Lock()
 		ipScoreLastReset[ip] = time.Now()
-		ipScoreResetMutex.Unlock()
 		return false
 	}
 
@@ -495,15 +502,34 @@ func incrementScore(ip string, amount int) {
 	}
 
 	ipScoresMutex.Lock()
+	oldScore := ipScores[ip]
 	ipScores[ip] += amount
+	newScore := ipScores[ip]
 	ipScoresMutex.Unlock()
 
-	// Update the reset timer when score changes
-	ipScoreResetMutex.Lock()
-	ipScoreLastReset[ip] = time.Now()
-	ipScoreResetMutex.Unlock()
+	// Update the reset timer only when crossing significant thresholds
+	// This prevents constant timer resets from minor infractions
+	oldThreshold := getScoreThreshold(oldScore)
+	newThreshold := getScoreThreshold(newScore)
+	
+	if oldThreshold != newThreshold {
+		ipScoreResetMutex.Lock()
+		ipScoreLastReset[ip] = time.Now()
+		ipScoreResetMutex.Unlock()
+	}
 
 	saveScores()
+}
+
+func getScoreThreshold(score int) int {
+	if score >= ScoreThresholdBlock {
+		return ScoreThresholdBlock
+	} else if score >= ScoreThresholdHigh {
+		return ScoreThresholdHigh
+	} else if score >= ScoreThresholdMedium {
+		return ScoreThresholdMedium
+	}
+	return ScoreThresholdLow
 }
 
 func getLevel(ip string) string {
@@ -853,9 +879,9 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		// Immediate blocking checks for balanced-secure mode
-		if isBalancedSecure {
-			// Block non-Cloudflare traffic immediately
+		// Immediate blocking checks for balanced-secure mode (unless in grace period)
+		if isBalancedSecure && !isFirstAccess {
+			// Block non-Cloudflare traffic immediately (after grace period)
 			if !isFromCloudflare(r) {
 				logRequest(r, ip, "block")
 				http.Error(w, "Access Denied", http.StatusForbidden)
@@ -1016,7 +1042,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		finalScore := ipScores[ip]
 		ipScoresMutex.RUnlock()
 
-		if finalScore >= 50 {
+		if finalScore >= ScoreThresholdBlock {
 			// Score 50+: Block with contact header
 			if isRelaxedMode {
 				logRequest(r, ip, "warn")
@@ -1028,7 +1054,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 				http.Redirect(w, r, "/error/503", http.StatusFound)
 				return
 			}
-		} else if finalScore >= 15 {
+		} else if finalScore >= ScoreThresholdMedium {
 			// Score 15-49: Allow but note that auto-reset will apply
 			currentLevel := getLevel(ip)
 			if currentLevel == "block" && !isRelaxedMode {
