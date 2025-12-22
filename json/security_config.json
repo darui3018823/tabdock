@@ -34,5 +34,14 @@
       "shadow", "etc/", "proc/", "var/log", "boot.ini", "web.config"
     ]
   },
-  "security_level": "strict"
+  "security_level": "balanced-secure",
+  "balanced_secure": {
+    "first_access_grace_period_min": 60,
+    "reset_thresholds": {
+      "50": "block_with_contact",
+      "25": 720,
+      "15": 360,
+      "0": 1440
+    }
+  }
 }

@@ -55,6 +55,12 @@ var ipScores = map[string]int{}
 var ipScoresMutex sync.RWMutex
 var blockedDirectIPs = []string{""}
 
+var firstAccessIPsFile = "./json/first_access_ips.json"
+var firstAccessIPs = map[string]time.Time{}
+var firstAccessIPsMutex sync.RWMutex
+var ipScoreLastReset = map[string]time.Time{}
+var ipScoreResetMutex sync.RWMutex
+
 var rateLimitMap = map[string]*RateLimit{}
 var rateLimitMutex sync.RWMutex
 
@@ -94,13 +100,19 @@ type DetectionPatterns struct {
 }
 
 type SecurityConfig struct {
-	MaxRequestSizeMB    int64             `json:"max_request_size_mb"`
-	RateLimitPerMin     int               `json:"rate_limit_per_min"`
-	DynamicBlockTimeMin int               `json:"dynamic_block_time_min"`
-	AllowedMethods      []string          `json:"allowed_methods"`
-	BlockedCountries    []string          `json:"blocked_countries"`
-	Patterns            DetectionPatterns `json:"detection_patterns"`
-	SecurityLevel       string            `json:"security_level"`
+	MaxRequestSizeMB       int64                    `json:"max_request_size_mb"`
+	RateLimitPerMin        int                      `json:"rate_limit_per_min"`
+	DynamicBlockTimeMin    int                      `json:"dynamic_block_time_min"`
+	AllowedMethods         []string                 `json:"allowed_methods"`
+	BlockedCountries       []string                 `json:"blocked_countries"`
+	Patterns               DetectionPatterns        `json:"detection_patterns"`
+	SecurityLevel          string                   `json:"security_level"`
+	BalancedSecure         *BalancedSecureConfig    `json:"balanced_secure,omitempty"`
+}
+
+type BalancedSecureConfig struct {
+	FirstAccessGracePeriodMin int                `json:"first_access_grace_period_min"`
+	ResetThresholds           map[string]interface{} `json:"reset_thresholds"`
 }
 
 var secConfig SecurityConfig
@@ -117,7 +129,7 @@ func loadSecurityConfig(filepath string) error {
 	}
 
 	if secConfig.SecurityLevel == "" {
-		secConfig.SecurityLevel = "strict"
+		secConfig.SecurityLevel = "balanced-secure"
 	}
 
 	// 正規表現をコンパイル
@@ -141,6 +153,178 @@ func loadSecurityConfig(filepath string) error {
 	return nil
 }
 
+func loadFirstAccessIPs() {
+	data, err := os.ReadFile(firstAccessIPsFile)
+	if err != nil {
+		return
+	}
+
+	var fileData struct {
+		IPs map[string]string `json:"ips"`
+	}
+
+	if err := json.Unmarshal(data, &fileData); err != nil {
+		return
+	}
+
+	firstAccessIPsMutex.Lock()
+	defer firstAccessIPsMutex.Unlock()
+
+	firstAccessIPs = make(map[string]time.Time)
+	for ip, timeStr := range fileData.IPs {
+		if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+			firstAccessIPs[ip] = t
+		}
+	}
+}
+
+func saveFirstAccessIPs() {
+	firstAccessIPsMutex.RLock()
+	defer firstAccessIPsMutex.RUnlock()
+
+	fileData := struct {
+		IPs map[string]string `json:"ips"`
+	}{
+		IPs: make(map[string]string),
+	}
+
+	for ip, t := range firstAccessIPs {
+		fileData.IPs[ip] = t.Format(time.RFC3339)
+	}
+
+	data, err := json.MarshalIndent(fileData, "", "  ")
+	if err != nil {
+		return
+	}
+
+	_ = os.WriteFile(firstAccessIPsFile, data, 0644)
+}
+
+func cleanupFirstAccessIPs() {
+	now := time.Now()
+	firstAccessIPsMutex.Lock()
+	defer firstAccessIPsMutex.Unlock()
+
+	for ip, expiry := range firstAccessIPs {
+		if now.After(expiry) {
+			delete(firstAccessIPs, ip)
+		}
+	}
+}
+
+func isFirstAccessIP(ip string) (bool, time.Time) {
+	firstAccessIPsMutex.RLock()
+	defer firstAccessIPsMutex.RUnlock()
+
+	if expiry, exists := firstAccessIPs[ip]; exists {
+		if time.Now().Before(expiry) {
+			return true, expiry
+		}
+	}
+	return false, time.Time{}
+}
+
+func recordFirstAccessIP(ip string) {
+	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
+		return
+	}
+
+	gracePeriod := 60 // default
+	if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
+		gracePeriod = secConfig.BalancedSecure.FirstAccessGracePeriodMin
+	}
+
+	firstAccessIPsMutex.Lock()
+	firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
+	firstAccessIPsMutex.Unlock()
+
+	saveFirstAccessIPs()
+}
+
+func getResetDuration(score int) time.Duration {
+	if secConfig.SecurityLevel != "balanced-secure" || secConfig.BalancedSecure == nil {
+		// For strict/relaxed modes, use default thresholds
+		if score >= 50 {
+			return 0 // block
+		} else if score >= 25 {
+			return 12 * time.Hour
+		} else if score >= 15 {
+			return 6 * time.Hour
+		}
+		return 24 * time.Hour
+	}
+
+	// Balanced-secure mode uses configured thresholds
+	thresholds := secConfig.BalancedSecure.ResetThresholds
+
+	if score >= 50 {
+		if val, ok := thresholds["50"]; ok {
+			if strVal, ok := val.(string); ok && strVal == "block_with_contact" {
+				return 0 // block
+			}
+		}
+		return 0
+	} else if score >= 25 {
+		if val, ok := thresholds["25"]; ok {
+			if minutes, ok := val.(float64); ok {
+				return time.Duration(minutes) * time.Minute
+			}
+		}
+		return 12 * time.Hour
+	} else if score >= 15 {
+		if val, ok := thresholds["15"]; ok {
+			if minutes, ok := val.(float64); ok {
+				return time.Duration(minutes) * time.Minute
+			}
+		}
+		return 6 * time.Hour
+	}
+
+	if val, ok := thresholds["0"]; ok {
+		if minutes, ok := val.(float64); ok {
+			return time.Duration(minutes) * time.Minute
+		}
+	}
+	return 24 * time.Hour
+}
+
+func shouldResetScore(ip string, currentScore int) bool {
+	ipScoreResetMutex.RLock()
+	lastReset, exists := ipScoreLastReset[ip]
+	ipScoreResetMutex.RUnlock()
+
+	if !exists {
+		// First time seeing this IP with a score, record reset time
+		ipScoreResetMutex.Lock()
+		ipScoreLastReset[ip] = time.Now()
+		ipScoreResetMutex.Unlock()
+		return false
+	}
+
+	resetDuration := getResetDuration(currentScore)
+	if resetDuration == 0 {
+		return false // score is at block level
+	}
+
+	if time.Since(lastReset) >= resetDuration {
+		return true
+	}
+
+	return false
+}
+
+func resetIPScore(ip string) {
+	ipScoresMutex.Lock()
+	delete(ipScores, ip)
+	ipScoresMutex.Unlock()
+
+	ipScoreResetMutex.Lock()
+	delete(ipScoreLastReset, ip)
+	ipScoreResetMutex.Unlock()
+
+	saveScores()
+}
+
 func init() {
 	if err := loadTrustedIPs("./json/trusted_ips.json"); err != nil {
 		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
@@ -151,6 +335,8 @@ func init() {
 		fmt.Println("security_config.json の読み込みに失敗しました:", err)
 		os.Exit(1)
 	}
+
+	loadFirstAccessIPs()
 
 	if err := loadGeoIPDatabase("./geoip/GeoLite2-Country.mmdb"); err != nil {
 		fmt.Println("警告: GeoIPデータベースが読み込めませんでした。国別ブロック機能は無効になります。:", err)
@@ -189,6 +375,9 @@ func cleanupMaps() {
 		}
 	}
 	dynamicBlockMutex.Unlock()
+
+	cleanupFirstAccessIPs()
+	saveFirstAccessIPs()
 }
 
 func loadTrustedIPs(filepath string) error {
@@ -308,6 +497,12 @@ func incrementScore(ip string, amount int) {
 	ipScoresMutex.Lock()
 	ipScores[ip] += amount
 	ipScoresMutex.Unlock()
+
+	// Update the reset timer when score changes
+	ipScoreResetMutex.Lock()
+	ipScoreLastReset[ip] = time.Now()
+	ipScoreResetMutex.Unlock()
+
 	saveScores()
 }
 
@@ -607,6 +802,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
 		isRelaxedMode := secConfig.SecurityLevel == "relaxed"
+		isBalancedSecure := secConfig.SecurityLevel == "balanced-secure"
 
 		if isPrivateIP || isTrusted {
 			if !isAllowedMethod(r.Method) {
@@ -633,22 +829,90 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Check for automatic score reset based on graduated thresholds
+		ipScoresMutex.RLock()
+		currentScore := ipScores[ip]
+		ipScoresMutex.RUnlock()
+
+		if currentScore > 0 && shouldResetScore(ip, currentScore) {
+			resetIPScore(ip)
+			currentScore = 0
+		}
+
+		// Check if this is a first-time visitor
+		isFirstAccess, _ := isFirstAccessIP(ip)
+		if !isFirstAccess && currentScore == 0 {
+			// New IP that hasn't been seen before
+			ipScoresMutex.RLock()
+			_, hasScore := ipScores[ip]
+			ipScoresMutex.RUnlock()
+			
+			if !hasScore {
+				recordFirstAccessIP(ip)
+				isFirstAccess = true
+			}
+		}
+
+		// Immediate blocking checks for balanced-secure mode
+		if isBalancedSecure {
+			// Block non-Cloudflare traffic immediately
+			if !isFromCloudflare(r) {
+				logRequest(r, ip, "block")
+				http.Error(w, "Access Denied", http.StatusForbidden)
+				return
+			}
+		}
+
+		// Country blocking (all non-relaxed modes)
 		if !isRelaxedMode && isBlockedCountry(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
 		}
 
+		// Method validation (immediate block for balanced-secure, score for strict)
 		if !isAllowedMethod(r.Method) {
-			incrementScore(ip, 10)
-			logRequest(r, ip, "attack")
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
+			if isBalancedSecure {
+				logRequest(r, ip, "block")
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			} else {
+				incrementScore(ip, 10)
+				logRequest(r, ip, "attack")
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
 		}
 
+		// Direct IP blocking (immediate for balanced-secure)
+		if !isRelaxedMode && isBlockedDirectIP(ip) {
+			if isBalancedSecure {
+				logRequest(r, ip, "block")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			} else {
+				incrementScore(ip, 5)
+				logRequest(r, ip, "warn")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			}
+		}
+
+		// Rate limit check
 		if !checkRateLimit(ip, r.URL.Path) {
 			if isRelaxedMode {
 				logRequest(r, ip, "warn")
+			} else if isBalancedSecure {
+				if isFirstAccess {
+					incrementScore(ip, 5) // Record but don't block
+					logRequest(r, ip, "warn")
+				} else {
+					incrementScore(ip, 5)
+					logRequest(r, ip, "block")
+					addDynamicBlock(ip)
+					http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+					return
+				}
 			} else {
 				incrementScore(ip, 5)
 				logRequest(r, ip, "block")
@@ -664,52 +928,67 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Advanced threat detection
 		threatLevel := detectAdvancedThreats(r)
 		if threatLevel != "clean" && !isRelaxedMode {
 			switch threatLevel {
 			case "oversized":
-				incrementScore(ip, 8)
-				logRequest(r, ip, "attack")
-				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
-				return
+				if isBalancedSecure && isFirstAccess {
+					incrementScore(ip, 8)
+					logRequest(r, ip, "warn")
+				} else {
+					incrementScore(ip, 8)
+					logRequest(r, ip, "attack")
+					http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
+					return
+				}
 			case "header_manipulation", "long_header", "long_header_name":
-				incrementScore(ip, 7)
+				if isBalancedSecure && isFirstAccess {
+					incrementScore(ip, 7)
+					logRequest(r, ip, "warn")
+				} else {
+					incrementScore(ip, 7)
+					logRequest(r, ip, "attack")
+					http.Redirect(w, r, "/error/403", http.StatusFound)
+					return
+				}
+			}
+		}
+
+		// Calculate boost for non-Cloudflare (only for scoring, not immediate block)
+		internalLevelBoost := 0
+		if !isFromCloudflare(r) && !isBalancedSecure {
+			internalLevelBoost += 2
+		}
+
+		// Suspicious path detection
+		if isSuspiciousPath(r.URL.Path) {
+			if isBalancedSecure && isFirstAccess {
+				incrementScore(ip, 8+internalLevelBoost)
+				logRequest(r, ip, "warn")
+			} else {
+				incrementScore(ip, 8+internalLevelBoost)
 				logRequest(r, ip, "attack")
+
+				if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
+					strings.Contains(strings.ToLower(r.URL.Path), "script") {
+					addDynamicBlock(ip)
+				}
+
 				http.Redirect(w, r, "/error/403", http.StatusFound)
 				return
 			}
 		}
 
-		internalLevelBoost := 0
-		if !isFromCloudflare(r) {
-			internalLevelBoost += 2
-		}
-
-		if !isRelaxedMode && isBlockedDirectIP(ip) {
-			incrementScore(ip, 5+internalLevelBoost)
-			logRequest(r, ip, "warn")
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
-		}
-
-		if isSuspiciousPath(r.URL.Path) {
-			incrementScore(ip, 8+internalLevelBoost)
-			logRequest(r, ip, "attack")
-
-			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
-				strings.Contains(strings.ToLower(r.URL.Path), "script") {
-				addDynamicBlock(ip)
-			}
-
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
-		}
-
+		// User-Agent detection
 		uaStatus := detectSuspiciousUA(ua)
 		switch uaStatus {
 		case "deny":
 			if isRelaxedMode {
 				incrementScore(ip, 1+internalLevelBoost)
+				logRequest(r, ip, "warn")
+			} else if isBalancedSecure && isFirstAccess {
+				incrementScore(ip, 8+internalLevelBoost)
 				logRequest(r, ip, "warn")
 			} else {
 				incrementScore(ip, 8+internalLevelBoost)
@@ -721,6 +1000,9 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		case "warn":
 			if isRelaxedMode {
 				logRequest(r, ip, "info")
+			} else if isBalancedSecure && isFirstAccess {
+				incrementScore(ip, 4+internalLevelBoost)
+				logRequest(r, ip, "info") // Cap at info for first access
 			} else {
 				incrementScore(ip, 4+internalLevelBoost)
 				logRequest(r, ip, "warn")
@@ -729,15 +1011,35 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			logRequest(r, ip, getLevel(ip))
 		}
 
-		currentLevel := getLevel(ip)
-		if currentLevel == "block" {
+		// Final score check with graduated thresholds
+		ipScoresMutex.RLock()
+		finalScore := ipScores[ip]
+		ipScoresMutex.RUnlock()
+
+		if finalScore >= 50 {
+			// Score 50+: Block with contact header
 			if isRelaxedMode {
 				logRequest(r, ip, "warn")
 			} else {
+				w.Header().Set("X-Blocked-Reason", "High Security Score")
+				w.Header().Set("X-Contact-Support", "https://daruks.com/contact")
 				addDynamicBlock(ip)
 				logRequest(r, ip, "block")
 				http.Redirect(w, r, "/error/503", http.StatusFound)
 				return
+			}
+		} else if finalScore >= 15 {
+			// Score 15-49: Allow but note that auto-reset will apply
+			currentLevel := getLevel(ip)
+			if currentLevel == "block" && !isRelaxedMode {
+				// Legacy block level (score >= 15 in old getLevel)
+				// In balanced-secure, we only block at 50+
+				if !isBalancedSecure {
+					addDynamicBlock(ip)
+					logRequest(r, ip, "block")
+					http.Redirect(w, r, "/error/503", http.StatusFound)
+					return
+				}
 			}
 		}
 
