@@ -729,11 +729,6 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			logRequest(r, ip, getLevel(ip))
 		}
 
-		if !isRelaxedMode && strings.HasPrefix(ip, "60.") {
-			incrementScore(ip, 3+internalLevelBoost)
-			logRequest(r, ip, "warn")
-		}
-
 		currentLevel := getLevel(ip)
 		if currentLevel == "block" {
 			if isRelaxedMode {
