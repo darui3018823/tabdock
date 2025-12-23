@@ -119,8 +119,15 @@ type SecurityConfig struct {
 }
 
 type BalancedSecureConfig struct {
-	FirstAccessGracePeriodMin int                `json:"first_access_grace_period_min"`
-	ResetThresholds           map[string]interface{} `json:"reset_thresholds"`
+	// FirstAccessGracePeriodMin is the grace period duration in minutes for first-time visitors
+	// before stricter security checks or scoring are applied.
+	FirstAccessGracePeriodMin int `json:"first_access_grace_period_min"`
+
+	// ResetThresholds maps score thresholds (as string keys) to their corresponding reset behaviors.
+	// Values are either:
+	//   - a numeric duration in minutes, indicating when to reset the score, or
+	//   - a string action such as "block_with_contact".
+	ResetThresholds map[string]interface{} `json:"reset_thresholds"`
 }
 
 var secConfig SecurityConfig
