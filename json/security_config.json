@@ -37,6 +37,7 @@
   "security_level": "balanced-secure",
   "balanced_secure": {
     "first_access_grace_period_min": 60,
+    "require_cloudflare": false,
     "reset_thresholds": {
       "50": "block_with_contact",
       "25": 720,

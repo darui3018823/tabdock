@@ -123,6 +123,10 @@ type BalancedSecureConfig struct {
 	// before stricter security checks or scoring are applied.
 	FirstAccessGracePeriodMin int `json:"first_access_grace_period_min"`
 
+	// RequireCloudflare when true, blocks all non-Cloudflare traffic after grace period.
+	// Set to false to allow direct access from internal networks, VPNs, or during Cloudflare outages.
+	RequireCloudflare bool `json:"require_cloudflare"`
+
 	// ResetThresholds maps score thresholds (as string keys) to their corresponding reset behaviors.
 	// Values are either:
 	//   - a numeric duration in minutes, indicating when to reset the score, or
@@ -398,13 +402,16 @@ func cleanupMaps() {
 
 	// Clean up ipScoreLastReset entries for IPs that no longer have scores.
 	// This prevents ipScoreLastReset from growing unbounded over time.
-	ipScoreMutex.Lock()
+	ipScoreResetMutex.Lock()
+	ipScoresMutex.RLock()
 	for ip := range ipScoreLastReset {
 		if _, exists := ipScores[ip]; !exists {
 			delete(ipScoreLastReset, ip)
 		}
 	}
-	ipScoreMutex.Unlock()
+	ipScoresMutex.RUnlock()
+	ipScoreResetMutex.Unlock()
+	
 	cleanupFirstAccessIPs()
 	saveFirstAccessIPs()
 }
@@ -908,11 +915,14 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		// Immediate blocking checks for balanced-secure mode (unless in grace period)
 		if isBalancedSecure && !isFirstAccess {
-			// Block non-Cloudflare traffic immediately (after grace period)
-			if !isFromCloudflare(r) {
-				logRequest(r, ip, "block")
-				http.Error(w, "Access Denied", http.StatusForbidden)
-				return
+			// Block non-Cloudflare traffic if configured (after grace period)
+			// This can be disabled in config to allow direct access from internal networks or during outages
+			if secConfig.BalancedSecure != nil && secConfig.BalancedSecure.RequireCloudflare {
+				if !isFromCloudflare(r) {
+					logRequest(r, ip, "block")
+					http.Error(w, "Access Denied", http.StatusForbidden)
+					return
+				}
 			}
 		}
 
@@ -986,25 +996,17 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		if threatLevel != "clean" && !isRelaxedMode {
 			switch threatLevel {
 			case "oversized":
-				if isBalancedSecure && isFirstAccess {
-					incrementScore(ip, 8)
-					logRequest(r, ip, "warn")
-				} else {
-					incrementScore(ip, 8)
-					logRequest(r, ip, "attack")
-					http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
-					return
-				}
+				// Always block oversized requests immediately as they represent DoS attempts
+				incrementScore(ip, 8)
+				logRequest(r, ip, "attack")
+				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
+				return
 			case "header_manipulation", "long_header", "long_header_name":
-				if isBalancedSecure && isFirstAccess {
-					incrementScore(ip, 7)
-					logRequest(r, ip, "warn")
-				} else {
-					incrementScore(ip, 7)
-					logRequest(r, ip, "attack")
-					http.Redirect(w, r, "/error/403", http.StatusFound)
-					return
-				}
+				// Always block header manipulation immediately as it represents exploitation attempts
+				incrementScore(ip, 7)
+				logRequest(r, ip, "attack")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
 			}
 		}
 
