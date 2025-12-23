@@ -1,8 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.12.0_log-r1
-
+// This code Version: 5.16.1_log-r1
 package main
 
 import (
@@ -108,14 +107,14 @@ type DetectionPatterns struct {
 }
 
 type SecurityConfig struct {
-	MaxRequestSizeMB       int64                    `json:"max_request_size_mb"`
-	RateLimitPerMin        int                      `json:"rate_limit_per_min"`
-	DynamicBlockTimeMin    int                      `json:"dynamic_block_time_min"`
-	AllowedMethods         []string                 `json:"allowed_methods"`
-	BlockedCountries       []string                 `json:"blocked_countries"`
-	Patterns               DetectionPatterns        `json:"detection_patterns"`
-	SecurityLevel          string                   `json:"security_level"`
-	BalancedSecure         *BalancedSecureConfig    `json:"balanced_secure,omitempty"`
+	MaxRequestSizeMB    int64                 `json:"max_request_size_mb"`
+	RateLimitPerMin     int                   `json:"rate_limit_per_min"`
+	DynamicBlockTimeMin int                   `json:"dynamic_block_time_min"`
+	AllowedMethods      []string              `json:"allowed_methods"`
+	BlockedCountries    []string              `json:"blocked_countries"`
+	Patterns            DetectionPatterns     `json:"detection_patterns"`
+	SecurityLevel       string                `json:"security_level"`
+	BalancedSecure      *BalancedSecureConfig `json:"balanced_secure,omitempty"`
 }
 
 type BalancedSecureConfig struct {
@@ -259,28 +258,15 @@ func isFirstAccessIP(ip string) (bool, time.Time) {
 	return false, time.Time{}
 }
 
-// recordFirstAccessIP records a new IP as a first-time visitor with a grace period.
-// The grace period duration is configured via balanced_secure.first_access_grace_period_min.
-// Trusted IPs and private/loopback addresses are excluded from tracking.
-// The actual file write is batched and occurs periodically to optimize performance.
-func recordFirstAccessIP(ip string) {
-	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
-		return
-	}
-
-	gracePeriod := 60 // default
+// getGracePeriodMinutes returns the configured grace period in minutes.
+// Returns 60 minutes as default if not configured.
+func getGracePeriodMinutes() int {
 	if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
 		if secConfig.BalancedSecure.FirstAccessGracePeriodMin > 0 {
-			gracePeriod = secConfig.BalancedSecure.FirstAccessGracePeriodMin
+			return secConfig.BalancedSecure.FirstAccessGracePeriodMin
 		}
 	}
-
-	firstAccessIPsMutex.Lock()
-	firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
-	firstAccessIPsMutex.Unlock()
-
-	// Note: saveFirstAccessIPs() is called periodically by cleanupMaps() every 10 minutes
-	// to avoid performance bottleneck from writing to disk on every new visitor
+	return 60 // default
 }
 
 // getResetDuration returns the duration after which a score should be reset based on the current score level.
@@ -289,6 +275,7 @@ func recordFirstAccessIP(ip string) {
 //   - Score 25-49: 12 hours (or configured value)
 //   - Score 15-24: 6 hours (or configured value)
 //   - Score 0-14: 24 hours (or configured value)
+//
 // In balanced-secure mode, values are read from configuration; other modes use defaults.
 func getResetDuration(score int) time.Duration {
 	if secConfig.SecurityLevel != "balanced-secure" || secConfig.BalancedSecure == nil {
@@ -433,16 +420,17 @@ func cleanupMaps() {
 
 	// Clean up ipScoreLastReset entries for IPs that no longer have scores.
 	// This prevents ipScoreLastReset from growing unbounded over time.
-	ipScoreResetMutex.Lock()
+	// Lock order: ipScoresMutex first, then ipScoreResetMutex to prevent deadlock
 	ipScoresMutex.RLock()
+	ipScoreResetMutex.Lock()
 	for ip := range ipScoreLastReset {
 		if _, exists := ipScores[ip]; !exists {
 			delete(ipScoreLastReset, ip)
 		}
 	}
-	ipScoresMutex.RUnlock()
 	ipScoreResetMutex.Unlock()
-	
+	ipScoresMutex.RUnlock()
+
 	cleanupFirstAccessIPs()
 	saveFirstAccessIPs()
 }
@@ -927,16 +915,13 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			ipScoresMutex.RLock()
 			_, hasScore := ipScores[ip]
 			ipScoresMutex.RUnlock()
-			
+
 			// Double-check under first access mutex to prevent race condition
 			if !hasScore {
 				firstAccessIPsMutex.Lock()
 				// Verify this IP hasn't been recorded by another goroutine
 				if _, alreadyRecorded := firstAccessIPs[ip]; !alreadyRecorded {
-					gracePeriod := 60 // default
-					if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
-						gracePeriod = secConfig.BalancedSecure.FirstAccessGracePeriodMin
-					}
+					gracePeriod := getGracePeriodMinutes()
 					firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
 					isFirstAccess = true
 				}
@@ -1052,13 +1037,9 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			// Always block high-severity attack patterns (SQL injection, XSS, path traversal)
 			// even during grace period, as these represent clear exploitation attempts.
 			incrementScore(ip, 8+nonCloudflareBoost)
-			
-			if isBalancedSecure && isFirstAccess {
-				// During grace period, log as attack instead of allowing it to proceed
-				logRequest(r, ip, "attack")
-			} else {
-				logRequest(r, ip, "attack")
-			}
+
+			// During grace period, log as attack instead of allowing it to proceed
+			logRequest(r, ip, "attack")
 
 			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
 				strings.Contains(strings.ToLower(r.URL.Path), "script") {
