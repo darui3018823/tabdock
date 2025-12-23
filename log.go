@@ -249,7 +249,9 @@ func recordFirstAccessIP(ip string) {
 
 	gracePeriod := 60 // default
 	if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
-		gracePeriod = secConfig.BalancedSecure.FirstAccessGracePeriodMin
+		if secConfig.BalancedSecure.FirstAccessGracePeriodMin > 0 {
+			gracePeriod = secConfig.BalancedSecure.FirstAccessGracePeriodMin
+		}
 	}
 
 	firstAccessIPsMutex.Lock()
