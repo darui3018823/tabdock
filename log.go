@@ -202,10 +202,13 @@ func saveFirstAccessIPs() {
 
 	data, err := json.MarshalIndent(fileData, "", "  ")
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to marshal first access IPs to JSON: %v\n", err)
 		return
 	}
 
-	_ = os.WriteFile(firstAccessIPsFile, data, 0644)
+	if err := os.WriteFile(firstAccessIPsFile, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write first access IPs file %q: %v\n", firstAccessIPsFile, err)
+	}
 }
 
 func cleanupFirstAccessIPs() {
