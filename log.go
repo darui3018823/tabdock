@@ -1011,16 +1011,16 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Calculate boost for non-Cloudflare (only for scoring, not immediate block)
-		internalLevelBoost := 0
+		nonCloudflareBoost := 0
 		if !isFromCloudflare(r) && !isBalancedSecure {
-			internalLevelBoost += 2
+			nonCloudflareBoost += 2
 		}
 
 		// Suspicious path detection
 		if isSuspiciousPath(r.URL.Path) {
 			// Always block high-severity attack patterns (SQL injection, XSS, path traversal)
 			// even during grace period, as these represent clear exploitation attempts.
-			incrementScore(ip, 8+internalLevelBoost)
+			incrementScore(ip, 8+nonCloudflareBoost)
 			
 			if isBalancedSecure && isFirstAccess {
 				// During grace period, log as attack instead of allowing it to proceed
@@ -1043,13 +1043,13 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		switch uaStatus {
 		case "deny":
 			if isRelaxedMode {
-				incrementScore(ip, 1+internalLevelBoost)
+				incrementScore(ip, 1+nonCloudflareBoost)
 				logRequest(r, ip, "warn")
 			} else if isBalancedSecure && isFirstAccess {
-				incrementScore(ip, 8+internalLevelBoost)
+				incrementScore(ip, 8+nonCloudflareBoost)
 				logRequest(r, ip, "warn")
 			} else {
-				incrementScore(ip, 8+internalLevelBoost)
+				incrementScore(ip, 8+nonCloudflareBoost)
 				logRequest(r, ip, "attack")
 				addDynamicBlock(ip)
 				http.Redirect(w, r, "/error/403", http.StatusFound)
@@ -1059,10 +1059,10 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			if isRelaxedMode {
 				logRequest(r, ip, "info")
 			} else if isBalancedSecure && isFirstAccess {
-				incrementScore(ip, 4+internalLevelBoost)
+				incrementScore(ip, 4+nonCloudflareBoost)
 				logRequest(r, ip, "info") // Cap at info for first access
 			} else {
-				incrementScore(ip, 4+internalLevelBoost)
+				incrementScore(ip, 4+nonCloudflareBoost)
 				logRequest(r, ip, "warn")
 			}
 		default:
