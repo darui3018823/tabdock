@@ -172,6 +172,9 @@ func loadSecurityConfig(filepath string) error {
 	return nil
 }
 
+// loadFirstAccessIPs loads the first access IP tracking data from disk.
+// It reads from firstAccessIPsFile and populates the firstAccessIPs map.
+// Errors during loading are silently ignored as the file may not exist on first run.
 func loadFirstAccessIPs() {
 	data, err := os.ReadFile(firstAccessIPsFile)
 	if err != nil {
@@ -197,6 +200,10 @@ func loadFirstAccessIPs() {
 	}
 }
 
+// saveFirstAccessIPs persists the first access IP tracking data to disk.
+// It writes the current state of firstAccessIPs to firstAccessIPsFile.
+// This is called periodically (every 10 minutes) to batch writes and reduce disk I/O.
+// Errors during saving are logged to stderr for administrator visibility.
 func saveFirstAccessIPs() {
 	firstAccessIPsMutex.RLock()
 	defer firstAccessIPsMutex.RUnlock()
@@ -222,6 +229,9 @@ func saveFirstAccessIPs() {
 	}
 }
 
+// cleanupFirstAccessIPs removes expired first access IP entries.
+// It deletes any IPs whose grace period has expired (expiry time has passed).
+// This is called periodically by cleanupMaps() to prevent unbounded growth.
 func cleanupFirstAccessIPs() {
 	now := time.Now()
 	firstAccessIPsMutex.Lock()
@@ -234,6 +244,9 @@ func cleanupFirstAccessIPs() {
 	}
 }
 
+// isFirstAccessIP checks if an IP is within its first access grace period.
+// It returns true and the expiry time if the IP is in grace period, false otherwise.
+// The grace period allows new visitors lenient treatment before full security enforcement.
 func isFirstAccessIP(ip string) (bool, time.Time) {
 	firstAccessIPsMutex.RLock()
 	defer firstAccessIPsMutex.RUnlock()
@@ -246,6 +259,10 @@ func isFirstAccessIP(ip string) (bool, time.Time) {
 	return false, time.Time{}
 }
 
+// recordFirstAccessIP records a new IP as a first-time visitor with a grace period.
+// The grace period duration is configured via balanced_secure.first_access_grace_period_min.
+// Trusted IPs and private/loopback addresses are excluded from tracking.
+// The actual file write is batched and occurs periodically to optimize performance.
 func recordFirstAccessIP(ip string) {
 	if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
 		return
@@ -266,6 +283,13 @@ func recordFirstAccessIP(ip string) {
 	// to avoid performance bottleneck from writing to disk on every new visitor
 }
 
+// getResetDuration returns the duration after which a score should be reset based on the current score level.
+// It implements graduated reset thresholds:
+//   - Score 50+: 0 (block, no reset)
+//   - Score 25-49: 12 hours (or configured value)
+//   - Score 15-24: 6 hours (or configured value)
+//   - Score 0-14: 24 hours (or configured value)
+// In balanced-secure mode, values are read from configuration; other modes use defaults.
 func getResetDuration(score int) time.Duration {
 	if secConfig.SecurityLevel != "balanced-secure" || secConfig.BalancedSecure == nil {
 		// For strict/relaxed modes, use default thresholds
@@ -313,6 +337,10 @@ func getResetDuration(score int) time.Duration {
 	return 24 * time.Hour
 }
 
+// shouldResetScore determines if an IP's security score should be automatically reset.
+// It checks if enough time has passed since the last reset based on the current score level.
+// The reset timer is extended on any score increase to prevent gaming the system.
+// Returns true if the score should be reset, false otherwise.
 func shouldResetScore(ip string, currentScore int) bool {
 	ipScoreResetMutex.Lock()
 	defer ipScoreResetMutex.Unlock()
@@ -337,6 +365,9 @@ func shouldResetScore(ip string, currentScore int) bool {
 	return false
 }
 
+// resetIPScore clears an IP's security score and reset timer.
+// It removes the IP from both ipScores and ipScoreLastReset maps, then persists the change.
+// This is called when an IP's score expires based on graduated reset thresholds.
 func resetIPScore(ip string) {
 	ipScoresMutex.Lock()
 	delete(ipScores, ip)
