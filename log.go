@@ -502,21 +502,15 @@ func incrementScore(ip string, amount int) {
 	}
 
 	ipScoresMutex.Lock()
-	oldScore := ipScores[ip]
 	ipScores[ip] += amount
-	newScore := ipScores[ip]
 	ipScoresMutex.Unlock()
 
-	// Update the reset timer only when crossing significant thresholds
-	// This prevents constant timer resets from minor infractions
-	oldThreshold := getScoreThreshold(oldScore)
-	newThreshold := getScoreThreshold(newScore)
-	
-	if oldThreshold != newThreshold {
-		ipScoreResetMutex.Lock()
-		ipScoreLastReset[ip] = time.Now()
-		ipScoreResetMutex.Unlock()
-	}
+	// Update the reset timer on any score increase to prevent gaming the system.
+	// This ensures that continued suspicious activity extends the reset period,
+	// even if the score stays within the same threshold bracket.
+	ipScoreResetMutex.Lock()
+	ipScoreLastReset[ip] = time.Now()
+	ipScoreResetMutex.Unlock()
 
 	saveScores()
 }
@@ -898,12 +892,12 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		// Method validation (immediate block for balanced-secure, score for strict)
 		if !isAllowedMethod(r.Method) {
+			incrementScore(ip, 10) // Track bad actors in all modes
 			if isBalancedSecure {
 				logRequest(r, ip, "block")
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			} else {
-				incrementScore(ip, 10)
 				logRequest(r, ip, "attack")
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
