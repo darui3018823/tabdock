@@ -983,21 +983,24 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		// Suspicious path detection
 		if isSuspiciousPath(r.URL.Path) {
+			// Always block high-severity attack patterns (SQL injection, XSS, path traversal)
+			// even during grace period, as these represent clear exploitation attempts.
+			incrementScore(ip, 8+internalLevelBoost)
+			
 			if isBalancedSecure && isFirstAccess {
-				incrementScore(ip, 8+internalLevelBoost)
-				logRequest(r, ip, "warn")
-			} else {
-				incrementScore(ip, 8+internalLevelBoost)
+				// During grace period, log as attack instead of allowing it to proceed
 				logRequest(r, ip, "attack")
-
-				if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
-					strings.Contains(strings.ToLower(r.URL.Path), "script") {
-					addDynamicBlock(ip)
-				}
-
-				http.Redirect(w, r, "/error/403", http.StatusFound)
-				return
+			} else {
+				logRequest(r, ip, "attack")
 			}
+
+			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
+				strings.Contains(strings.ToLower(r.URL.Path), "script") {
+				addDynamicBlock(ip)
+			}
+
+			http.Redirect(w, r, "/error/403", http.StatusFound)
+			return
 		}
 
 		// User-Agent detection
