@@ -394,6 +394,15 @@ func cleanupMaps() {
 	}
 	dynamicBlockMutex.Unlock()
 
+	// Clean up ipScoreLastReset entries for IPs that no longer have scores.
+	// This prevents ipScoreLastReset from growing unbounded over time.
+	ipScoreMutex.Lock()
+	for ip := range ipScoreLastReset {
+		if _, exists := ipScores[ip]; !exists {
+			delete(ipScoreLastReset, ip)
+		}
+	}
+	ipScoreMutex.Unlock()
 	cleanupFirstAccessIPs()
 	saveFirstAccessIPs()
 }
