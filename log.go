@@ -249,7 +249,8 @@ func recordFirstAccessIP(ip string) {
 	firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
 	firstAccessIPsMutex.Unlock()
 
-	saveFirstAccessIPs()
+	// Note: saveFirstAccessIPs() is called periodically by cleanupMaps() every 10 minutes
+	// to avoid performance bottleneck from writing to disk on every new visitor
 }
 
 func getResetDuration(score int) time.Duration {
@@ -863,16 +864,27 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Check if this is a first-time visitor
+		// Use a single mutex lock to avoid race condition between checking and recording
 		isFirstAccess, _ := isFirstAccessIP(ip)
 		if !isFirstAccess && currentScore == 0 {
-			// New IP that hasn't been seen before
+			// New IP that hasn't been seen before - check and record atomically
 			ipScoresMutex.RLock()
 			_, hasScore := ipScores[ip]
 			ipScoresMutex.RUnlock()
 			
+			// Double-check under first access mutex to prevent race condition
 			if !hasScore {
-				recordFirstAccessIP(ip)
-				isFirstAccess = true
+				firstAccessIPsMutex.Lock()
+				// Verify this IP hasn't been recorded by another goroutine
+				if _, alreadyRecorded := firstAccessIPs[ip]; !alreadyRecorded {
+					gracePeriod := 60 // default
+					if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
+						gracePeriod = secConfig.BalancedSecure.FirstAccessGracePeriodMin
+					}
+					firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
+					isFirstAccess = true
+				}
+				firstAccessIPsMutex.Unlock()
 			}
 		}
 
