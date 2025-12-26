@@ -44,7 +44,6 @@ Remove-Item Env:GOARCH
 
 Write-Host "Build successful! The executable is located at $DistPath"
 
-# Optional: Sign the executable if you have a code signing certificate
 $SignExec = $True # Set to $True to sign the executable, $False to skip signing
 if ($SignExec) {
     # Load .env file for sensitive data
@@ -52,12 +51,12 @@ if ($SignExec) {
     if (Test-Path $EnvPath) {
         $EnvContent = Get-Content $EnvPath | ForEach-Object {
             if ($_ -match "^(?<key>[^=]+)=(?<value>.+)$") {
-                $matches.key, $matches.value
+                $key = $matches['key'].Trim()
+                $value = $matches['value'].Trim()
+                Set-Item -Path "Env:$key" -Value $value
+            } else {
+                Write-Host "Skipping invalid .env line: $_" # Debug output for invalid lines
             }
-        }
-        foreach ($pair in $EnvContent) {
-            $key, $value = $pair
-            Set-Item -Path "Env:$key" -Value $value
         }
     } else {
         Write-Host ".env file not found. Please create one with the required variables."
