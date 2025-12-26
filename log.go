@@ -1,8 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.12.0_log-r1
-
+// This code Version: 5.16.1_log-r1
 package main
 
 import (
@@ -55,6 +54,12 @@ var ipScores = map[string]int{}
 var ipScoresMutex sync.RWMutex
 var blockedDirectIPs = []string{""}
 
+var firstAccessIPsFile = "./json/first_access_ips.json"
+var firstAccessIPs = map[string]time.Time{}
+var firstAccessIPsMutex sync.RWMutex
+var ipScoreLastReset = map[string]time.Time{}
+var ipScoreResetMutex sync.RWMutex
+
 var rateLimitMap = map[string]*RateLimit{}
 var rateLimitMutex sync.RWMutex
 
@@ -78,6 +83,14 @@ var (
 	geoipDB                *geoip2.Reader
 )
 
+// Default score thresholds for auto-reset mechanism
+const (
+	ScoreThresholdBlock  = 50
+	ScoreThresholdHigh   = 25
+	ScoreThresholdMedium = 15
+	ScoreThresholdLow    = 0
+)
+
 type RateLimit struct {
 	Count     int
 	LastReset time.Time
@@ -94,13 +107,30 @@ type DetectionPatterns struct {
 }
 
 type SecurityConfig struct {
-	MaxRequestSizeMB    int64             `json:"max_request_size_mb"`
-	RateLimitPerMin     int               `json:"rate_limit_per_min"`
-	DynamicBlockTimeMin int               `json:"dynamic_block_time_min"`
-	AllowedMethods      []string          `json:"allowed_methods"`
-	BlockedCountries    []string          `json:"blocked_countries"`
-	Patterns            DetectionPatterns `json:"detection_patterns"`
-	SecurityLevel       string            `json:"security_level"`
+	MaxRequestSizeMB    int64                 `json:"max_request_size_mb"`
+	RateLimitPerMin     int                   `json:"rate_limit_per_min"`
+	DynamicBlockTimeMin int                   `json:"dynamic_block_time_min"`
+	AllowedMethods      []string              `json:"allowed_methods"`
+	BlockedCountries    []string              `json:"blocked_countries"`
+	Patterns            DetectionPatterns     `json:"detection_patterns"`
+	SecurityLevel       string                `json:"security_level"`
+	BalancedSecure      *BalancedSecureConfig `json:"balanced_secure,omitempty"`
+}
+
+type BalancedSecureConfig struct {
+	// FirstAccessGracePeriodMin is the grace period duration in minutes for first-time visitors
+	// before stricter security checks or scoring are applied.
+	FirstAccessGracePeriodMin int `json:"first_access_grace_period_min"`
+
+	// RequireCloudflare when true, blocks all non-Cloudflare traffic after grace period.
+	// Set to false to allow direct access from internal networks, VPNs, or during Cloudflare outages.
+	RequireCloudflare bool `json:"require_cloudflare"`
+
+	// ResetThresholds maps score thresholds (as string keys) to their corresponding reset behaviors.
+	// Values are either:
+	//   - a numeric duration in minutes, indicating when to reset the score, or
+	//   - a string action such as "block_with_contact".
+	ResetThresholds map[string]interface{} `json:"reset_thresholds"`
 }
 
 var secConfig SecurityConfig
@@ -117,7 +147,7 @@ func loadSecurityConfig(filepath string) error {
 	}
 
 	if secConfig.SecurityLevel == "" {
-		secConfig.SecurityLevel = "strict"
+		secConfig.SecurityLevel = "balanced-secure"
 	}
 
 	// 正規表現をコンパイル
@@ -141,6 +171,202 @@ func loadSecurityConfig(filepath string) error {
 	return nil
 }
 
+// loadFirstAccessIPs loads the first access IP tracking data from disk.
+// It reads from firstAccessIPsFile and populates the firstAccessIPs map.
+// Errors during loading are silently ignored as the file may not exist on first run.
+func loadFirstAccessIPs() {
+	data, err := os.ReadFile(firstAccessIPsFile)
+	if err != nil {
+		return
+	}
+
+	var fileData struct {
+		IPs map[string]string `json:"ips"`
+	}
+
+	if err := json.Unmarshal(data, &fileData); err != nil {
+		return
+	}
+
+	firstAccessIPsMutex.Lock()
+	defer firstAccessIPsMutex.Unlock()
+
+	firstAccessIPs = make(map[string]time.Time)
+	for ip, timeStr := range fileData.IPs {
+		if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+			firstAccessIPs[ip] = t
+		}
+	}
+}
+
+// saveFirstAccessIPs persists the first access IP tracking data to disk.
+// It writes the current state of firstAccessIPs to firstAccessIPsFile.
+// This is called periodically (every 10 minutes) to batch writes and reduce disk I/O.
+// Errors during saving are logged to stderr for administrator visibility.
+func saveFirstAccessIPs() {
+	firstAccessIPsMutex.RLock()
+	defer firstAccessIPsMutex.RUnlock()
+
+	fileData := struct {
+		IPs map[string]string `json:"ips"`
+	}{
+		IPs: make(map[string]string),
+	}
+
+	for ip, t := range firstAccessIPs {
+		fileData.IPs[ip] = t.Format(time.RFC3339)
+	}
+
+	data, err := json.MarshalIndent(fileData, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to marshal first access IPs to JSON: %v\n", err)
+		return
+	}
+
+	if err := os.WriteFile(firstAccessIPsFile, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write first access IPs file %q: %v\n", firstAccessIPsFile, err)
+	}
+}
+
+// cleanupFirstAccessIPs removes expired first access IP entries.
+// It deletes any IPs whose grace period has expired (expiry time has passed).
+// This is called periodically by cleanupMaps() to prevent unbounded growth.
+func cleanupFirstAccessIPs() {
+	now := time.Now()
+	firstAccessIPsMutex.Lock()
+	defer firstAccessIPsMutex.Unlock()
+
+	for ip, expiry := range firstAccessIPs {
+		if now.After(expiry) {
+			delete(firstAccessIPs, ip)
+		}
+	}
+}
+
+// isFirstAccessIP checks if an IP is within its first access grace period.
+// It returns true and the expiry time if the IP is in grace period, false otherwise.
+// The grace period allows new visitors lenient treatment before full security enforcement.
+func isFirstAccessIP(ip string) (bool, time.Time) {
+	firstAccessIPsMutex.RLock()
+	defer firstAccessIPsMutex.RUnlock()
+
+	if expiry, exists := firstAccessIPs[ip]; exists {
+		if time.Now().Before(expiry) {
+			return true, expiry
+		}
+	}
+	return false, time.Time{}
+}
+
+// getGracePeriodMinutes returns the configured grace period in minutes.
+// Returns 60 minutes as default if not configured.
+func getGracePeriodMinutes() int {
+	if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
+		if secConfig.BalancedSecure.FirstAccessGracePeriodMin > 0 {
+			return secConfig.BalancedSecure.FirstAccessGracePeriodMin
+		}
+	}
+	return 60 // default
+}
+
+// getResetDuration returns the duration after which a score should be reset based on the current score level.
+// It implements graduated reset thresholds:
+//   - Score 50+: 0 (block, no reset)
+//   - Score 25-49: 12 hours (or configured value)
+//   - Score 15-24: 6 hours (or configured value)
+//   - Score 0-14: 24 hours (or configured value)
+//
+// In balanced-secure mode, values are read from configuration; other modes use defaults.
+func getResetDuration(score int) time.Duration {
+	if secConfig.SecurityLevel != "balanced-secure" || secConfig.BalancedSecure == nil {
+		// For strict/relaxed modes, use default thresholds
+		if score >= ScoreThresholdBlock {
+			return 0 // block
+		} else if score >= ScoreThresholdHigh {
+			return 12 * time.Hour
+		} else if score >= ScoreThresholdMedium {
+			return 6 * time.Hour
+		}
+		return 24 * time.Hour
+	}
+
+	// Balanced-secure mode uses configured thresholds
+	thresholds := secConfig.BalancedSecure.ResetThresholds
+
+	if score >= ScoreThresholdBlock {
+		if val, ok := thresholds[strconv.Itoa(ScoreThresholdBlock)]; ok {
+			if strVal, ok := val.(string); ok && strVal == "block_with_contact" {
+				return 0 // block
+			}
+		}
+		return 0
+	} else if score >= ScoreThresholdHigh {
+		if val, ok := thresholds[strconv.Itoa(ScoreThresholdHigh)]; ok {
+			if minutes, ok := val.(float64); ok {
+				return time.Duration(minutes) * time.Minute
+			}
+		}
+		return 12 * time.Hour
+	} else if score >= ScoreThresholdMedium {
+		if val, ok := thresholds[strconv.Itoa(ScoreThresholdMedium)]; ok {
+			if minutes, ok := val.(float64); ok {
+				return time.Duration(minutes) * time.Minute
+			}
+		}
+		return 6 * time.Hour
+	}
+
+	if val, ok := thresholds[strconv.Itoa(ScoreThresholdLow)]; ok {
+		if minutes, ok := val.(float64); ok {
+			return time.Duration(minutes) * time.Minute
+		}
+	}
+	return 24 * time.Hour
+}
+
+// shouldResetScore determines if an IP's security score should be automatically reset.
+// It checks if enough time has passed since the last reset based on the current score level.
+// The reset timer is extended on any score increase to prevent gaming the system.
+// Returns true if the score should be reset, false otherwise.
+func shouldResetScore(ip string, currentScore int) bool {
+	ipScoreResetMutex.Lock()
+	defer ipScoreResetMutex.Unlock()
+
+	lastReset, exists := ipScoreLastReset[ip]
+
+	if !exists {
+		// First time seeing this IP with a score, record reset time
+		ipScoreLastReset[ip] = time.Now()
+		return false
+	}
+
+	resetDuration := getResetDuration(currentScore)
+	if resetDuration == 0 {
+		return false // score is at block level
+	}
+
+	if time.Since(lastReset) >= resetDuration {
+		return true
+	}
+
+	return false
+}
+
+// resetIPScore clears an IP's security score and reset timer.
+// It removes the IP from both ipScores and ipScoreLastReset maps, then persists the change.
+// This is called when an IP's score expires based on graduated reset thresholds.
+func resetIPScore(ip string) {
+	ipScoresMutex.Lock()
+	delete(ipScores, ip)
+	ipScoresMutex.Unlock()
+
+	ipScoreResetMutex.Lock()
+	delete(ipScoreLastReset, ip)
+	ipScoreResetMutex.Unlock()
+
+	saveScores()
+}
+
 func init() {
 	if err := loadTrustedIPs("./json/trusted_ips.json"); err != nil {
 		fmt.Println("trusted_ips.json の読み込みに失敗しました:", err)
@@ -151,6 +377,8 @@ func init() {
 		fmt.Println("security_config.json の読み込みに失敗しました:", err)
 		os.Exit(1)
 	}
+
+	loadFirstAccessIPs()
 
 	if err := loadGeoIPDatabase("./geoip/GeoLite2-Country.mmdb"); err != nil {
 		fmt.Println("警告: GeoIPデータベースが読み込めませんでした。国別ブロック機能は無効になります。:", err)
@@ -189,6 +417,22 @@ func cleanupMaps() {
 		}
 	}
 	dynamicBlockMutex.Unlock()
+
+	// Clean up ipScoreLastReset entries for IPs that no longer have scores.
+	// This prevents ipScoreLastReset from growing unbounded over time.
+	// Lock order: ipScoresMutex first, then ipScoreResetMutex to prevent deadlock
+	ipScoresMutex.RLock()
+	ipScoreResetMutex.Lock()
+	for ip := range ipScoreLastReset {
+		if _, exists := ipScores[ip]; !exists {
+			delete(ipScoreLastReset, ip)
+		}
+	}
+	ipScoreResetMutex.Unlock()
+	ipScoresMutex.RUnlock()
+
+	cleanupFirstAccessIPs()
+	saveFirstAccessIPs()
 }
 
 func loadTrustedIPs(filepath string) error {
@@ -308,7 +552,26 @@ func incrementScore(ip string, amount int) {
 	ipScoresMutex.Lock()
 	ipScores[ip] += amount
 	ipScoresMutex.Unlock()
+
+	// Update the reset timer on any score increase to prevent gaming the system.
+	// This ensures that continued suspicious activity extends the reset period,
+	// even if the score stays within the same threshold bracket.
+	ipScoreResetMutex.Lock()
+	ipScoreLastReset[ip] = time.Now()
+	ipScoreResetMutex.Unlock()
+
 	saveScores()
+}
+
+func getScoreThreshold(score int) int {
+	if score >= ScoreThresholdBlock {
+		return ScoreThresholdBlock
+	} else if score >= ScoreThresholdHigh {
+		return ScoreThresholdHigh
+	} else if score >= ScoreThresholdMedium {
+		return ScoreThresholdMedium
+	}
+	return ScoreThresholdLow
 }
 
 func getLevel(ip string) string {
@@ -607,6 +870,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
 		isRelaxedMode := secConfig.SecurityLevel == "relaxed"
+		isBalancedSecure := secConfig.SecurityLevel == "balanced-secure"
 
 		if isPrivateIP || isTrusted {
 			if !isAllowedMethod(r.Method) {
@@ -633,22 +897,101 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Check for automatic score reset based on graduated thresholds
+		ipScoresMutex.RLock()
+		currentScore := ipScores[ip]
+		ipScoresMutex.RUnlock()
+
+		if currentScore > 0 && shouldResetScore(ip, currentScore) {
+			resetIPScore(ip)
+			currentScore = 0
+		}
+
+		// Check if this is a first-time visitor
+		// Use a single mutex lock to avoid race condition between checking and recording
+		isFirstAccess, _ := isFirstAccessIP(ip)
+		if !isFirstAccess && currentScore == 0 {
+			// New IP that hasn't been seen before - check and record atomically
+			ipScoresMutex.RLock()
+			_, hasScore := ipScores[ip]
+			ipScoresMutex.RUnlock()
+
+			// Double-check under first access mutex to prevent race condition
+			if !hasScore {
+				firstAccessIPsMutex.Lock()
+				// Verify this IP hasn't been recorded by another goroutine
+				if _, alreadyRecorded := firstAccessIPs[ip]; !alreadyRecorded {
+					gracePeriod := getGracePeriodMinutes()
+					firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
+					isFirstAccess = true
+				}
+				firstAccessIPsMutex.Unlock()
+			}
+		}
+
+		// Immediate blocking checks for balanced-secure mode (unless in grace period)
+		if isBalancedSecure && !isFirstAccess {
+			// Block non-Cloudflare traffic if configured (after grace period)
+			// This can be disabled in config to allow direct access from internal networks or during outages
+			if secConfig.BalancedSecure != nil && secConfig.BalancedSecure.RequireCloudflare {
+				if !isFromCloudflare(r) {
+					logRequest(r, ip, "block")
+					http.Error(w, "Access Denied", http.StatusForbidden)
+					return
+				}
+			}
+		}
+
+		// Country blocking (all non-relaxed modes)
 		if !isRelaxedMode && isBlockedCountry(ip) {
 			logRequest(r, ip, "block")
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
 		}
 
+		// Method validation (immediate block for balanced-secure, score for strict)
 		if !isAllowedMethod(r.Method) {
-			incrementScore(ip, 10)
-			logRequest(r, ip, "attack")
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
+			incrementScore(ip, 10) // Track bad actors in all modes
+			if isBalancedSecure {
+				logRequest(r, ip, "block")
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			} else {
+				logRequest(r, ip, "attack")
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
 		}
 
+		// Direct IP blocking (immediate for balanced-secure)
+		if !isRelaxedMode && isBlockedDirectIP(ip) {
+			if isBalancedSecure {
+				logRequest(r, ip, "block")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			} else {
+				incrementScore(ip, 5)
+				logRequest(r, ip, "warn")
+				http.Redirect(w, r, "/error/403", http.StatusFound)
+				return
+			}
+		}
+
+		// Rate limit check
 		if !checkRateLimit(ip, r.URL.Path) {
 			if isRelaxedMode {
 				logRequest(r, ip, "warn")
+			} else if isBalancedSecure {
+				if isFirstAccess {
+					incrementScore(ip, 5) // Record but don't block
+					logRequest(r, ip, "warn")
+				} else {
+					incrementScore(ip, 5)
+					logRequest(r, ip, "block")
+					addDynamicBlock(ip)
+					http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+					return
+				}
 			} else {
 				incrementScore(ip, 5)
 				logRequest(r, ip, "block")
@@ -664,15 +1007,18 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Advanced threat detection
 		threatLevel := detectAdvancedThreats(r)
 		if threatLevel != "clean" && !isRelaxedMode {
 			switch threatLevel {
 			case "oversized":
+				// Always block oversized requests immediately as they represent DoS attempts
 				incrementScore(ip, 8)
 				logRequest(r, ip, "attack")
 				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
 				return
 			case "header_manipulation", "long_header", "long_header_name":
+				// Always block header manipulation immediately as it represents exploitation attempts
 				incrementScore(ip, 7)
 				logRequest(r, ip, "attack")
 				http.Redirect(w, r, "/error/403", http.StatusFound)
@@ -680,20 +1026,19 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		internalLevelBoost := 0
-		if !isFromCloudflare(r) {
-			internalLevelBoost += 2
+		// Calculate boost for non-Cloudflare (only for scoring, not immediate block)
+		nonCloudflareBoost := 0
+		if !isFromCloudflare(r) && !isBalancedSecure {
+			nonCloudflareBoost += 2
 		}
 
-		if !isRelaxedMode && isBlockedDirectIP(ip) {
-			incrementScore(ip, 5+internalLevelBoost)
-			logRequest(r, ip, "warn")
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
-		}
-
+		// Suspicious path detection
 		if isSuspiciousPath(r.URL.Path) {
-			incrementScore(ip, 8+internalLevelBoost)
+			// Always block high-severity attack patterns (SQL injection, XSS, path traversal)
+			// even during grace period, as these represent clear exploitation attempts.
+			incrementScore(ip, 8+nonCloudflareBoost)
+
+			// During grace period, log as attack instead of allowing it to proceed
 			logRequest(r, ip, "attack")
 
 			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
@@ -705,14 +1050,18 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// User-Agent detection
 		uaStatus := detectSuspiciousUA(ua)
 		switch uaStatus {
 		case "deny":
 			if isRelaxedMode {
-				incrementScore(ip, 1+internalLevelBoost)
+				incrementScore(ip, 1+nonCloudflareBoost)
+				logRequest(r, ip, "warn")
+			} else if isBalancedSecure && isFirstAccess {
+				incrementScore(ip, 8+nonCloudflareBoost)
 				logRequest(r, ip, "warn")
 			} else {
-				incrementScore(ip, 8+internalLevelBoost)
+				incrementScore(ip, 8+nonCloudflareBoost)
 				logRequest(r, ip, "attack")
 				addDynamicBlock(ip)
 				http.Redirect(w, r, "/error/403", http.StatusFound)
@@ -721,19 +1070,41 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		case "warn":
 			if isRelaxedMode {
 				logRequest(r, ip, "info")
+			} else if isBalancedSecure && isFirstAccess {
+				incrementScore(ip, 4+nonCloudflareBoost)
+				logRequest(r, ip, "info") // Cap at info for first access
 			} else {
-				incrementScore(ip, 4+internalLevelBoost)
+				incrementScore(ip, 4+nonCloudflareBoost)
 				logRequest(r, ip, "warn")
 			}
 		default:
-			logRequest(r, ip, getLevel(ip))
+logRequest(r, ip, "info")
 		}
 
-		currentLevel := getLevel(ip)
-		if currentLevel == "block" {
-			if isRelaxedMode {
+		// Final score check with graduated thresholds
+		ipScoresMutex.RLock()
+		finalScore := ipScores[ip]
+		ipScoresMutex.RUnlock()
+
+		if isRelaxedMode {
+			// Relaxed mode: Never block based on score, only log warnings
+			if finalScore >= ScoreThresholdBlock {
 				logRequest(r, ip, "warn")
-			} else {
+			}
+		} else if isBalancedSecure {
+			// Balanced-secure mode: Only block at score 50+
+			if finalScore >= ScoreThresholdBlock {
+				w.Header().Set("X-Blocked-Reason", "High Security Score")
+				w.Header().Set("X-Contact-Support", "https://daruks.com/contact")
+				addDynamicBlock(ip)
+				logRequest(r, ip, "block")
+				http.Redirect(w, r, "/error/503", http.StatusFound)
+				return
+			}
+			// Scores 15-49: Allow with auto-reset mechanism
+		} else {
+			// Strict mode: Block at score 15+ (legacy behavior)
+			if finalScore >= ScoreThresholdMedium {
 				addDynamicBlock(ip)
 				logRequest(r, ip, "block")
 				http.Redirect(w, r, "/error/503", http.StatusFound)
