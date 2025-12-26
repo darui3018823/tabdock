@@ -193,6 +193,9 @@ func main() {
 		log.Fatal("サブスクリプションDB初期化失敗:", err)
 	}
 
+	// バージョンアップフラグを設定
+	setUpdateFlag("./update_flag.txt")
+
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
 	mux.Handle("/home/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/home/", http.FileServer(http.Dir("./home")))).ServeHTTP))
@@ -253,6 +256,16 @@ func main() {
 	})
 
 	serve(mux)
+}
+
+func setUpdateFlag(flagPath string) {
+	file, err := os.Create(flagPath)
+	if err != nil {
+		log.Printf("Failed to create update flag: %v", err)
+		return
+	}
+	defer file.Close()
+	log.Println("Update flag set. Next ps1 execution will check for updates.")
 }
 
 func checkForUpdates() {

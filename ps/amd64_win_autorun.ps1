@@ -9,6 +9,31 @@ $env:CGO_ENABLED="1"
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 
+# Check for update flag file
+Write-Host "Checking for update flag..."
+$FlagPath = "./update_flag.txt"
+if (Test-Path $FlagPath) {
+    Write-Host "Update flag detected. Do you want to perform 'git pull'? (y/n)"
+    $UserInput = Read-Host "Enter your choice"
+
+    if ($UserInput -eq "y") {
+        Write-Host "Performing 'git pull'..."
+        try {
+            git pull
+            Write-Host "Git pull completed successfully."
+        } catch {
+            Write-Host "Error during 'git pull': $_"
+            Write-Host "Please resolve conflicts manually."
+        }
+    } else {
+        Write-Host "Skipping 'git pull'."
+    }
+
+    Remove-Item $FlagPath -Force
+} else {
+    Write-Host "No update flag detected. Proceeding with the build."
+}
+
 Write-Host "Building the application..."
 go build -o $DistPath
 
@@ -22,12 +47,34 @@ Write-Host "Build successful! The executable is located at $DistPath"
 # Optional: Sign the executable if you have a code signing certificate
 $SignExec = $True # Set to $True to sign the executable, $False to skip signing
 if ($SignExec) {
+    # Load .env file for sensitive data
+    $EnvPath = "./.env"
+    if (Test-Path $EnvPath) {
+        $EnvContent = Get-Content $EnvPath | ForEach-Object {
+            if ($_ -match "^(?<key>[^=]+)=(?<value>.+)$") {
+                $matches.key, $matches.value
+            }
+        }
+        foreach ($pair in $EnvContent) {
+            $key, $value = $pair
+            Set-Item -Path "Env:$key" -Value $value
+        }
+    } else {
+        Write-Host ".env file not found. Please create one with the required variables."
+        exit 1
+    }
+
+    # Use CERT_PASSWORD from .env
+    $CertPassword = $env:CERT_PASSWORD
+    if (-not $CertPassword) {
+        Write-Host "CERT_PASSWORD not found in environment. Please check your .env file."
+        exit 1
+    }
+
     Write-Host "Signing the executable..."
     $PfxPath = "./cert/tabdock.pfx" # Path to your .pfx certificate file
     $KeyPath = "./cert/tabdock.key" # Path to your private key file
     $CertPath = "./cert/tabdock.crt" # Path to your certificate file
-
-    $CertPassword = "your_password_here" # Replace with your certificate password
 
     try {
         openssl version
