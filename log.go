@@ -1105,13 +1105,10 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		} else {
 			// Strict mode: Block at score 15+ (legacy behavior)
 			if finalScore >= ScoreThresholdMedium {
-				currentLevel := getLevel(ip)
-				if currentLevel == "block" {
-					addDynamicBlock(ip)
-					logRequest(r, ip, "block")
-					http.Redirect(w, r, "/error/503", http.StatusFound)
-					return
-				}
+				addDynamicBlock(ip)
+				logRequest(r, ip, "block")
+				http.Redirect(w, r, "/error/503", http.StatusFound)
+				return
 			}
 		}
 
