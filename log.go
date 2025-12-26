@@ -294,21 +294,21 @@ func getResetDuration(score int) time.Duration {
 	thresholds := secConfig.BalancedSecure.ResetThresholds
 
 	if score >= ScoreThresholdBlock {
-		if val, ok := thresholds["50"]; ok {
+		if val, ok := thresholds[strconv.Itoa(ScoreThresholdBlock)]; ok {
 			if strVal, ok := val.(string); ok && strVal == "block_with_contact" {
 				return 0 // block
 			}
 		}
 		return 0
 	} else if score >= ScoreThresholdHigh {
-		if val, ok := thresholds["25"]; ok {
+		if val, ok := thresholds[strconv.Itoa(ScoreThresholdHigh)]; ok {
 			if minutes, ok := val.(float64); ok {
 				return time.Duration(minutes) * time.Minute
 			}
 		}
 		return 12 * time.Hour
 	} else if score >= ScoreThresholdMedium {
-		if val, ok := thresholds["15"]; ok {
+		if val, ok := thresholds[strconv.Itoa(ScoreThresholdMedium)]; ok {
 			if minutes, ok := val.(float64); ok {
 				return time.Duration(minutes) * time.Minute
 			}
@@ -316,7 +316,7 @@ func getResetDuration(score int) time.Duration {
 		return 6 * time.Hour
 	}
 
-	if val, ok := thresholds["0"]; ok {
+	if val, ok := thresholds[strconv.Itoa(ScoreThresholdLow)]; ok {
 		if minutes, ok := val.(float64); ok {
 			return time.Duration(minutes) * time.Minute
 		}
