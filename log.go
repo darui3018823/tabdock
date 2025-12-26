@@ -1078,7 +1078,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 				logRequest(r, ip, "warn")
 			}
 		default:
-			logRequest(r, ip, getLevel(ip))
+logRequest(r, ip, "info")
 		}
 
 		// Final score check with graduated thresholds
