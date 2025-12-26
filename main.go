@@ -30,7 +30,7 @@ import (
 )
 
 // const
-const version = "5.16.2-patch1"
+const version = "5.16.2-patch2"
 const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var

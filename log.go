@@ -1086,11 +1086,14 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		finalScore := ipScores[ip]
 		ipScoresMutex.RUnlock()
 
-		if finalScore >= ScoreThresholdBlock {
-			// Score 50+: Block with contact header
-			if isRelaxedMode {
+		if isRelaxedMode {
+			// Relaxed mode: Never block based on score, only log warnings
+			if finalScore >= ScoreThresholdBlock {
 				logRequest(r, ip, "warn")
-			} else {
+			}
+		} else if isBalancedSecure {
+			// Balanced-secure mode: Only block at score 50+
+			if finalScore >= ScoreThresholdBlock {
 				w.Header().Set("X-Blocked-Reason", "High Security Score")
 				w.Header().Set("X-Contact-Support", "https://daruks.com/contact")
 				addDynamicBlock(ip)
@@ -1098,13 +1101,12 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 				http.Redirect(w, r, "/error/503", http.StatusFound)
 				return
 			}
-		} else if finalScore >= ScoreThresholdMedium {
-			// Score 15-49: Allow but note that auto-reset will apply
-			currentLevel := getLevel(ip)
-			if currentLevel == "block" && !isRelaxedMode {
-				// Legacy block level (score >= 15 in old getLevel)
-				// In balanced-secure, we only block at 50+
-				if !isBalancedSecure {
+			// Scores 15-49: Allow with auto-reset mechanism
+		} else {
+			// Strict mode: Block at score 15+ (legacy behavior)
+			if finalScore >= ScoreThresholdMedium {
+				currentLevel := getLevel(ip)
+				if currentLevel == "block" {
 					addDynamicBlock(ip)
 					logRequest(r, ip, "block")
 					http.Redirect(w, r, "/error/503", http.StatusFound)
