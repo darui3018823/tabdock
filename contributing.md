@@ -32,7 +32,7 @@ We appreciate code contributions! Please follow these steps to contribute:
 1.  **Fork the Repository:** Start by forking the Tabdock repository to your GitHub account.
 2.  **Clone Your Fork:** Clone your forked repository to your local machine.
     ```bash
-    git clone https://github.com/YOUR_USERNAME/tabdock.git
+    git clone https://github.com/darui3018823/tabdock.git
     cd tabdock
     ```
 3.  **Set Up Your Development Environment:**
