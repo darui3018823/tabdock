@@ -156,9 +156,7 @@ class SubscriptionManager {
             return 'skip';
         }
 
-        const toLocalDateStr = (d) => d.toLocaleDateString('sv-SE');
-
-        const referenceStr = toLocalDateStr(reference);
+        const referenceStr = this.toLocalDateString(reference);
         const today = new Date();
 
         const baseToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -170,7 +168,7 @@ class SubscriptionManager {
             if (!sub?.nextPaymentDate) continue;
             const paymentDate = new Date(sub.nextPaymentDate);
             if (Number.isNaN(paymentDate.getTime())) continue;
-            const paymentStr = toLocalDateStr(paymentDate);
+            const paymentStr = this.toLocalDateString(paymentDate);
 
             const amountText = (() => {
                 if (typeof sub.amount === 'number') {
@@ -238,6 +236,10 @@ class SubscriptionManager {
 
         dueSoon.forEach(item => this.notifiedKeys.add(item.key));
         return 'notified';
+    }
+
+    toLocalDateString(d) {
+        return d.toLocaleDateString('sv-SE');
     }
 
     formatBillingCycleLabel(cycle) {
