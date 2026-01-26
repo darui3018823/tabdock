@@ -156,15 +156,10 @@ class SubscriptionManager {
             return 'skip';
         }
 
-        const toLocalDateStr = (d) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+        const toLocalDateStr = (d) => d.toLocaleDateString('sv-SE');
+
         const referenceStr = toLocalDateStr(reference);
         const today = new Date();
-        const todayStr = toLocalDateStr(today);
         const baseToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const dueSoon = [];
 
