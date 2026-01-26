@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.10.1_js-r1
+// This code Version: 5.17.0_js-r1
 
 document.addEventListener("DOMContentLoaded", () => {
     let is24Hour = true;
@@ -9,16 +9,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const clockEl = document.getElementById("clock");
     const dateEl = document.getElementById("date");
     const toggleBtn = document.getElementById("toggleFormat");
-  
+
     const weekdays = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
 
     let currentDate = new Date().toLocaleDateString();
-  
+
     function formatTime(now) {
         let hours = now.getHours();
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
-    
+
         if (is24Hour) {
             return `${String(hours).padStart(2, '0')}:${minutes}:${seconds}`;
         } else {
@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return `${ampm} ${hours}:${minutes}:${seconds}`;
         }
     }
-  
+
     function updateClock() {
         const now = new Date();
         clockEl.textContent = formatTime(now);
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window.dispatchEvent(new CustomEvent('date:changed'));
         }
     }
-  
+
     function updateDate() {
         const now = new Date();
         const y = now.getFullYear();
@@ -49,30 +49,30 @@ document.addEventListener("DOMContentLoaded", () => {
         const day = weekdays[now.getDay()];
         dateEl.textContent = `${y}/${m}/${d} (${day})`;
     }
-  
+
     toggleBtn.addEventListener("click", () => {
         is24Hour = !is24Hour;
         updateClock();
     });
-  
+
     // 初回更新
     updateClock();
     updateDate();
-  
+
     setInterval(updateClock, 1000);
-  
+
     updatePCStatus();
     setInterval(updatePCStatus, 120000);
 
     fetch('/api/version')
-      .then(res => res.json())
-      .then(data => {
-        if (data.version) {
-          const vEl = document.getElementById('version-text');
-          if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
-        }
-    });
-    
+        .then(res => res.json())
+        .then(data => {
+            if (data.version) {
+                const vEl = document.getElementById('version-text');
+                if (vEl) vEl.textContent = 'Tabdock: v' + data.version;
+            }
+        });
+
 });
 
 function updatePCStatus() {
@@ -84,20 +84,52 @@ function updatePCStatus() {
             document.getElementById("Battery").textContent = data.Battery + "%";
             document.getElementById("WAN").textContent = data.WAN;
             document.getElementById("Uptime").textContent = data.Uptime;
-    
+
             // 中央列
             document.getElementById("CPU").textContent = data.CPU;
             document.getElementById("Mem").textContent = data.Mem;
             document.getElementById("GPU0").textContent = data.GPU0 + "%";
             document.getElementById("VRAM").textContent = data.VRAM;
-    
+
             // 右列
             document.getElementById("DriveC").textContent = data.DriveC;
             document.getElementById("MainWindow").textContent = data.MainWindow;
-   
+
             updateLastUpdateTime();
-    })
-    .catch(err => console.error("Status fetch error:", err));
+        })
+        .catch(err => {
+            console.error("Status fetch error:", err);
+
+            // 1. Update PC Status Text to Offline
+            const pcElem = document.getElementById("PC");
+            if (pcElem) {
+                let currentText = pcElem.textContent;
+                let name = "(Unknown)";
+
+                // Extract name if adhering to format " (Name) : Online"
+                const match = currentText.match(/\(([^)]+)\)/);
+                if (match && match[1]) {
+                    name = `(${match[1]})`;
+                } else if (currentText.includes("--")) {
+                    name = "(Offline)";
+                }
+
+                pcElem.textContent = ` ${name} : Offline`;
+                pcElem.className = "text-red-400";
+            }
+
+            // 2. Reset other values to "--"
+            const idsToReset = [
+                "Battery", "WAN", "Uptime",
+                "CPU", "Mem", "GPU0", "VRAM",
+                "DriveC", "MainWindow"
+            ];
+
+            idsToReset.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = "--";
+            });
+        });
 }
 
 function updateLastUpdateTime() {
