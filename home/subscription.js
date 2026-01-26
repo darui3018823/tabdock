@@ -156,13 +156,11 @@ class SubscriptionManager {
             return 'skip';
         }
 
-        // sv-SEトリック（YYYY-MM-DD取得）
         const toLocalDateStr = (d) => d.toLocaleDateString('sv-SE');
 
         const referenceStr = toLocalDateStr(reference);
         const today = new Date();
 
-        // 今日の「深夜0時」を取得（UTCズレ防止）
         const baseToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const dueSoon = [];
 
