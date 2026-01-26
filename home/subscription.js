@@ -156,10 +156,16 @@ class SubscriptionManager {
             return 'skip';
         }
 
-        const referenceStr = reference.toISOString().split('T')[0];
+        const toLocalDateStr = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        const referenceStr = toLocalDateStr(reference);
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        const baseToday = new Date(`${todayStr}T00:00:00`);
+        const todayStr = toLocalDateStr(today);
+        const baseToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const dueSoon = [];
 
         const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -168,7 +174,7 @@ class SubscriptionManager {
             if (!sub?.nextPaymentDate) continue;
             const paymentDate = new Date(sub.nextPaymentDate);
             if (Number.isNaN(paymentDate.getTime())) continue;
-            const paymentStr = paymentDate.toISOString().split('T')[0];
+            const paymentStr = toLocalDateStr(paymentDate);
 
             const amountText = (() => {
                 if (typeof sub.amount === 'number') {
@@ -195,7 +201,8 @@ class SubscriptionManager {
                 pushEntry('選択日', 'selected');
             }
 
-            const diffDays = Math.floor((paymentDate.getTime() - baseToday.getTime()) / (24 * 60 * 60 * 1000));
+            const paymentLocal = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+            const diffDays = Math.round((paymentLocal.getTime() - baseToday.getTime()) / (24 * 60 * 60 * 1000));
             if (diffDays === 0) {
                 pushEntry('本日', 'today');
             } else if (diffDays === 1) {
@@ -350,10 +357,10 @@ class SubscriptionManager {
             window.dispatchEvent(new CustomEvent('subscription:data-changed', { detail }));
 
             if (window.calendarManager?.refreshCalendar) {
-                window.calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => {});
+                window.calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => { });
             }
 
-            await this.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => {});
+            await this.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => { });
         } catch (error) {
             Swal.fire({
                 title: 'エラー',
@@ -424,7 +431,7 @@ class SubscriptionManager {
                             Swal.fire({
                                 title: 'サブスクリプション支払い予定',
                                 html: `<p>${sub.serviceName || '名称未設定'}の支払いが${label}に予定されています。</p>` +
-                                      `<p>金額: ${amount} ${currency}</p>`,
+                                    `<p>金額: ${amount} ${currency}</p>`,
                                 icon,
                                 confirmButtonText: '了解'
                             });
@@ -463,8 +470,8 @@ if (typeof window !== 'undefined') {
 }
 export { subscriptionManager };
 
-subscriptionManager.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => {});
+subscriptionManager.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => { });
 
 setInterval(() => {
-    subscriptionManager.scheduleNotifications({ reschedule: true }).catch(() => {});
+    subscriptionManager.scheduleNotifications({ reschedule: true }).catch(() => { });
 }, 3600000);
