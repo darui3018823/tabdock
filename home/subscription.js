@@ -156,10 +156,13 @@ class SubscriptionManager {
             return 'skip';
         }
 
+        // sv-SEトリック（YYYY-MM-DD取得）
         const toLocalDateStr = (d) => d.toLocaleDateString('sv-SE');
 
         const referenceStr = toLocalDateStr(reference);
         const today = new Date();
+
+        // 今日の「深夜0時」を取得（UTCズレ防止）
         const baseToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const dueSoon = [];
 
@@ -196,7 +199,10 @@ class SubscriptionManager {
                 pushEntry('選択日', 'selected');
             }
 
+            // 支払い日もローカル時間の「深夜0時」に正規化
             const paymentLocal = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+
+            // 日数差分：Math.floorではなくMath.roundを使用して微細な時間のズレを吸収
             const diffDays = Math.round((paymentLocal.getTime() - baseToday.getTime()) / (24 * 60 * 60 * 1000));
             if (diffDays === 0) {
                 pushEntry('本日', 'today');
