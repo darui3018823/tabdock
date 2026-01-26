@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.15.3_subsc-r1
+// This code Version: 5.16.3_subsc-r1
 
 class SubscriptionManager {
     constructor() {
@@ -156,10 +156,10 @@ class SubscriptionManager {
             return 'skip';
         }
 
-        const referenceStr = reference.toISOString().split('T')[0];
+        const referenceStr = this.toLocalDateString(reference);
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        const baseToday = new Date(`${todayStr}T00:00:00`);
+
+        const baseToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const dueSoon = [];
 
         const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -168,7 +168,7 @@ class SubscriptionManager {
             if (!sub?.nextPaymentDate) continue;
             const paymentDate = new Date(sub.nextPaymentDate);
             if (Number.isNaN(paymentDate.getTime())) continue;
-            const paymentStr = paymentDate.toISOString().split('T')[0];
+            const paymentStr = this.toLocalDateString(paymentDate);
 
             const amountText = (() => {
                 if (typeof sub.amount === 'number') {
@@ -195,7 +195,11 @@ class SubscriptionManager {
                 pushEntry('選択日', 'selected');
             }
 
-            const diffDays = Math.floor((paymentDate.getTime() - baseToday.getTime()) / (24 * 60 * 60 * 1000));
+            // 支払い日もローカル時間の「深夜0時」に正規化
+            const paymentLocal = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+
+            // 日数差分：Math.floorではなくMath.roundを使用して微細な時間のズレを吸収
+            const diffDays = Math.round((paymentLocal.getTime() - baseToday.getTime()) / (24 * 60 * 60 * 1000));
             if (diffDays === 0) {
                 pushEntry('本日', 'today');
             } else if (diffDays === 1) {
@@ -232,6 +236,10 @@ class SubscriptionManager {
 
         dueSoon.forEach(item => this.notifiedKeys.add(item.key));
         return 'notified';
+    }
+
+    toLocalDateString(d) {
+        return d.toLocaleDateString('sv-SE');
     }
 
     formatBillingCycleLabel(cycle) {
@@ -350,10 +358,10 @@ class SubscriptionManager {
             window.dispatchEvent(new CustomEvent('subscription:data-changed', { detail }));
 
             if (window.calendarManager?.refreshCalendar) {
-                window.calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => {});
+                window.calendarManager.refreshCalendar({ keepSelection: true, forceReload: true }).catch(() => { });
             }
 
-            await this.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => {});
+            await this.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => { });
         } catch (error) {
             Swal.fire({
                 title: 'エラー',
@@ -424,7 +432,7 @@ class SubscriptionManager {
                             Swal.fire({
                                 title: 'サブスクリプション支払い予定',
                                 html: `<p>${sub.serviceName || '名称未設定'}の支払いが${label}に予定されています。</p>` +
-                                      `<p>金額: ${amount} ${currency}</p>`,
+                                    `<p>金額: ${amount} ${currency}</p>`,
                                 icon,
                                 confirmButtonText: '了解'
                             });
@@ -463,8 +471,8 @@ if (typeof window !== 'undefined') {
 }
 export { subscriptionManager };
 
-subscriptionManager.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => {});
+subscriptionManager.scheduleNotifications({ reschedule: true, immediate: true }).catch(() => { });
 
 setInterval(() => {
-    subscriptionManager.scheduleNotifications({ reschedule: true }).catch(() => {});
+    subscriptionManager.scheduleNotifications({ reschedule: true }).catch(() => { });
 }, 3600000);
