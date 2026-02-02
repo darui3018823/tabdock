@@ -3,28 +3,96 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 5.10.1-acc_r1
 
+// Global Fetch Interceptor for Authentication
+(function () {
+    const originalFetch = window.fetch;
+    window.fetch = function (input, init) {
+        // Get user from localStorage
+        const userStr = localStorage.getItem("tabdock_user");
+        let username = "";
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                username = user.username;
+            } catch (e) {
+                console.error("Failed to parse tabdock_user", e);
+            }
+        }
+
+        if (username) {
+            // Normalize init object
+            init = init || {};
+            init.headers = init.headers || {};
+
+            // Add X-Username header if not present
+            if (init.headers instanceof Headers) {
+                if (!init.headers.has("X-Username")) {
+                    init.headers.append("X-Username", encodeURIComponent(username));
+                }
+            } else if (Array.isArray(init.headers)) {
+                // If headers is array of arrays
+                let hasHeader = false;
+                for (let i = 0; i < init.headers.length; i++) {
+                    if (init.headers[i][0].toLowerCase() === "x-username") {
+                        hasHeader = true;
+                        break;
+                    }
+                }
+                if (!hasHeader) {
+                    init.headers.push(["X-Username", encodeURIComponent(username)]);
+                }
+            } else {
+                // If headers is POJO
+                // Case-insensitive check
+                const keys = Object.keys(init.headers);
+                const hasHeader = keys.some(k => k.toLowerCase() === "x-username");
+                if (!hasHeader) {
+                    init.headers["X-Username"] = encodeURIComponent(username);
+                }
+            }
+        }
+
+        return originalFetch(input, init);
+    };
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
-    window.onPasskeyLoginSuccess = function(user) {
+    window.onPasskeyLoginSuccess = function (user) {
         fetch('/api/auth/user-info', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: user.username })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const userInfo = {
-                    username: user.username,
-                    email: user.email || data.user.email || '',
-                    loginAt: Math.floor(Date.now() / 1000),
-                    loginMethod: "パスキー",
-                    profileImage: data.user.profileImage || null
-                };
-                saveLoginState(userInfo);
-                
-                Swal.fire("成功", "パスキーでログインしました。", "success");
-                setupAccountModal();
-            } else {
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const userInfo = {
+                        username: user.username,
+                        email: user.email || data.user.email || '',
+                        loginAt: Math.floor(Date.now() / 1000),
+                        loginMethod: "パスキー",
+                        profileImage: data.user.profileImage || null
+                    };
+                    saveLoginState(userInfo);
+
+                    Swal.fire("成功", "パスキーでログインしました。", "success");
+                    setupAccountModal();
+                } else {
+                    const userInfo = {
+                        username: user.username,
+                        email: user.email || '',
+                        loginAt: Math.floor(Date.now() / 1000),
+                        loginMethod: "パスキー",
+                        profileImage: null
+                    };
+                    saveLoginState(userInfo);
+
+                    Swal.fire("成功", "パスキーでログインしました。", "success");
+                    setupAccountModal();
+                }
+            })
+            .catch(error => {
+                console.error('ユーザー情報取得エラー:', error);
                 const userInfo = {
                     username: user.username,
                     email: user.email || '',
@@ -33,25 +101,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     profileImage: null
                 };
                 saveLoginState(userInfo);
-                
+
                 Swal.fire("成功", "パスキーでログインしました。", "success");
                 setupAccountModal();
-            }
-        })
-        .catch(error => {
-            console.error('ユーザー情報取得エラー:', error);
-            const userInfo = {
-                username: user.username,
-                email: user.email || '',
-                loginAt: Math.floor(Date.now() / 1000),
-                loginMethod: "パスキー",
-                profileImage: null
-            };
-            saveLoginState(userInfo);
-            
-            Swal.fire("成功", "パスキーでログインしました。", "success");
-            setupAccountModal();
-        });
+            });
     };
 
     if (isLoggedIn()) {
@@ -98,7 +151,7 @@ function notifyAuthState(user) {
 
 function setupAccountModal() {
     const modal = document.getElementById("accountModal");
-    
+
     if (isLoggedIn()) {
         setupLoggedInModal(modal);
     } else {
@@ -108,7 +161,7 @@ function setupAccountModal() {
 
 function setupLoggedInModal(modal) {
     const user = getLoggedInUser();
-    
+
     modal.innerHTML = `
         <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20 mx-auto">
             <h2 class="text-xl font-bold mb-6 text-center">アカウント管理</h2>
@@ -120,10 +173,10 @@ function setupLoggedInModal(modal) {
                         <div class="flex flex-col items-center space-y-4 mb-4">
                             <div class="relative">
                                 <div id="profileIcon" class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold cursor-pointer hover:bg-blue-500 transition-colors">
-                                    ${user.profileImage ? 
-                                        `<img src="${user.profileImage}" alt="Profile" class="w-full h-full rounded-full object-cover">` : 
-                                        user.username.charAt(0).toUpperCase()
-                                    }
+                                    ${user.profileImage ?
+            `<img src="${user.profileImage}" alt="Profile" class="w-full h-full rounded-full object-cover">` :
+            user.username.charAt(0).toUpperCase()
+        }
                                 </div>
                                 <button id="uploadIcon" class="absolute -bottom-2 -right-2 w-8 h-8 bg-green-600 hover:bg-green-500 rounded-full flex items-center justify-center text-white text-sm transition-colors">
                                     <img src="/home/assets/icon/upload_file.png" alt="Upload" class="w-4 h-4 object-contain">
@@ -218,12 +271,12 @@ function setupLoggedInModal(modal) {
     `;
 
     window.dispatchEvent(new CustomEvent('account:modal-ready'));
-    
+
     setupLoggedInEventListeners();
 }
 
 function setupLoginModal(modal) {
-    
+
     modal.innerHTML = `
         <div class="bg-white/30 text-white backdrop-blur-md rounded-xl p-6 w-full max-w-4xl shadow-lg border border-white/20 mx-auto">
             <h2 class="text-xl font-bold mb-6 text-center">アカウント管理</h2>
@@ -317,7 +370,7 @@ function handleProfileImageUpload() {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.onchange = function(event) {
+    input.onchange = function (event) {
         const file = event.target.files[0];
         if (file) {
             showImageResizeModal(file);
@@ -328,23 +381,23 @@ function handleProfileImageUpload() {
 
 function showImageResizeModal(file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         const img = new Image();
-        img.onload = function() {
+        img.onload = function () {
             const originalWidth = img.width;
             const originalHeight = img.height;
             const aspectRatio = originalWidth / originalHeight;
-            
+
             let canvasSize = Math.min(Math.max(Math.max(originalWidth, originalHeight) / 4, 300), 500);
             canvasSize = Math.round(canvasSize);
-            
+
             const maxImageSize = Math.max(originalWidth, originalHeight);
             const minScale = Math.max(0.1, canvasSize / maxImageSize);
             const maxScale = Math.min(5.0, (maxImageSize / canvasSize) * 2);
             const initialScale = Math.max(minScale, Math.min(1.0, canvasSize / maxImageSize));
-            
+
             const positionRange = Math.round(canvasSize * 0.8);
-            
+
             Swal.fire({
                 title: "プロフィール画像を調整",
                 html: `
@@ -409,61 +462,61 @@ function setupImageEditor(img, canvasSize) {
     const scaleSlider = document.getElementById("scaleSlider");
     const xSlider = document.getElementById("xSlider");
     const ySlider = document.getElementById("ySlider");
-    
+
     const scaleValue = document.getElementById("scaleValue");
     const xValue = document.getElementById("xValue");
     const yValue = document.getElementById("yValue");
-    
+
     const centerX = canvasSize / 2;
     const centerY = canvasSize / 2;
     const radius = canvasSize / 2;
-    
+
     function drawImage() {
         const scale = parseFloat(scaleSlider.value);
         const offsetX = parseInt(xSlider.value);
         const offsetY = parseInt(ySlider.value);
-        
+
         if (scaleValue) scaleValue.textContent = Math.round(scale * 100) + '%';
         if (xValue) xValue.textContent = offsetX;
         if (yValue) yValue.textContent = offsetY;
-        
+
         ctx.clearRect(0, 0, canvasSize, canvasSize);
-        
+
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.clip();
-        
+
         const drawWidth = img.width * scale;
         const drawHeight = img.height * scale;
-        
+
         const x = centerX - (drawWidth / 2) + offsetX;
         const y = centerY - (drawHeight / 2) + offsetY;
-        
+
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        
+
         ctx.drawImage(img, x, y, drawWidth, drawHeight);
         ctx.restore();
-        
+
         ctx.strokeStyle = 'rgba(0,0,0,0.1)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius - 1, 0, Math.PI * 2);
         ctx.stroke();
     }
-    
+
     scaleSlider.addEventListener("input", drawImage);
     xSlider.addEventListener("input", drawImage);
     ySlider.addEventListener("input", drawImage);
-    
+
     drawImage();
-    
+
     document.addEventListener("keydown", function handleKeydown(e) {
         if (e.target.tagName === 'INPUT' && e.target.type === 'range') {
             const step = parseFloat(e.target.step) || 1;
             let currentValue = parseFloat(e.target.value);
-            
+
             if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 e.target.value = Math.max(parseFloat(e.target.min), currentValue - step);
@@ -474,7 +527,7 @@ function setupImageEditor(img, canvasSize) {
                 drawImage();
             }
         }
-        
+
         if (e.key === 'Escape') {
             document.removeEventListener("keydown", handleKeydown);
         }
@@ -505,29 +558,29 @@ function uploadProfileImageToServer(blob) {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        Swal.close();
-        if (data.status === 'success') {
-            saveProfileImagePath(data.path);
-        } else {
-            Swal.fire('エラー', 'アップロードに失敗しました', 'error');
-        }
-    })
-    .catch(error => {
-        Swal.close();
-        console.error('Upload error:', error);
-        Swal.fire('エラー', 'アップロード処理中にエラーが発生しました', 'error');
-    });
+        .then(response => response.json())
+        .then(data => {
+            Swal.close();
+            if (data.status === 'success') {
+                saveProfileImagePath(data.path);
+            } else {
+                Swal.fire('エラー', 'アップロードに失敗しました', 'error');
+            }
+        })
+        .catch(error => {
+            Swal.close();
+            console.error('Upload error:', error);
+            Swal.fire('エラー', 'アップロード処理中にエラーが発生しました', 'error');
+        });
 }
 
 function saveProfileImagePath(imagePath) {
     const user = getLoggedInUser();
     user.profileImage = imagePath;
     saveLoginState(user);
-    
+
     setupAccountModal();
-    
+
     Swal.fire("完了", "プロフィール画像を更新しました。", "success");
 }
 
@@ -539,11 +592,11 @@ function setupLoggedInEventListeners() {
     document.getElementById("uploadIcon").addEventListener("click", () => {
         handleProfileImageUpload();
     });
-    
+
     document.getElementById("profileIcon").addEventListener("click", () => {
         handleProfileImageUpload();
     });
-    
+
     document.getElementById("addPasskeyBtn").addEventListener("click", () => {
         const user = getLoggedInUser();
         if (typeof handlePasskeyRegistration === 'function') {
@@ -552,7 +605,7 @@ function setupLoggedInEventListeners() {
             Swal.fire("エラー", "パスキー機能が利用できません。", "error");
         }
     });
-    
+
     document.getElementById("changePasswordBtn").addEventListener("click", () => {
         openPasswordModal();
     });
@@ -561,7 +614,7 @@ function setupLoggedInEventListeners() {
     if (dataExportBtn) {
         dataExportBtn.addEventListener("click", showDataExportDialog);
     }
-    
+
     document.getElementById("logoutBtn").addEventListener("click", () => {
         Swal.fire({
             title: "ログアウトしますか？",
@@ -576,7 +629,7 @@ function setupLoggedInEventListeners() {
             }
         });
     });
-    
+
     document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
 }
 
@@ -839,12 +892,12 @@ function showDataExportDialog() {
 function setupAccountEventListeners() {
     document.getElementById("loginTab").addEventListener("click", () => switchToLogin());
     document.getElementById("registerTab").addEventListener("click", () => switchToRegister());
-    
+
     document.getElementById("normalLoginBtn").addEventListener("click", handleNormalLogin);
     document.getElementById("passkeyLoginBtn").addEventListener("click", handlePasskeyLogin);
-    
+
     document.getElementById("registerBtn").addEventListener("click", handleRegister);
-    
+
     document.getElementById("closeAccountModal").addEventListener("click", closeAccountModal);
 }
 
@@ -853,7 +906,7 @@ function switchToLogin() {
     document.getElementById("loginTab").classList.remove("hover:bg-white/10");
     document.getElementById("registerTab").classList.remove("bg-blue-600", "text-white");
     document.getElementById("registerTab").classList.add("hover:bg-white/10");
-    
+
     document.getElementById("loginForm").classList.remove("hidden");
     document.getElementById("registerForm").classList.add("hidden");
 }
@@ -863,7 +916,7 @@ function switchToRegister() {
     document.getElementById("registerTab").classList.remove("hover:bg-white/10");
     document.getElementById("loginTab").classList.remove("bg-blue-600", "text-white");
     document.getElementById("loginTab").classList.add("hover:bg-white/10");
-    
+
     document.getElementById("registerForm").classList.remove("hidden");
     document.getElementById("loginForm").classList.add("hidden");
 }
@@ -882,43 +935,43 @@ function handleNormalLogin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            fetch("/api/auth/user-info", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: data.user.username })
-            })
-            .then(resp => resp.json())
-            .then(info => {
-                const userInfo = {
-                    username: data.user.username,
-                    email: data.user.email,
-                    loginAt: data.user.loginAt,
-                    loginMethod: "パスワード",
-                    profileImage: info.success ? info.user.profileImage : null
-                };
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                fetch("/api/auth/user-info", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: data.user.username })
+                })
+                    .then(resp => resp.json())
+                    .then(info => {
+                        const userInfo = {
+                            username: data.user.username,
+                            email: data.user.email,
+                            loginAt: data.user.loginAt,
+                            loginMethod: "パスワード",
+                            profileImage: info.success ? info.user.profileImage : null
+                        };
 
-                saveLoginState(userInfo);
+                        saveLoginState(userInfo);
 
-                Swal.fire("ログイン成功", "正常にログインしました。", "success");
-                closeAccountModal();
-                updateUIForLoggedInUser(userInfo);
-                setupAccountModal();
-            })
-            .catch(err => {
-                console.error("ユーザー情報取得エラー:", err);
-                Swal.fire("エラー", "ユーザー情報取得に失敗しました。", "error");
-            });
-        } else {
-            Swal.fire("ログイン失敗", data.message || "ログインに失敗しました。", "error");
-        }
-    })
-    .catch(error => {
-        console.error("ログインエラー:", error);
-        Swal.fire("エラー", "ログイン処理中にエラーが発生しました", "error");
-    });
+                        Swal.fire("ログイン成功", "正常にログインしました。", "success");
+                        closeAccountModal();
+                        updateUIForLoggedInUser(userInfo);
+                        setupAccountModal();
+                    })
+                    .catch(err => {
+                        console.error("ユーザー情報取得エラー:", err);
+                        Swal.fire("エラー", "ユーザー情報取得に失敗しました。", "error");
+                    });
+            } else {
+                Swal.fire("ログイン失敗", data.message || "ログインに失敗しました。", "error");
+            }
+        })
+        .catch(error => {
+            console.error("ログインエラー:", error);
+            Swal.fire("エラー", "ログイン処理中にエラーが発生しました", "error");
+        });
 }
 
 
@@ -928,30 +981,46 @@ function handlePasskeyLogin() {
         Swal.fire("エラー", "ユーザー名を入力してください。", "error");
         return;
     }
-    
+
     if (typeof startLogin === 'function') {
-        window.onPasskeyLoginSuccess = function(user) {
+        window.onPasskeyLoginSuccess = function (user) {
             fetch('/api/auth/user-info', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: user.username || username })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const userInfo = {
-                        username: user.username || username,
-                        email: user.email || data.user.email || "",
-                        loginAt: Math.floor(Date.now() / 1000),
-                        loginMethod: "パスキー",
-                        profileImage: data.user.profileImage || null
-                    };
-                    saveLoginState(userInfo);
-                    
-                    Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
-                    closeAccountModal();
-                    updateUIForLoggedInUser(userInfo);
-                } else {
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const userInfo = {
+                            username: user.username || username,
+                            email: user.email || data.user.email || "",
+                            loginAt: Math.floor(Date.now() / 1000),
+                            loginMethod: "パスキー",
+                            profileImage: data.user.profileImage || null
+                        };
+                        saveLoginState(userInfo);
+
+                        Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
+                        closeAccountModal();
+                        updateUIForLoggedInUser(userInfo);
+                    } else {
+                        const userInfo = {
+                            username: user.username || username,
+                            email: user.email || "",
+                            loginAt: Math.floor(Date.now() / 1000),
+                            loginMethod: "パスキー",
+                            profileImage: null
+                        };
+                        saveLoginState(userInfo);
+
+                        Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
+                        closeAccountModal();
+                        updateUIForLoggedInUser(userInfo);
+                    }
+                })
+                .catch(error => {
+                    console.error('ユーザー情報取得エラー:', error);
                     const userInfo = {
                         username: user.username || username,
                         email: user.email || "",
@@ -960,29 +1029,13 @@ function handlePasskeyLogin() {
                         profileImage: null
                     };
                     saveLoginState(userInfo);
-                    
+
                     Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
                     closeAccountModal();
                     updateUIForLoggedInUser(userInfo);
-                }
-            })
-            .catch(error => {
-                console.error('ユーザー情報取得エラー:', error);
-                const userInfo = {
-                    username: user.username || username,
-                    email: user.email || "",
-                    loginAt: Math.floor(Date.now() / 1000),
-                    loginMethod: "パスキー",
-                    profileImage: null
-                };
-                saveLoginState(userInfo);
-                
-                Swal.fire("ログイン成功", "パスキーでログインしました。", "success");
-                closeAccountModal();
-                updateUIForLoggedInUser(userInfo);
-            });
+                });
         };
-        
+
         startLogin(username);
     } else {
         Swal.fire("エラー", "パスキー機能が利用できません。", "error");
@@ -1016,40 +1069,40 @@ function handleRegister() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const userInfo = {
-                username: data.user.username,
-                email: data.user.email,
-                loginAt: data.user.registerId,
-                loginMethod: "パスワード"
-            };
-            saveLoginState(userInfo);
-            
-            Swal.fire({
-                title: "アカウント作成完了",
-                text: "アカウントが作成されました。パスキーも登録しますか？",
-                icon: "success",
-                showCancelButton: true,
-                confirmButtonText: "パスキーを登録",
-                cancelButtonText: "後で"
-            }).then(result => {
-                if (result.isConfirmed && typeof handlePasskeyRegistration === 'function') {
-                    handlePasskeyRegistration(username);
-                } else {
-                    closeAccountModal();
-                    updateUIForLoggedInUser(userInfo);
-                }
-            });
-        } else {
-            Swal.fire("登録失敗", data.message || "アカウント作成に失敗しました。", "error");
-        }
-    })
-    .catch(error => {
-        console.error("登録エラー:", error);
-        Swal.fire("エラー", "登録処理中にエラーが発生しました。", "error");
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const userInfo = {
+                    username: data.user.username,
+                    email: data.user.email,
+                    loginAt: data.user.registerId,
+                    loginMethod: "パスワード"
+                };
+                saveLoginState(userInfo);
+
+                Swal.fire({
+                    title: "アカウント作成完了",
+                    text: "アカウントが作成されました。パスキーも登録しますか？",
+                    icon: "success",
+                    showCancelButton: true,
+                    confirmButtonText: "パスキーを登録",
+                    cancelButtonText: "後で"
+                }).then(result => {
+                    if (result.isConfirmed && typeof handlePasskeyRegistration === 'function') {
+                        handlePasskeyRegistration(username);
+                    } else {
+                        closeAccountModal();
+                        updateUIForLoggedInUser(userInfo);
+                    }
+                });
+            } else {
+                Swal.fire("登録失敗", data.message || "アカウント作成に失敗しました。", "error");
+            }
+        })
+        .catch(error => {
+            console.error("登録エラー:", error);
+            Swal.fire("エラー", "登録処理中にエラーが発生しました。", "error");
+        });
 }
 
 function updateUIForLoggedInUser(user) {

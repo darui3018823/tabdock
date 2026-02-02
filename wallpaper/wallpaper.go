@@ -1,0 +1,94 @@
+// 2025 TabDock: darui3018823 All rights reserved.
+// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
+// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
+
+package wallpaper
+
+import (
+	"database/sql"
+	"time"
+)
+
+type Wallpaper struct {
+	ID           int64     `json:"id"`
+	UserID       string    `json:"userId"`
+	Filename     string    `json:"filename"`
+	OriginalName string    `json:"originalName,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type WallpaperDB struct {
+	db *sql.DB
+}
+
+func NewWallpaperDB(db *sql.DB) *WallpaperDB {
+	return &WallpaperDB{db: db}
+}
+
+func (w *WallpaperDB) Create(wallpaper *Wallpaper) error {
+	query := `
+		INSERT INTO wallpapers (user_id, filename, original_name)
+		VALUES (?, ?, ?)
+	`
+
+	result, err := w.db.Exec(query, wallpaper.UserID, wallpaper.Filename, wallpaper.OriginalName)
+	if err != nil {
+		return err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	wallpaper.ID = id
+	return nil
+}
+
+func (w *WallpaperDB) GetByUserID(userID string) ([]Wallpaper, error) {
+	query := `
+		SELECT id, user_id, filename, original_name, created_at
+		FROM wallpapers
+		WHERE user_id = ? OR user_id = 'default'
+		ORDER BY created_at DESC
+	`
+
+	rows, err := w.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var wallpapers []Wallpaper
+	for rows.Next() {
+		var wp Wallpaper
+		var originalName sql.NullString
+		err := rows.Scan(&wp.ID, &wp.UserID, &wp.Filename, &originalName, &wp.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		wp.OriginalName = originalName.String
+		wallpapers = append(wallpapers, wp)
+	}
+	return wallpapers, nil
+}
+
+func (w *WallpaperDB) Delete(id int64, userID string) error {
+	query := `
+		DELETE FROM wallpapers
+		WHERE id = ? AND user_id = ? AND user_id != 'default'
+	`
+
+	result, err := w.db.Exec(query, id, userID)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
