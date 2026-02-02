@@ -129,6 +129,13 @@ func serve(mux http.Handler) {
 	update3 := "For performance improvements, we reduced the dependency on PowerShell Core and now use Windows PowerShell."
 	update4 := "Since Core is still required outside Windows, we would appreciate your code contributions."
 	update5 := "PWA is now supported (v5.8 and later). It may not be available on iOS."
+	update6 := "Schedule and wallpaper management have been migrated to SQLite databases for better performance."
+	update7 := "Subscription toggle functionality added to enable/disable subscriptions easily."
+	update8 := "Balanced-secure mode implemented with graduated scoring and auto-reset capabilities."
+	update9 := "Interactive calendar with schedule and holiday display has been added."
+	update10 := "Windows automated build script (amd64_win_autorun.ps1) with update handling and code signing."
+	update11 := "PC status logic now properly handles offline states."
+	update12 := "Subscription notification date formatting and timezone issues have been resolved."
 
 	port := strings.TrimSpace(os.Getenv("DOCKER_PORT"))
 	if port == "" {
@@ -154,6 +161,13 @@ func serve(mux http.Handler) {
 	log.Println(update3)
 	log.Println(update4)
 	log.Println(update5)
+	log.Println(update6)
+	log.Println(update7)
+	log.Println(update8)
+	log.Println(update9)
+	log.Println(update10)
+	log.Println(update11)
+	log.Println(update12)
 	log.Println("=================")
 	go checkForUpdates()
 
