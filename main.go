@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -32,7 +33,7 @@ import (
 )
 
 // const
-const version = "5.19.6"
+const version = "5.19.7"
 const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var
@@ -194,6 +195,17 @@ func fileExists(p string) bool {
 }
 
 func main() {
+	migrateSchedule := flag.Bool("migrate-schedule", false, "Migrate legacy schedule.json to DB")
+	flag.Parse()
+
+	// Handle migration flag
+	if *migrateSchedule {
+		if err := migrateLegacySchedules(); err != nil {
+			log.Fatalf("Migration failed: %v", err)
+		}
+		return
+	}
+
 	mux := http.NewServeMux()
 	fallbackHolidays = preloadHolidays()
 
