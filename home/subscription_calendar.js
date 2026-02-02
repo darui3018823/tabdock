@@ -55,7 +55,7 @@ class SubscriptionCalendarManager {
             const response = await fetch('/api/subscriptions/list', {
                 headers: { 'X-Username': encodeURIComponent(username) }
             });
-            
+
             if (!response.ok) throw new Error('サブスクリプション取得エラー');
             const data = await response.json().catch(() => null);
             this.subscriptions = Array.isArray(data) ? data : [];
@@ -97,6 +97,8 @@ class SubscriptionCalendarManager {
         if (!Array.isArray(this.subscriptions) || this.subscriptions.length === 0) return;
         const subscriptionsForDate = this.subscriptions.filter(sub => {
             if (!sub || !sub.nextPaymentDate) return false;
+            // 無効なサブスクリプションは表示しない
+            if (sub.status !== 'active') return false;
             const paymentDate = new Date(sub.nextPaymentDate);
             if (Number.isNaN(paymentDate.getTime())) return false;
             return paymentDate.toISOString().split('T')[0] === dateStr;
@@ -279,10 +281,10 @@ class SubscriptionCalendarManager {
                                 <div class="flex-grow">
                                     <div class="font-semibold text-lg flex items-center">
                                         ${sub.serviceName || ''}
-                                        ${sub.status === 'active' ? 
-                                            '<span class="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">有効</span>' : 
-                                            '<span class="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">無効</span>'
-                                        }
+                                        ${sub.status === 'active' ?
+                '<span class="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">有効</span>' :
+                '<span class="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">無効</span>'
+            }
                                     </div>
                                     <div class="text-sm text-white/70 mt-1">
                                         プラン: ${sub.planName || '未設定'}
@@ -390,34 +392,34 @@ class SubscriptionCalendarManager {
 
     calculateCurrencyTotals(billingCycle) {
         const currencyTotals = {};
-        
+
         this.subscriptions
             .filter(sub => sub.billingCycle === billingCycle && sub.status === 'active')
             .forEach(sub => {
                 const currency = sub.currency || 'JPY';
                 const amount = parseFloat(sub.amount) || 0;
-                
+
                 if (!currencyTotals[currency]) {
                     currencyTotals[currency] = 0;
                 }
                 currencyTotals[currency] += amount;
             });
-        
+
         return currencyTotals;
     }
 
     formatCurrencyTotals(currencyTotals) {
         const currencies = Object.keys(currencyTotals);
-        
+
         if (currencies.length === 0) {
             return '0 JPY';
         }
-        
+
         if (currencies.length === 1) {
             const currency = currencies[0];
             return `${currencyTotals[currency].toLocaleString()} ${currency}`;
         }
-        
+
         return currencies
             .sort()
             .map(currency => `${currencyTotals[currency].toLocaleString()} ${currency}`)
@@ -428,9 +430,9 @@ class SubscriptionCalendarManager {
         let paymentDetails = {};
         try {
             paymentDetails = sub.paymentDetails ? (
-                typeof sub.paymentDetails === 'string' ? 
-                JSON.parse(sub.paymentDetails) : 
-                sub.paymentDetails
+                typeof sub.paymentDetails === 'string' ?
+                    JSON.parse(sub.paymentDetails) :
+                    sub.paymentDetails
             ) : {};
         } catch (error) {
             console.warn('支払い詳細の解析に失敗しました:', error);
@@ -484,8 +486,13 @@ class SubscriptionCalendarManager {
 
                     <div class="bg-black/20 rounded-lg p-4">
                         <h3 class="text-lg font-semibold mb-3">ステータス</h3>
-                        <div class="text-lg ${sub.status === 'active' ? 'text-green-400' : 'text-red-400'}">
-                            ${this.formatStatus(sub.status)}
+                        <div class="flex items-center justify-between">
+                            <div class="text-lg ${sub.status === 'active' ? 'text-green-400' : 'text-red-400'}">
+                                ${this.formatStatus(sub.status)}
+                            </div>
+                            <button id="toggleStatus" class="px-4 py-2 ${sub.status === 'active' ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'} rounded transition-colors text-sm">
+                                ${sub.status === 'active' ? '無効にする' : '有効にする'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -508,7 +515,7 @@ class SubscriptionCalendarManager {
 
         const detailModal = document.createElement('div');
         detailModal.id = 'subscriptionDetailModal';
-    detailModal.className = 'td-modal-overlay z-[80]';
+        detailModal.className = 'td-modal-overlay z-[80]';
         detailModal.innerHTML = modalHtml;
 
         document.body.appendChild(detailModal);
@@ -521,6 +528,13 @@ class SubscriptionCalendarManager {
             document.body.removeChild(detailModal);
             this.handleEdit(sub);
         });
+
+        const toggleBtn = document.getElementById('toggleStatus');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', async () => {
+                await this.handleToggleStatus(sub, detailModal);
+            });
+        }
 
         const deleteBtn = document.getElementById('deleteSubscription');
         if (deleteBtn) {
@@ -577,7 +591,7 @@ class SubscriptionCalendarManager {
                 </div>
             `;
         }
-        
+
         return methodInfo.text;
     }
 
@@ -635,6 +649,55 @@ class SubscriptionCalendarManager {
             } catch (error) {
                 Swal.fire('エラー', error.message, 'error');
             }
+        }
+    }
+
+    async handleToggleStatus(sub, detailModalEl) {
+        const newStatus = sub.status === 'active' ? 'inactive' : 'active';
+        const actionText = newStatus === 'active' ? '有効化' : '無効化';
+
+        const result = await Swal.fire({
+            title: `サブスクリプションの${actionText}`,
+            html: `「<b>${sub.serviceName}</b>」を${actionText}しますか？<br><small>${newStatus === 'inactive' ? 'カレンダーの支払い予定には表示されなくなります。' : 'カレンダーの支払い予定に表示されます。'}</small>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: actionText,
+            confirmButtonColor: newStatus === 'active' ? '#28a745' : '#ffc107',
+            cancelButtonText: 'キャンセル'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const response = await fetch(`/api/subscriptions/status?id=${sub.id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Username': encodeURIComponent(this.getUsername())
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (!response.ok) throw new Error(`${actionText}処理に失敗しました`);
+
+            await Swal.fire('完了', `サブスクリプションを${actionText}しました`, 'success');
+
+            // データを再読み込みして画面を更新
+            await this.loadSubscriptions();
+            await this.updateSubscriptionList({ reload: false });
+
+            // 詳細モーダルを閉じる
+            if (detailModalEl && document.body.contains(detailModalEl)) {
+                document.body.removeChild(detailModalEl);
+            }
+
+            // カレンダーを更新
+            const selectedDate = window.selectedDate;
+            if (selectedDate && typeof window.renderSchedule === 'function') {
+                window.renderSchedule(selectedDate);
+            }
+        } catch (error) {
+            Swal.fire('エラー', error.message, 'error');
         }
     }
 
@@ -702,10 +765,10 @@ class SubscriptionCalendarManager {
                     <div class="flex-grow">
                         <div class="font-semibold text-lg flex items-center">
                             ${sub.serviceName || ''}
-                            ${sub.status === 'active' ? 
-                                '<span class="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">有効</span>' : 
-                                '<span class="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">無効</span>'
-                            }
+                            ${sub.status === 'active' ?
+                '<span class="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">有効</span>' :
+                '<span class="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full">無効</span>'
+            }
                         </div>
                         <div class="text-sm text-white/70 mt-1">
                             プラン: ${sub.planName || '未設定'}
@@ -765,8 +828,16 @@ class SubscriptionCalendarManager {
 
             if (status !== 'all') {
                 const currentStatus = (sub.status || '').toLowerCase();
-                if (currentStatus !== status) {
-                    return false;
+                if (status === 'inactive') {
+                    // 「無効」は active 以外のすべて
+                    if (currentStatus === 'active') {
+                        return false;
+                    }
+                } else {
+                    // 「有効」など特定のステータス
+                    if (currentStatus !== status) {
+                        return false;
+                    }
                 }
             }
 
@@ -893,9 +964,9 @@ class SubscriptionCalendarManager {
             </div>
         `;
 
-    const editModal = document.createElement('div');
+        const editModal = document.createElement('div');
         editModal.id = 'subscriptionEditModal';
-    editModal.className = 'td-modal-overlay z-[80]';
+        editModal.className = 'td-modal-overlay z-[80]';
         editModal.innerHTML = modalHtml;
 
         document.body.appendChild(editModal);
@@ -903,8 +974,8 @@ class SubscriptionCalendarManager {
         let paymentDetails = {};
         try {
             if (sub.paymentDetails) {
-                paymentDetails = typeof sub.paymentDetails === 'string' ? 
-                    JSON.parse(sub.paymentDetails) : 
+                paymentDetails = typeof sub.paymentDetails === 'string' ?
+                    JSON.parse(sub.paymentDetails) :
                     sub.paymentDetails;
             }
             console.log('Processed payment details:', paymentDetails);
@@ -1084,7 +1155,7 @@ class SubscriptionCalendarManager {
 
                 console.log('Form data before processing:', updatedData);
                 const paymentDetails = {};
-                
+
                 switch (updatedData.paymentMethod) {
                     case 'CC':
                         if (updatedData.cardLastFour) {
@@ -1109,12 +1180,12 @@ class SubscriptionCalendarManager {
                         }
                         break;
                 }
-                
+
                 console.log('Payment details before save:', paymentDetails);
-                
+
                 updatedData.paymentDetails = JSON.stringify(paymentDetails);
                 console.log('Final form data:', updatedData);
-                
+
                 const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
                     method: 'PUT',
                     headers: {
@@ -1186,10 +1257,10 @@ class SubscriptionCalendarManager {
     setupAutoPaymentDateUpdate() {
         if (typeof window.monitorDateChange === 'function') {
             const originalMonitorDateChange = window.monitorDateChange;
-            
+
             window.monitorDateChange = () => {
                 originalMonitorDateChange();
-                
+
                 this.updateOverduePaymentDates();
             };
         } else {
@@ -1249,7 +1320,7 @@ class SubscriptionCalendarManager {
 
     calculateNextPaymentDate(currentDate, billingCycle) {
         const nextDate = new Date(currentDate);
-        
+
         switch (billingCycle) {
             case 'monthly':
                 nextDate.setMonth(nextDate.getMonth() + 1);
@@ -1257,27 +1328,27 @@ class SubscriptionCalendarManager {
                     nextDate.setDate(0);
                 }
                 break;
-                
+
             case 'yearly':
                 nextDate.setFullYear(nextDate.getFullYear() + 1);
                 if (nextDate.getDate() !== currentDate.getDate()) {
                     nextDate.setDate(0);
                 }
                 break;
-                
+
             default:
                 console.warn(`未対応の課金サイクル: ${billingCycle}`);
                 return null;
         }
-        
+
         return nextDate;
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     window.subscriptionCalendarManager = new SubscriptionCalendarManager();
-    
-    window.loadSubscriptions = async function() {
+
+    window.loadSubscriptions = async function () {
         if (window.subscriptionCalendarManager) {
             await window.subscriptionCalendarManager.loadSubscriptions();
             console.log('サブスクリプション予定の同期が完了しました');
