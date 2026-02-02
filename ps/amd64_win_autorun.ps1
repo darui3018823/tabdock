@@ -21,7 +21,17 @@ if (Test-Path $FlagPath) {
         try {
             git pull
             Write-Host "Git pull completed successfully."
-            Remove-Item $FlagPath -Force
+            
+            # Remove flag file with error handling
+            if (Test-Path $FlagPath) {
+                try {
+                    Remove-Item $FlagPath -Force -ErrorAction Stop
+                    Write-Host "Update flag removed successfully."
+                } catch {
+                    Write-Host "Warning: Failed to remove update flag: $_"
+                }
+            }
+            
             Write-Host ""
             Write-Host "====================================================="
             Write-Host "Code has been updated. Please run this script again."
@@ -30,12 +40,30 @@ if (Test-Path $FlagPath) {
         } catch {
             Write-Host "Error during 'git pull': $_"
             Write-Host "Please resolve conflicts manually."
-            Remove-Item $FlagPath -Force
+            
+            # Try to remove flag file even on error
+            if (Test-Path $FlagPath) {
+                try {
+                    Remove-Item $FlagPath -Force -ErrorAction Stop
+                    Write-Host "Update flag removed."
+                } catch {
+                    Write-Host "Warning: Failed to remove update flag: $_"
+                }
+            }
             exit 1
         }
     } else {
         Write-Host "Skipping 'git pull'."
-        Remove-Item $FlagPath -Force
+        
+        # Remove flag file
+        if (Test-Path $FlagPath) {
+            try {
+                Remove-Item $FlagPath -Force -ErrorAction Stop
+                Write-Host "Update flag removed."
+            } catch {
+                Write-Host "Warning: Failed to remove update flag: $_"
+            }
+        }
     }
 } else {
     Write-Host "No update flag detected. Proceeding with the build."
