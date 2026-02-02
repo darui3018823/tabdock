@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"tabdock/getstatus"
+	"tabdock/schedule"
 	"tabdock/subscription"
 	"time"
 
@@ -37,13 +38,11 @@ const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/
 var fallbackHolidays map[string]string
 
 var (
-	schedulePath  = "./json/schedule.json"
 	calendarDir   = "./home/assets/calendar"
 	forbiddenExts = map[string]bool{
 		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
 		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
 	}
-	mutex sync.Mutex
 )
 
 var (
@@ -94,6 +93,7 @@ type WeatherResponse struct {
 }
 
 type Schedule struct {
+	ID          int    `json:"id,omitempty"`
 	Title       string `json:"title"`
 	Date        string `json:"date"`
 	Time        string `json:"time,omitempty"`
@@ -102,6 +102,7 @@ type Schedule struct {
 	Description string `json:"description,omitempty"`
 	Attachment  string `json:"attachment,omitempty"`
 	EmbedMap    string `json:"embedmap,omitempty"`
+	CreatedAt   string `json:"createdAt,omitempty"`
 }
 
 type ShiftEntry struct {
@@ -189,6 +190,10 @@ func main() {
 		log.Fatal("シフトDB初期化失敗:", err)
 	}
 
+	if err := initScheduleDB(); err != nil {
+		log.Fatal("スケジュールDB初期化失敗:", err)
+	}
+
 	if err := initSubscriptionDB(); err != nil {
 		log.Fatal("サブスクリプションDB初期化失敗:", err)
 	}
@@ -217,8 +222,33 @@ func main() {
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
-	mux.HandleFunc("/api/schedule", secureHandler(handleSchedule))
-	mux.HandleFunc("/api/shift", secureHandler(handleShift))
+
+	// Schedule APIs
+	scheduleDB, err := sql.Open("sqlite", "./database/schedule.db")
+	if err != nil {
+		log.Fatal("スケジュールDB接続失敗:", err)
+	}
+	schedHandler := schedule.NewHandler(scheduleDB, getUserIDFromSession)
+	mux.HandleFunc("/api/schedule", secureHandler(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			schedHandler.GetUserSchedules(w, r)
+		case http.MethodPost:
+			schedHandler.Create(w, r)
+		case http.MethodDelete:
+			schedHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+
+	mux.HandleFunc("/api/shift", secureHandler(func(w http.ResponseWriter, r *http.Request) {
+		handleShift(w, r, schedHandler.GetDB())
+	}))
 	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
 	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
 	mux.HandleFunc("/api/upload-profile-image", secureHandler(handleProfileImageUpload))
@@ -322,6 +352,36 @@ func initSubscriptionDB() error {
 	`)
 	if err != nil {
 		return fmt.Errorf("サブスクリプションテーブル作成エラー: %v", err)
+	}
+
+	return nil
+}
+
+func initScheduleDB() error {
+	db, err := sql.Open("sqlite", "./database/schedule.db")
+	if err != nil {
+		return fmt.Errorf("スケジュールデータベース接続エラー: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS schedules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id TEXT NOT NULL,
+			title TEXT NOT NULL,
+			date TEXT NOT NULL,
+			time TEXT,
+			end_time TEXT,
+			location TEXT,
+			description TEXT,
+			attachment TEXT,
+			embed_map TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("スケジュールテーブル作成エラー: %v", err)
 	}
 
 	return nil
@@ -1133,112 +1193,10 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(fallbackHolidays)
 }
 
-func handleSchedule(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodHead {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	switch r.Method {
-	case http.MethodGet:
-		handleScheduleGet(w, r)
-	case http.MethodPost:
-		handleSchedulePost(w, r)
-	default:
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func handleSchedulePost(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	err := r.ParseMultipartForm(10 << 20) // 10MB
-	if err != nil {
-		http.Error(w, "Form parse error", http.StatusBadRequest)
-		return
-	}
-
-	// JSONパート
-	jsonStr := r.FormValue("json")
-	var sched Schedule
-	if err := json.Unmarshal([]byte(jsonStr), &sched); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// 添付ファイル（任意）
-	file, handler, err := r.FormFile("attachment")
-	if err != nil && err != http.ErrMissingFile {
-		http.Error(w, "File error", http.StatusBadRequest)
-		return
-	}
-
-	if handler != nil {
-		defer file.Close()
-		ext := strings.ToLower(filepath.Ext(handler.Filename))
-		if forbiddenExts[ext] {
-			log.Println("アップロード拒否: 禁止拡張子", ext, "ファイル名:", handler.Filename, "リモートアドレス:", r.RemoteAddr)
-			http.Error(w, "Forbidden file type", http.StatusBadRequest)
-			return
-		}
-
-		uuidName := uuid.New().String() + ext
-		outPath := filepath.Join(calendarDir, uuidName)
-
-		out, err := os.Create(outPath)
-		if err != nil {
-			http.Error(w, "Save failed", http.StatusInternalServerError)
-			return
-		}
-		defer out.Close()
-		io.Copy(out, file)
-
-		sched.Attachment = uuidName
-	}
-
-	// 書き込み（排他）
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var existing []Schedule
-	if data, err := os.ReadFile(schedulePath); err == nil {
-		json.Unmarshal(data, &existing)
-	}
-
-	existing = append(existing, sched)
-
-	f, err := os.Create(schedulePath)
-	if err != nil {
-		http.Error(w, "Write failed", http.StatusInternalServerError)
-		return
-	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	enc.Encode(existing)
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("OK"))
-}
-
-func handleScheduleGet(w http.ResponseWriter, _ *http.Request) {
-	data, err := os.ReadFile("./json/schedule.json")
-	if err != nil {
-		http.Error(w, "読み込み失敗", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
-}
-
-func handleShift(w http.ResponseWriter, r *http.Request) {
+func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.ScheduleDB) {
 	switch r.Method {
 	case http.MethodPost:
-		handleShiftPost(w, r)
+		handleShiftPost(w, r, schedDB)
 	case http.MethodGet:
 		handleShiftGet(w, r)
 	case http.MethodDelete:
@@ -1268,7 +1226,7 @@ func handleShift(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleShiftPost(w http.ResponseWriter, r *http.Request) {
+func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.ScheduleDB) {
 	username := getHeaderUsername(r)
 	if username == "" {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
@@ -1316,23 +1274,16 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var existing []Schedule
-	if data, err := os.ReadFile(schedulePath); err == nil {
-		json.Unmarshal(data, &existing)
+	// スケジュールDBにもシフトを同期（schedule.ScheduleDBを使用）
+	// 既存のシフトスケジュールを削除
+	if err := schedDB.DeleteByTitlePrefix(userID, "[シフト]"); err != nil {
+		log.Printf("シフトスケジュール削除エラー: %v", err)
 	}
 
-	filtered := make([]Schedule, 0)
-	for _, s := range existing {
-		if !strings.HasPrefix(s.Title, fmt.Sprintf("[シフト] %s:", username)) {
-			filtered = append(filtered, s)
-		}
-	}
-
+	// 新しいシフトをスケジュールとして登録
 	for _, s := range shifts {
-		sched := Schedule{
+		sched := schedule.Schedule{
+			UserID:      userID,
 			Title:       fmt.Sprintf("[シフト] %s: %s", username, s.Location),
 			Date:        s.Date,
 			Time:        s.Time,
@@ -1340,22 +1291,9 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request) {
 			Location:    s.Location,
 			Description: s.Description,
 		}
-		filtered = append(filtered, sched)
-	}
-
-	f, err := os.Create(schedulePath)
-	if err != nil {
-		http.Error(w, "スケジュール書き込みに失敗しました", http.StatusInternalServerError)
-		return
-	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(filtered); err != nil {
-		http.Error(w, "スケジュール書き込みに失敗しました", http.StatusInternalServerError)
-		return
+		if err := schedDB.Create(&sched); err != nil {
+			log.Printf("シフトスケジュール登録エラー: %v", err)
+		}
 	}
 
 	w.WriteHeader(http.StatusCreated)
