@@ -27,7 +27,7 @@
             // Add X-Username header if not present
             if (init.headers instanceof Headers) {
                 if (!init.headers.has("X-Username")) {
-                    init.headers.append("X-Username", username);
+                    init.headers.append("X-Username", encodeURIComponent(username));
                 }
             } else if (Array.isArray(init.headers)) {
                 // If headers is array of arrays
@@ -39,7 +39,7 @@
                     }
                 }
                 if (!hasHeader) {
-                    init.headers.push(["X-Username", username]);
+                    init.headers.push(["X-Username", encodeURIComponent(username)]);
                 }
             } else {
                 // If headers is POJO
@@ -47,7 +47,7 @@
                 const keys = Object.keys(init.headers);
                 const hasHeader = keys.some(k => k.toLowerCase() === "x-username");
                 if (!hasHeader) {
-                    init.headers["X-Username"] = username;
+                    init.headers["X-Username"] = encodeURIComponent(username);
                 }
             }
         }
