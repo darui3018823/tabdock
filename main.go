@@ -22,6 +22,7 @@ import (
 	"tabdock/getstatus"
 	"tabdock/schedule"
 	"tabdock/subscription"
+	"tabdock/wallpaper"
 	"time"
 
 	"golang.org/x/mod/semver"
@@ -31,7 +32,7 @@ import (
 )
 
 // const
-const version = "5.18.1"
+const version = "5.19.0"
 const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var
@@ -194,6 +195,10 @@ func main() {
 		log.Fatal("スケジュールDB初期化失敗:", err)
 	}
 
+	if err := initWallpaperDB(); err != nil {
+		log.Fatal("壁紙DB初期化失敗:", err)
+	}
+
 	if err := initSubscriptionDB(); err != nil {
 		log.Fatal("サブスクリプションDB初期化失敗:", err)
 	}
@@ -249,8 +254,16 @@ func main() {
 	mux.HandleFunc("/api/shift", secureHandler(func(w http.ResponseWriter, r *http.Request) {
 		handleShift(w, r, schedHandler.GetDB())
 	}))
-	mux.HandleFunc("/api/upload-wallpaper", secureHandler(handleWallpaperUpload))
-	mux.HandleFunc("/api/list-wallpapers", secureHandler(listWallpapersHandler))
+	// Wallpaper APIs
+	wallpaperDB, err := sql.Open("sqlite", "./database/wallpaper.db")
+	if err != nil {
+		log.Fatal("壁紙DB接続失敗:", err)
+	}
+	wallpaperHandler := wallpaper.NewHandler(wallpaperDB, getUserIDFromSession)
+	mux.HandleFunc("/api/upload-wallpaper", secureHandler(wallpaperHandler.Upload))
+	mux.HandleFunc("/api/list-wallpapers", secureHandler(wallpaperHandler.List))
+	mux.HandleFunc("/api/delete-wallpaper", secureHandler(wallpaperHandler.Delete))
+
 	mux.HandleFunc("/api/upload-profile-image", secureHandler(handleProfileImageUpload))
 
 	// Authentication APIs
@@ -382,6 +395,48 @@ func initScheduleDB() error {
 	`)
 	if err != nil {
 		return fmt.Errorf("スケジュールテーブル作成エラー: %v", err)
+	}
+
+	return nil
+}
+
+func initWallpaperDB() error {
+	db, err := sql.Open("sqlite", "./database/wallpaper.db")
+	if err != nil {
+		return fmt.Errorf("壁紙データベース接続エラー: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS wallpapers (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id TEXT NOT NULL,
+			filename TEXT NOT NULL,
+			original_name TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("壁紙テーブル作成エラー: %v", err)
+	}
+
+	// デフォルト壁紙を追加（存在しない場合のみ）
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM wallpapers WHERE user_id = 'default' AND filename = 'o3840216013887561789.jpg'").Scan(&count)
+	if err != nil {
+		return fmt.Errorf("デフォルト壁紙確認エラー: %v", err)
+	}
+
+	if count == 0 {
+		_, err = db.Exec(`
+			INSERT INTO wallpapers (user_id, filename, original_name)
+			VALUES ('default', 'o3840216013887561789.jpg', 'Default Wallpaper')
+		`)
+		if err != nil {
+			return fmt.Errorf("デフォルト壁紙登録エラー: %v", err)
+		}
+		log.Println("デフォルト壁紙を登録しました")
 	}
 
 	return nil
@@ -934,123 +989,6 @@ func parseSafariVersion(ua string) (int, string, error) {
 	}
 
 	return major, versionStr, nil
-}
-
-func handleWallpaperUpload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if err := r.ParseMultipartForm(50 << 20); err != nil {
-		if err.Error() == "http: request body too large" {
-			http.Error(w, "File size exceeds 50MB limit", http.StatusRequestEntityTooLarge)
-		} else {
-			http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
-		}
-		return
-	}
-
-	file, handler, err := r.FormFile("wallpaper")
-	if err != nil {
-		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	if handler.Size > 50<<20 {
-		http.Error(w, "File size exceeds 50MB limit", http.StatusRequestEntityTooLarge)
-		return
-	}
-
-	ext := strings.ToLower(filepath.Ext(handler.Filename))
-	allowedExts := map[string]bool{
-		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
-	}
-	if !allowedExts[ext] {
-		http.Error(w, "対応していないファイル形式です", http.StatusBadRequest)
-		return
-	}
-
-	sniffBuf := make([]byte, 512)
-	n, err := file.Read(sniffBuf)
-	if err != nil && err != io.EOF {
-		http.Error(w, "ファイルの読み込みに失敗しました", http.StatusBadRequest)
-		return
-	}
-
-	contentType := http.DetectContentType(sniffBuf[:n])
-	allowedMIMEs := map[string]bool{
-		"image/jpeg": true,
-		"image/png":  true,
-		"image/gif":  true,
-		"image/webp": true,
-	}
-	if !allowedMIMEs[contentType] {
-		http.Error(w, "対応していないファイル形式です", http.StatusBadRequest)
-		return
-	}
-
-	filename := uuid.New().String() + ext
-	wallpaperDir := filepath.Clean("home/wallpapers")
-	if err := os.MkdirAll(wallpaperDir, 0755); err != nil {
-		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
-		return
-	}
-
-	destPath := filepath.Join(wallpaperDir, filename)
-	destPath = filepath.Clean(destPath)
-	if !strings.HasPrefix(destPath, wallpaperDir+string(os.PathSeparator)) {
-		http.Error(w, "不正なファイルパスです", http.StatusBadRequest)
-		return
-	}
-
-	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
-		return
-	}
-	defer out.Close()
-
-	reader := io.MultiReader(bytes.NewReader(sniffBuf[:n]), file)
-	if _, err := io.Copy(out, reader); err != nil {
-		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":   "success",
-		"filename": filename,
-	})
-}
-
-func listWallpapersHandler(w http.ResponseWriter, r *http.Request) {
-	wallpaperDir := "./home/wallpapers"
-	files := []string{}
-
-	err := filepath.Walk(wallpaperDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".jpg") || strings.HasSuffix(info.Name(), ".png")) || strings.HasSuffix(info.Name(), ".jpeg") || strings.HasSuffix(info.Name(), ".JPG") || strings.HasSuffix(info.Name(), ".gif") {
-			relPath := strings.TrimPrefix(path, "./home/")
-			relPath = strings.ReplaceAll(relPath, "\\", "/") // 追加！Windows対策
-			files = append(files, relPath)
-		}
-		return nil
-	})
-
-	if err != nil {
-		http.Error(w, "failed to read wallpapers", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
-		"images": files,
-	})
 }
 
 func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
