@@ -919,19 +919,7 @@ async function loadSchedules() {
     try {
         const res = await fetch("/api/schedule");
         const data = await res.json();
-        const username = getLoggedInUsername();
-
-        const filtered = Array.isArray(data) ? data.filter((entry) => {
-            if (!entry || typeof entry.title !== 'string') return true;
-            if (!entry.title.startsWith('[シフト]')) return true;
-
-            const match = entry.title.match(/^\[シフト\]\s([^:]+):/);
-            if (!match) return true;
-            if (!username) return false;
-            return match[1] === username;
-        }) : [];
-
-        schedules.splice(0, schedules.length, ...(Array.isArray(data) ? filtered : []));
+        schedules.splice(0, schedules.length, ...(Array.isArray(data) ? data : []));
     } catch (e) {
         console.warn("予定読み込み失敗:", e);
     }
