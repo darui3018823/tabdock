@@ -32,7 +32,7 @@ import (
 )
 
 // const
-const version = "5.19.3"
+const version = "5.19.4"
 const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
 
 // var
@@ -451,6 +451,78 @@ func initWallpaperDB() error {
 			return fmt.Errorf("デフォルト壁紙登録エラー: %v", err)
 		}
 		log.Println("デフォルト壁紙を登録しました")
+	}
+
+	if err := fixUnlinkedWallpapers(db); err != nil {
+		log.Printf("[WARN] リンク切れ壁紙の修正に失敗: %v", err)
+	}
+
+	return nil
+}
+
+func fixUnlinkedWallpapers(wallpaperDB *sql.DB) error {
+	// 1. 有効なユーザーIDを取得 (acc.db)
+	accDB, err := sql.Open("sqlite", "./database/acc.db")
+	if err != nil {
+		return fmt.Errorf("acc.db open failed: %v", err)
+	}
+	defer accDB.Close()
+
+	rows, err := accDB.Query("SELECT id FROM users")
+	if err != nil {
+		return fmt.Errorf("users query failed: %v", err)
+	}
+	defer rows.Close()
+
+	validUserIDs := make(map[string]bool)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			validUserIDs[id] = true
+		}
+	}
+	validUserIDs["default"] = true
+
+	// 2. 壁紙DBのユーザーIDをチェック
+	wpRows, err := wallpaperDB.Query("SELECT DISTINCT user_id FROM wallpapers")
+	if err != nil {
+		return fmt.Errorf("wallpapers query failed: %v", err)
+	}
+	defer wpRows.Close()
+
+	var orphanUserIDs []string
+	for wpRows.Next() {
+		var userID string
+		if err := wpRows.Scan(&userID); err == nil {
+			if !validUserIDs[userID] {
+				orphanUserIDs = append(orphanUserIDs, userID)
+			}
+		}
+	}
+
+	// 3. リンク切れ壁紙を default に更新
+	if len(orphanUserIDs) > 0 {
+		log.Printf("リンク切れ壁紙を持つユーザーIDを発見: %v -> 'default' (Public) に変更します", orphanUserIDs)
+
+		tx, err := wallpaperDB.Begin()
+		if err != nil {
+			return err
+		}
+
+		stmt, err := tx.Prepare("UPDATE wallpapers SET user_id = 'default' WHERE user_id = ?")
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		defer stmt.Close()
+
+		for _, uid := range orphanUserIDs {
+			if _, err := stmt.Exec(uid); err != nil {
+				log.Printf("[WARN] ユーザーID %s の壁紙更新失敗: %v", uid, err)
+			}
+		}
+
+		return tx.Commit()
 	}
 
 	return nil
