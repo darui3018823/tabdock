@@ -80,7 +80,11 @@ function updatePCStatus() {
         .then(res => res.json())
         .then(data => {
             // 左列
-            document.getElementById("PC").textContent = " (" + data.PC + ") : Online";
+            const pcElem = document.getElementById("PC");
+            if (pcElem) {
+                pcElem.textContent = " (" + data.PC + ") : Online";
+                pcElem.className = "text-green-400"; // Reset to default green when online
+            }
             document.getElementById("Battery").textContent = data.Battery + "%";
             document.getElementById("WAN").textContent = data.WAN;
             document.getElementById("Uptime").textContent = data.Uptime;
