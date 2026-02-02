@@ -169,7 +169,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	// Convert to relative paths for frontend
 	files := make([]string, 0, len(wallpapers))
 	for _, wp := range wallpapers {
-		files = append(files, "wallpapers/"+wp.Filename)
+		files = append(files, "home/wallpapers/"+wp.Filename)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
