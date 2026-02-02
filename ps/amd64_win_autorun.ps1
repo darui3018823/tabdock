@@ -21,15 +21,22 @@ if (Test-Path $FlagPath) {
         try {
             git pull
             Write-Host "Git pull completed successfully."
+            Remove-Item $FlagPath -Force
+            Write-Host ""
+            Write-Host "====================================================="
+            Write-Host "Code has been updated. Please run this script again."
+            Write-Host "====================================================="
+            exit 0
         } catch {
             Write-Host "Error during 'git pull': $_"
             Write-Host "Please resolve conflicts manually."
+            Remove-Item $FlagPath -Force
+            exit 1
         }
     } else {
         Write-Host "Skipping 'git pull'."
+        Remove-Item $FlagPath -Force
     }
-
-    Remove-Item $FlagPath -Force
 } else {
     Write-Host "No update flag detected. Proceeding with the build."
 }
