@@ -2,6 +2,7 @@
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 
+// Package getstatus provides system status collection helpers.
 package getstatus
 
 import (
@@ -10,10 +11,12 @@ import (
 	"strings"
 )
 
+// PCStatus is the aggregated device status snapshot.
 type PCStatus struct {
 	PC, Battery, WAN, Uptime, CPU, Mem, GPU0, GPU1, VRAM, DriveC, MainWindow string
 }
 
+// Supported OS identifiers and standard status labels.
 const (
 	OSWindows = "windows"
 	OSLinux   = "linux"

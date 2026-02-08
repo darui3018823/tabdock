@@ -110,12 +110,14 @@ const (
 	ThreatLongHeaderName     = "long_header_name"
 )
 
+// RateLimit tracks request counts for rate limiting.
 type RateLimit struct {
 	Count     int
 	LastReset time.Time
 	Mutex     sync.Mutex
 }
 
+// DetectionPatterns defines regex patterns and UA lists for security checks.
 type DetectionPatterns struct {
 	SQLInjection   string   `json:"sql_injection"`
 	XSS            string   `json:"xss"`
@@ -125,6 +127,7 @@ type DetectionPatterns struct {
 	SuspiciousPath []string `json:"suspicious_path"`
 }
 
+// SecurityConfig stores security-related configuration.
 type SecurityConfig struct {
 	MaxRequestSizeMB    int64                 `json:"max_request_size_mb"`
 	RateLimitPerMin     int                   `json:"rate_limit_per_min"`
@@ -136,6 +139,7 @@ type SecurityConfig struct {
 	BalancedSecure      *BalancedSecureConfig `json:"balanced_secure,omitempty"`
 }
 
+// BalancedSecureConfig tweaks balanced-secure behavior.
 type BalancedSecureConfig struct {
 	// FirstAccessGracePeriodMin is the grace period duration in minutes for first-time visitors
 	// before stricter security checks or scoring are applied.
@@ -160,13 +164,13 @@ func loadSecurityConfig(filepath string) error {
 		return fmt.Errorf("セキュリティ設定ファイルが開けません: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			fmt.Println("セキュリティ設定ファイルのクローズ失敗:", err)
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Println("セキュリティ設定ファイルのクローズ失敗:", closeErr)
 		}
 	}()
 
-	if err := json.NewDecoder(file).Decode(&secConfig); err != nil {
-		return fmt.Errorf("セキュリティ設定のJSONデコードに失敗: %w", err)
+	if decodeErr := json.NewDecoder(file).Decode(&secConfig); decodeErr != nil {
+		return fmt.Errorf("セキュリティ設定のJSONデコードに失敗: %w", decodeErr)
 	}
 
 	if secConfig.SecurityLevel == "" {
@@ -184,7 +188,7 @@ func loadSecurityConfig(filepath string) error {
 	}
 	pathTraversalPattern, err = regexp.Compile(secConfig.Patterns.PathTraversal)
 	if err != nil {
-		return fmt.Errorf("Path Traversal パターンのコンパイルに失敗: %w", err)
+		return fmt.Errorf("path traversal パターンのコンパイルに失敗: %w", err)
 	}
 
 	maliciousUAPatterns = secConfig.Patterns.MaliciousUA
@@ -302,49 +306,50 @@ func getGracePeriodMinutes() int {
 // In balanced-secure mode, values are read from configuration; other modes use defaults.
 func getResetDuration(score int) time.Duration {
 	if secConfig.SecurityLevel != SecurityLevelBalanced || secConfig.BalancedSecure == nil {
-		// For strict/relaxed modes, use default thresholds
-		if score >= ScoreThresholdBlock {
-			return 0 // block
-		} else if score >= ScoreThresholdHigh {
-			return 12 * time.Hour
-		} else if score >= ScoreThresholdMedium {
-			return 6 * time.Hour
-		}
-		return 24 * time.Hour
+		return getResetDurationDefault(score)
 	}
 
-	// Balanced-secure mode uses configured thresholds
-	thresholds := secConfig.BalancedSecure.ResetThresholds
+	return getResetDurationBalanced(score, secConfig.BalancedSecure.ResetThresholds)
+}
 
-	if score >= ScoreThresholdBlock {
+func getResetDurationDefault(score int) time.Duration {
+	switch {
+	case score >= ScoreThresholdBlock:
+		return 0
+	case score >= ScoreThresholdHigh:
+		return 12 * time.Hour
+	case score >= ScoreThresholdMedium:
+		return 6 * time.Hour
+	default:
+		return 24 * time.Hour
+	}
+}
+
+func getResetDurationBalanced(score int, thresholds map[string]interface{}) time.Duration {
+	switch {
+	case score >= ScoreThresholdBlock:
 		if val, ok := thresholds[strconv.Itoa(ScoreThresholdBlock)]; ok {
 			if strVal, ok := val.(string); ok && strVal == "block_with_contact" {
-				return 0 // block
+				return 0
 			}
 		}
 		return 0
-	} else if score >= ScoreThresholdHigh {
-		if val, ok := thresholds[strconv.Itoa(ScoreThresholdHigh)]; ok {
-			if minutes, ok := val.(float64); ok {
-				return time.Duration(minutes) * time.Minute
-			}
-		}
-		return 12 * time.Hour
-	} else if score >= ScoreThresholdMedium {
-		if val, ok := thresholds[strconv.Itoa(ScoreThresholdMedium)]; ok {
-			if minutes, ok := val.(float64); ok {
-				return time.Duration(minutes) * time.Minute
-			}
-		}
-		return 6 * time.Hour
+	case score >= ScoreThresholdHigh:
+		return thresholdDuration(thresholds, ScoreThresholdHigh, 12*time.Hour)
+	case score >= ScoreThresholdMedium:
+		return thresholdDuration(thresholds, ScoreThresholdMedium, 6*time.Hour)
+	default:
+		return thresholdDuration(thresholds, ScoreThresholdLow, 24*time.Hour)
 	}
+}
 
-	if val, ok := thresholds[strconv.Itoa(ScoreThresholdLow)]; ok {
+func thresholdDuration(thresholds map[string]interface{}, score int, fallback time.Duration) time.Duration {
+	if val, ok := thresholds[strconv.Itoa(score)]; ok {
 		if minutes, ok := val.(float64); ok {
 			return time.Duration(minutes) * time.Minute
 		}
 	}
-	return 24 * time.Hour
+	return fallback
 }
 
 // shouldResetScore determines if an IP's security score should be automatically reset.
@@ -737,7 +742,7 @@ func addSecurityHeaders(w http.ResponseWriter) {
 
 func detectAdvancedThreats(r *http.Request) string {
 	maxSize := secConfig.MaxRequestSizeMB * 1024 * 1024
-	if r.Method == "POST" || r.Method == "PUT" {
+	if r.Method == http.MethodPost || r.Method == http.MethodPut {
 		if r.ContentLength > maxSize {
 			return ThreatOversized
 		}
@@ -773,6 +778,7 @@ func detectAdvancedThreats(r *http.Request) string {
 	return ThreatClean
 }
 
+// LogEntry represents a security log line.
 type LogEntry struct {
 	Timestamp   string `json:"timestamp"`
 	Level       string `json:"level"`
@@ -819,7 +825,7 @@ func logRequest(r *http.Request, ip, level string) {
 		return
 	}
 
-	if err := os.MkdirAll(dir, fs.ModePerm); err != nil {
+	if mkdirErr := os.MkdirAll(dir, fs.ModePerm); mkdirErr != nil {
 		return
 	}
 
@@ -831,7 +837,9 @@ func logRequest(r *http.Request, ip, level string) {
 				fmt.Println("Failed to close log file:", err)
 			}
 		}()
-		f.WriteString(string(logData) + "\n")
+		if _, writeErr := f.WriteString(string(logData) + "\n"); writeErr != nil {
+			fmt.Println("Failed to write log file:", writeErr)
+		}
 	}
 
 	if level == ActionWarn || level == ActionAttack || level == ActionBlock {
@@ -852,12 +860,322 @@ func sanitizeIP(ip string) string {
 	return sb.String()
 }
 
+type securityContext struct {
+	ip                 string
+	ua                 string
+	isPrivateIP        bool
+	isTrusted          bool
+	isRelaxedMode      bool
+	isBalancedSecure   bool
+	isFirstAccess      bool
+	nonCloudflareBoost int
+}
+
+func handlePreflight(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodOptions {
+		return false
+	}
+	w.WriteHeader(http.StatusOK)
+	return true
+}
+
+func handleBypassRoutes(w http.ResponseWriter, r *http.Request, next http.HandlerFunc, ip string) bool {
+	if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+		next(w, r)
+		return true
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
+		next(w, r)
+		return true
+	}
+
+	return false
+}
+
+func handleTrustedRequest(w http.ResponseWriter, r *http.Request, next http.HandlerFunc, ctx securityContext) bool {
+	if !ctx.isPrivateIP && !ctx.isTrusted {
+		return false
+	}
+
+	if !isAllowedMethod(r.Method) {
+		logRequest(r, ctx.ip, ActionWarn)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return true
+	}
+
+	if !checkRateLimit(ctx.ip, r.URL.Path) {
+		logRequest(r, ctx.ip, ActionWarn)
+	}
+
+	if isSuspiciousPath(r.URL.Path) {
+		logRequest(r, ctx.ip, ActionWarn)
+	} else {
+		logRequest(r, ctx.ip, ActionInfo)
+	}
+
+	next(w, r)
+	return true
+}
+
+func prepareScoreState(ip string) int {
+	ipScoresMutex.RLock()
+	currentScore := ipScores[ip]
+	ipScoresMutex.RUnlock()
+
+	if currentScore > 0 && shouldResetScore(ip, currentScore) {
+		resetIPScore(ip)
+		currentScore = 0
+	}
+
+	return currentScore
+}
+
+func resolveFirstAccess(ip string, currentScore int) bool {
+	isFirstAccess, _ := isFirstAccessIP(ip)
+	if !isFirstAccess && currentScore == 0 {
+		ipScoresMutex.RLock()
+		_, hasScore := ipScores[ip]
+		ipScoresMutex.RUnlock()
+
+		if !hasScore {
+			firstAccessIPsMutex.Lock()
+			if _, alreadyRecorded := firstAccessIPs[ip]; !alreadyRecorded {
+				gracePeriod := getGracePeriodMinutes()
+				firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
+				isFirstAccess = true
+			}
+			firstAccessIPsMutex.Unlock()
+		}
+	}
+
+	return isFirstAccess
+}
+
+func handleBalancedCloudflareBlock(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if !ctx.isBalancedSecure || ctx.isFirstAccess {
+		return false
+	}
+	if secConfig.BalancedSecure == nil || !secConfig.BalancedSecure.RequireCloudflare {
+		return false
+	}
+	if isFromCloudflare(r) {
+		return false
+	}
+
+	logRequest(r, ctx.ip, ActionBlock)
+	http.Error(w, "Access Denied", http.StatusForbidden)
+	return true
+}
+
+func handleCountryBlock(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if ctx.isRelaxedMode || !isBlockedCountry(ctx.ip) {
+		return false
+	}
+
+	logRequest(r, ctx.ip, ActionBlock)
+	http.Error(w, "Access Denied", http.StatusForbidden)
+	return true
+}
+
+func handleMethodValidation(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if isAllowedMethod(r.Method) {
+		return false
+	}
+
+	incrementScore(ctx.ip, 10)
+	if ctx.isBalancedSecure {
+		logRequest(r, ctx.ip, ActionBlock)
+	} else {
+		logRequest(r, ctx.ip, ActionAttack)
+	}
+	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	return true
+}
+
+func handleDirectIPBlock(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if ctx.isRelaxedMode || !isBlockedDirectIP(ctx.ip) {
+		return false
+	}
+
+	if ctx.isBalancedSecure {
+		logRequest(r, ctx.ip, ActionBlock)
+		http.Redirect(w, r, "/error/403", http.StatusFound)
+		return true
+	}
+
+	incrementScore(ctx.ip, 5)
+	logRequest(r, ctx.ip, ActionWarn)
+	http.Redirect(w, r, "/error/403", http.StatusFound)
+	return true
+}
+
+func handleRateLimitCheck(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if checkRateLimit(ctx.ip, r.URL.Path) {
+		return false
+	}
+
+	switch {
+	case ctx.isRelaxedMode:
+		logRequest(r, ctx.ip, ActionWarn)
+		return false
+	case ctx.isBalancedSecure:
+		if ctx.isFirstAccess {
+			incrementScore(ctx.ip, 5)
+			logRequest(r, ctx.ip, ActionWarn)
+			return false
+		}
+		incrementScore(ctx.ip, 5)
+		logRequest(r, ctx.ip, ActionBlock)
+		addDynamicBlock(ctx.ip)
+		http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+		return true
+	default:
+		incrementScore(ctx.ip, 5)
+		logRequest(r, ctx.ip, ActionBlock)
+		addDynamicBlock(ctx.ip)
+		http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
+		return true
+	}
+}
+
+func handleDynamicBlock(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if ctx.isRelaxedMode || !isDynamicallyBlocked(ctx.ip) {
+		return false
+	}
+
+	logRequest(r, ctx.ip, ActionBlock)
+	http.Error(w, "Access Denied", http.StatusForbidden)
+	return true
+}
+
+func handleAdvancedThreats(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if ctx.isRelaxedMode {
+		return false
+	}
+
+	threatLevel := detectAdvancedThreats(r)
+	if threatLevel == ThreatClean {
+		return false
+	}
+
+	switch threatLevel {
+	case ThreatOversized:
+		incrementScore(ctx.ip, 8)
+		logRequest(r, ctx.ip, ActionAttack)
+		http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
+		return true
+	case ThreatHeaderManipulation, ThreatLongHeader, ThreatLongHeaderName:
+		incrementScore(ctx.ip, 7)
+		logRequest(r, ctx.ip, ActionAttack)
+		http.Redirect(w, r, "/error/403", http.StatusFound)
+		return true
+	default:
+		return false
+	}
+}
+
+func calculateNonCloudflareBoost(r *http.Request, isBalancedSecure bool) int {
+	if isBalancedSecure || isFromCloudflare(r) {
+		return 0
+	}
+	return 2
+}
+
+func handleSuspiciousPath(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	if !isSuspiciousPath(r.URL.Path) {
+		return false
+	}
+
+	incrementScore(ctx.ip, 8+ctx.nonCloudflareBoost)
+	logRequest(r, ctx.ip, ActionAttack)
+
+	if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
+		strings.Contains(strings.ToLower(r.URL.Path), "script") {
+		addDynamicBlock(ctx.ip)
+	}
+
+	http.Redirect(w, r, "/error/403", http.StatusFound)
+	return true
+}
+
+func handleUserAgent(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	uaStatus := detectSuspiciousUA(ctx.ua)
+	switch uaStatus {
+	case ActionDeny:
+		if ctx.isRelaxedMode {
+			incrementScore(ctx.ip, 1+ctx.nonCloudflareBoost)
+			logRequest(r, ctx.ip, ActionWarn)
+			return false
+		}
+		if ctx.isBalancedSecure && ctx.isFirstAccess {
+			incrementScore(ctx.ip, 8+ctx.nonCloudflareBoost)
+			logRequest(r, ctx.ip, ActionWarn)
+			return false
+		}
+		incrementScore(ctx.ip, 8+ctx.nonCloudflareBoost)
+		logRequest(r, ctx.ip, ActionAttack)
+		addDynamicBlock(ctx.ip)
+		http.Redirect(w, r, "/error/403", http.StatusFound)
+		return true
+	case ActionWarn:
+		if ctx.isRelaxedMode {
+			logRequest(r, ctx.ip, ActionInfo)
+			return false
+		}
+		if ctx.isBalancedSecure && ctx.isFirstAccess {
+			incrementScore(ctx.ip, 4+ctx.nonCloudflareBoost)
+			logRequest(r, ctx.ip, ActionInfo)
+			return false
+		}
+		incrementScore(ctx.ip, 4+ctx.nonCloudflareBoost)
+		logRequest(r, ctx.ip, ActionWarn)
+		return false
+	default:
+		logRequest(r, ctx.ip, ActionInfo)
+		return false
+	}
+}
+
+func handleFinalScore(w http.ResponseWriter, r *http.Request, ctx securityContext) bool {
+	ipScoresMutex.RLock()
+	finalScore := ipScores[ctx.ip]
+	ipScoresMutex.RUnlock()
+
+	if ctx.isRelaxedMode {
+		if finalScore >= ScoreThresholdBlock {
+			logRequest(r, ctx.ip, ActionWarn)
+		}
+		return false
+	}
+
+	if ctx.isBalancedSecure {
+		if finalScore >= ScoreThresholdBlock {
+			w.Header().Set("X-Blocked-Reason", "High Security Score")
+			w.Header().Set("X-Contact-Support", "https://daruks.com/contact")
+			addDynamicBlock(ctx.ip)
+			logRequest(r, ctx.ip, ActionBlock)
+			http.Redirect(w, r, "/error/503", http.StatusFound)
+			return true
+		}
+		return false
+	}
+
+	if finalScore >= ScoreThresholdMedium {
+		addDynamicBlock(ctx.ip)
+		logRequest(r, ctx.ip, ActionBlock)
+		http.Redirect(w, r, "/error/503", http.StatusFound)
+		return true
+	}
+
+	return false
+}
+
 func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		addSecurityHeaders(w)
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
+		if handlePreflight(w, r) {
 			return
 		}
 
@@ -865,259 +1183,57 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		ua := r.UserAgent()
 		loadScores()
 
-		if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
-			next(w, r)
+		if handleBypassRoutes(w, r, next, ip) {
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/api/webauthn/") {
-			next(w, r)
+		ctx := securityContext{
+			ip:               ip,
+			ua:               ua,
+			isPrivateIP:      isPrivateOrLoopback(ip),
+			isTrusted:        isTrustedIP(ip),
+			isRelaxedMode:    secConfig.SecurityLevel == SecurityLevelRelaxed,
+			isBalancedSecure: secConfig.SecurityLevel == SecurityLevelBalanced,
+		}
+
+		if handleTrustedRequest(w, r, next, ctx) {
 			return
 		}
 
-		isPrivateIP := isPrivateOrLoopback(ip)
-		isTrusted := isTrustedIP(ip)
-		isRelaxedMode := secConfig.SecurityLevel == SecurityLevelRelaxed
-		isBalancedSecure := secConfig.SecurityLevel == SecurityLevelBalanced
+		currentScore := prepareScoreState(ip)
+		ctx.isFirstAccess = resolveFirstAccess(ip, currentScore)
 
-		if isPrivateIP || isTrusted {
-			if !isAllowedMethod(r.Method) {
-				logRequest(r, ip, ActionWarn)
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-				return
-			}
-
-			if !checkRateLimit(ip, r.URL.Path) {
-				logRequest(r, ip, ActionWarn)
-			}
-
-			if isSuspiciousPath(r.URL.Path) {
-				logRequest(r, ip, ActionWarn)
-			} else {
-				uaStatus := detectSuspiciousUA(ua)
-				if uaStatus == ActionDeny || uaStatus == ActionWarn {
-					logRequest(r, ip, ActionInfo)
-				} else {
-					logRequest(r, ip, ActionInfo)
-				}
-			}
-			next(w, r)
+		if handleBalancedCloudflareBlock(w, r, ctx) {
+			return
+		}
+		if handleCountryBlock(w, r, ctx) {
+			return
+		}
+		if handleMethodValidation(w, r, ctx) {
+			return
+		}
+		if handleDirectIPBlock(w, r, ctx) {
+			return
+		}
+		if handleRateLimitCheck(w, r, ctx) {
+			return
+		}
+		if handleDynamicBlock(w, r, ctx) {
+			return
+		}
+		if handleAdvancedThreats(w, r, ctx) {
 			return
 		}
 
-		// Check for automatic score reset based on graduated thresholds
-		ipScoresMutex.RLock()
-		currentScore := ipScores[ip]
-		ipScoresMutex.RUnlock()
-
-		if currentScore > 0 && shouldResetScore(ip, currentScore) {
-			resetIPScore(ip)
-			currentScore = 0
-		}
-
-		// Check if this is a first-time visitor
-		// Use a single mutex lock to avoid race condition between checking and recording
-		isFirstAccess, _ := isFirstAccessIP(ip)
-		if !isFirstAccess && currentScore == 0 {
-			// New IP that hasn't been seen before - check and record atomically
-			ipScoresMutex.RLock()
-			_, hasScore := ipScores[ip]
-			ipScoresMutex.RUnlock()
-
-			// Double-check under first access mutex to prevent race condition
-			if !hasScore {
-				firstAccessIPsMutex.Lock()
-				// Verify this IP hasn't been recorded by another goroutine
-				if _, alreadyRecorded := firstAccessIPs[ip]; !alreadyRecorded {
-					gracePeriod := getGracePeriodMinutes()
-					firstAccessIPs[ip] = time.Now().Add(time.Duration(gracePeriod) * time.Minute)
-					isFirstAccess = true
-				}
-				firstAccessIPsMutex.Unlock()
-			}
-		}
-
-		// Immediate blocking checks for balanced-secure mode (unless in grace period)
-		if isBalancedSecure && !isFirstAccess {
-			// Block non-Cloudflare traffic if configured (after grace period)
-			// This can be disabled in config to allow direct access from internal networks or during outages
-			if secConfig.BalancedSecure != nil && secConfig.BalancedSecure.RequireCloudflare {
-				if !isFromCloudflare(r) {
-					logRequest(r, ip, ActionBlock)
-					http.Error(w, "Access Denied", http.StatusForbidden)
-					return
-				}
-			}
-		}
-
-		// Country blocking (all non-relaxed modes)
-		if !isRelaxedMode && isBlockedCountry(ip) {
-			logRequest(r, ip, ActionBlock)
-			http.Error(w, "Access Denied", http.StatusForbidden)
+		ctx.nonCloudflareBoost = calculateNonCloudflareBoost(r, ctx.isBalancedSecure)
+		if handleSuspiciousPath(w, r, ctx) {
 			return
 		}
-
-		// Method validation (immediate block for balanced-secure, score for strict)
-		if !isAllowedMethod(r.Method) {
-			incrementScore(ip, 10) // Track bad actors in all modes
-			if isBalancedSecure {
-				logRequest(r, ip, ActionBlock)
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-				return
-			} else {
-				logRequest(r, ip, ActionAttack)
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-				return
-			}
-		}
-
-		// Direct IP blocking (immediate for balanced-secure)
-		if !isRelaxedMode && isBlockedDirectIP(ip) {
-			if isBalancedSecure {
-				logRequest(r, ip, ActionBlock)
-				http.Redirect(w, r, "/error/403", http.StatusFound)
-				return
-			}
-
-			incrementScore(ip, 5)
-			logRequest(r, ip, ActionWarn)
-			http.Redirect(w, r, "/error/403", http.StatusFound)
+		if handleUserAgent(w, r, ctx) {
 			return
 		}
-
-		// Rate limit check
-		if !checkRateLimit(ip, r.URL.Path) {
-			if isRelaxedMode {
-				logRequest(r, ip, ActionWarn)
-			} else if isBalancedSecure {
-				if isFirstAccess {
-					incrementScore(ip, 5) // Record but don't block
-					logRequest(r, ip, ActionWarn)
-				} else {
-					incrementScore(ip, 5)
-					logRequest(r, ip, ActionBlock)
-					addDynamicBlock(ip)
-					http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
-					return
-				}
-			} else {
-				incrementScore(ip, 5)
-				logRequest(r, ip, ActionBlock)
-				addDynamicBlock(ip)
-				http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
-				return
-			}
-		}
-
-		if !isRelaxedMode && isDynamicallyBlocked(ip) {
-			logRequest(r, ip, ActionBlock)
-			http.Error(w, "Access Denied", http.StatusForbidden)
+		if handleFinalScore(w, r, ctx) {
 			return
-		}
-
-		// Advanced threat detection
-		threatLevel := detectAdvancedThreats(r)
-		if threatLevel != ThreatClean && !isRelaxedMode {
-			switch threatLevel {
-			case ThreatOversized:
-				// Always block oversized requests immediately as they represent DoS attempts
-				incrementScore(ip, 8)
-				logRequest(r, ip, ActionAttack)
-				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
-				return
-			case ThreatHeaderManipulation, ThreatLongHeader, ThreatLongHeaderName:
-				// Always block header manipulation immediately as it represents exploitation attempts
-				incrementScore(ip, 7)
-				logRequest(r, ip, ActionAttack)
-				http.Redirect(w, r, "/error/403", http.StatusFound)
-				return
-			}
-		}
-
-		// Calculate boost for non-Cloudflare (only for scoring, not immediate block)
-		nonCloudflareBoost := 0
-		if !isFromCloudflare(r) && !isBalancedSecure {
-			nonCloudflareBoost += 2
-		}
-
-		// Suspicious path detection
-		if isSuspiciousPath(r.URL.Path) {
-			// Always block high-severity attack patterns (SQL injection, XSS, path traversal)
-			// even during grace period, as these represent clear exploitation attempts.
-			incrementScore(ip, 8+nonCloudflareBoost)
-
-			// During grace period, log as attack instead of allowing it to proceed
-			logRequest(r, ip, ActionAttack)
-
-			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
-				strings.Contains(strings.ToLower(r.URL.Path), "script") {
-				addDynamicBlock(ip)
-			}
-
-			http.Redirect(w, r, "/error/403", http.StatusFound)
-			return
-		}
-
-		// User-Agent detection
-		uaStatus := detectSuspiciousUA(ua)
-		switch uaStatus {
-		case ActionDeny:
-			if isRelaxedMode {
-				incrementScore(ip, 1+nonCloudflareBoost)
-				logRequest(r, ip, ActionWarn)
-			} else if isBalancedSecure && isFirstAccess {
-				incrementScore(ip, 8+nonCloudflareBoost)
-				logRequest(r, ip, ActionWarn)
-			} else {
-				incrementScore(ip, 8+nonCloudflareBoost)
-				logRequest(r, ip, ActionAttack)
-				addDynamicBlock(ip)
-				http.Redirect(w, r, "/error/403", http.StatusFound)
-				return
-			}
-		case ActionWarn:
-			if isRelaxedMode {
-				logRequest(r, ip, ActionInfo)
-			} else if isBalancedSecure && isFirstAccess {
-				incrementScore(ip, 4+nonCloudflareBoost)
-				logRequest(r, ip, ActionInfo) // Cap at info for first access
-			} else {
-				incrementScore(ip, 4+nonCloudflareBoost)
-				logRequest(r, ip, ActionWarn)
-			}
-		default:
-			logRequest(r, ip, ActionInfo)
-		}
-
-		// Final score check with graduated thresholds
-		ipScoresMutex.RLock()
-		finalScore := ipScores[ip]
-		ipScoresMutex.RUnlock()
-
-		if isRelaxedMode {
-			// Relaxed mode: Never block based on score, only log warnings
-			if finalScore >= ScoreThresholdBlock {
-				logRequest(r, ip, ActionWarn)
-			}
-		} else if isBalancedSecure {
-			// Balanced-secure mode: Only block at score 50+
-			if finalScore >= ScoreThresholdBlock {
-				w.Header().Set("X-Blocked-Reason", "High Security Score")
-				w.Header().Set("X-Contact-Support", "https://daruks.com/contact")
-				addDynamicBlock(ip)
-				logRequest(r, ip, ActionBlock)
-				http.Redirect(w, r, "/error/503", http.StatusFound)
-				return
-			}
-			// Scores 15-49: Allow with auto-reset mechanism
-		} else {
-			// Strict mode: Block at score 15+ (legacy behavior)
-			if finalScore >= ScoreThresholdMedium {
-				addDynamicBlock(ip)
-				logRequest(r, ip, ActionBlock)
-				http.Redirect(w, r, "/error/503", http.StatusFound)
-				return
-			}
 		}
 
 		next(w, r)

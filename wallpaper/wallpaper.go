@@ -2,6 +2,7 @@
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 
+// Package wallpaper manages user wallpapers and storage.
 package wallpaper
 
 import (
@@ -10,6 +11,7 @@ import (
 	"time"
 )
 
+// Wallpaper describes a stored wallpaper file.
 type Wallpaper struct {
 	ID           int64     `json:"id"`
 	UserID       string    `json:"userId"`
@@ -18,14 +20,19 @@ type Wallpaper struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
+// WallpaperDB handles wallpaper persistence.
+//
+//revive:disable-next-line:exported
 type WallpaperDB struct {
 	db *sql.DB
 }
 
+// NewWallpaperDB creates a WallpaperDB wrapper.
 func NewWallpaperDB(db *sql.DB) *WallpaperDB {
 	return &WallpaperDB{db: db}
 }
 
+// Create inserts a wallpaper record.
 func (w *WallpaperDB) Create(wallpaper *Wallpaper) error {
 	query := `
 		INSERT INTO wallpapers (user_id, filename, original_name)
@@ -45,6 +52,7 @@ func (w *WallpaperDB) Create(wallpaper *Wallpaper) error {
 	return nil
 }
 
+// GetByUserID returns wallpapers for the user and defaults.
 func (w *WallpaperDB) GetByUserID(userID string) ([]Wallpaper, error) {
 	query := `
 		SELECT id, user_id, filename, original_name, created_at
@@ -77,6 +85,7 @@ func (w *WallpaperDB) GetByUserID(userID string) ([]Wallpaper, error) {
 	return wallpapers, nil
 }
 
+// Delete removes a wallpaper by id and user.
 func (w *WallpaperDB) Delete(id int64, userID string) error {
 	query := `
 		DELETE FROM wallpapers

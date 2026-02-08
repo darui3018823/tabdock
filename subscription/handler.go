@@ -14,11 +14,19 @@ import (
 	"time"
 )
 
+const (
+	subscriptionStatusActive   = "active"
+	subscriptionStatusCanceled = "canceled"
+	subscriptionStatusExpired  = "expired"
+)
+
+// Handler serves subscription API requests.
 type Handler struct {
 	subDB     *SubscriptionDB
 	getUserID func(*http.Request) (string, error)
 }
 
+// NewHandler returns a subscription handler with a DB accessor.
 func NewHandler(db *sql.DB, getUserID func(*http.Request) (string, error)) *Handler {
 	return &Handler{
 		subDB:     NewSubscriptionDB(db),
@@ -26,6 +34,7 @@ func NewHandler(db *sql.DB, getUserID func(*http.Request) (string, error)) *Hand
 	}
 }
 
+// Create registers a new subscription.
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -48,7 +57,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// 生データをパース
 	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
+	if parseErr := json.Unmarshal(body, &raw); parseErr != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -56,13 +65,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	// NextPaymentDateを事前パース
 	if v, ok := raw["nextPaymentDate"].(string); ok {
 		var t time.Time
-		var err error
 		// YYYY-MM-DD
-		t, err = time.Parse("2006-01-02", v)
-		if err != nil {
+		t, parseErr := time.Parse("2006-01-02", v)
+		if parseErr != nil {
 			// ISO8601
-			t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
-			if err != nil {
+			t, parseErr = time.Parse("2006-01-02T15:04:05Z07:00", v)
+			if parseErr != nil {
 				http.Error(w, "Invalid nextPaymentDate format", http.StatusBadRequest)
 				return
 			}
@@ -85,7 +93,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sub.UserID = userID
-	sub.Status = "active"
+	sub.Status = subscriptionStatusActive
 
 	if err := h.subDB.Create(&sub); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,6 +106,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUserSubscriptions returns subscriptions for the current user.
 func (h *Handler) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -122,6 +131,7 @@ func (h *Handler) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUpcoming returns upcoming subscriptions for the current user.
 func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -146,6 +156,7 @@ func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RenewPaymentDates recalculates overdue payments.
 func (h *Handler) RenewPaymentDates(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -171,6 +182,7 @@ func (h *Handler) RenewPaymentDates(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Update modifies a subscription.
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -198,7 +210,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// 生データをパース
 	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
+	if parseErr := json.Unmarshal(body, &raw); parseErr != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -207,11 +219,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if v, ok := raw["nextPaymentDate"].(string); ok {
 		var t time.Time
 		// YYYY-MM-DD
-		t, err = time.Parse("2006-01-02", v)
-		if err != nil {
+		t, parseErr := time.Parse("2006-01-02", v)
+		if parseErr != nil {
 			// ISO8601
-			t, err = time.Parse("2006-01-02T15:04:05Z07:00", v)
-			if err != nil {
+			t, parseErr = time.Parse("2006-01-02T15:04:05Z07:00", v)
+			if parseErr != nil {
 				http.Error(w, "Invalid nextPaymentDate format", http.StatusBadRequest)
 				return
 			}
@@ -252,6 +264,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateStatus changes the subscription status.
 func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -278,7 +291,9 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if statusUpdate.Status != "active" && statusUpdate.Status != "canceled" && statusUpdate.Status != "expired" {
+	if statusUpdate.Status != subscriptionStatusActive &&
+		statusUpdate.Status != subscriptionStatusCanceled &&
+		statusUpdate.Status != subscriptionStatusExpired {
 		http.Error(w, "Invalid status", http.StatusBadRequest)
 		return
 	}
@@ -295,6 +310,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Delete removes a subscription.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

@@ -107,7 +107,9 @@ func getWAN() string {
 	if err != nil {
 		return "Offline"
 	}
-	conn.Close()
+	if closeErr := conn.Close(); closeErr != nil {
+		log.Printf("failed to close WAN probe connection: %v", closeErr)
+	}
 	return "Active"
 }
 
@@ -129,11 +131,11 @@ func getDriveC() string {
 	usage, err := disk.Usage("C:\\")
 	if err != nil {
 		log.Printf("failed to query drive C usage: %v", err)
-		return "N/A"
+		return StatusNA
 	}
 	if usage == nil {
 		log.Printf("drive C usage result is nil")
-		return "N/A"
+		return StatusNA
 	}
 
 	const gib = 1024 * 1024 * 1024
@@ -179,7 +181,9 @@ func getMainWindow() string {
 		return "None"
 	}
 	buf := make([]uint16, 256)
-	procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	if _, _, callErr := procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf))); callErr != nil && callErr != syscall.Errno(0) {
+		log.Printf("failed to read window title: %v", callErr)
+	}
 	title := syscall.UTF16ToString(buf)
 
 	return trimString(title, 50)

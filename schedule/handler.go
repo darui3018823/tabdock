@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// CalendarDir is the base path for stored calendar attachments.
 var (
 	CalendarDir   = "./home/assets/calendar"
 	ForbiddenExts = map[string]bool{
@@ -26,11 +27,13 @@ var (
 	}
 )
 
+// Handler serves schedule API requests.
 type Handler struct {
 	schedDB   *ScheduleDB
 	getUserID func(*http.Request) (string, error)
 }
 
+// NewHandler returns a schedule handler with a DB accessor.
 func NewHandler(db *sql.DB, getUserID func(*http.Request) (string, error)) *Handler {
 	return &Handler{
 		schedDB:   NewScheduleDB(db),
@@ -39,10 +42,12 @@ func NewHandler(db *sql.DB, getUserID func(*http.Request) (string, error)) *Hand
 }
 
 // GetDB returns the underlying ScheduleDB for direct access (e.g., for shift sync)
+// GetDB exposes the underlying ScheduleDB for internal use.
 func (h *Handler) GetDB() *ScheduleDB {
 	return h.schedDB
 }
 
+// Create registers a schedule entry.
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -64,7 +69,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	// JSONパート
 	jsonStr := r.FormValue("json")
 	var sched Schedule
-	if err := json.Unmarshal([]byte(jsonStr), &sched); err != nil {
+	if parseErr := json.Unmarshal([]byte(jsonStr), &sched); parseErr != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -125,6 +130,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUserSchedules returns schedules for the current user.
 func (h *Handler) GetUserSchedules(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -153,6 +159,7 @@ func (h *Handler) GetUserSchedules(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Delete removes a schedule entry (or all entries) for the current user.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

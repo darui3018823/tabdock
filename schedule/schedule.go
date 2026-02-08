@@ -2,6 +2,7 @@
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 
+// Package schedule manages calendar schedules stored in SQLite.
 package schedule
 
 import (
@@ -10,6 +11,7 @@ import (
 	"time"
 )
 
+// Schedule represents a calendar schedule entry.
 type Schedule struct {
 	ID          int64     `json:"id"`
 	UserID      string    `json:"userId"`
@@ -24,14 +26,19 @@ type Schedule struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
+// ScheduleDB handles schedule persistence.
+//
+//revive:disable-next-line:exported
 type ScheduleDB struct {
 	db *sql.DB
 }
 
+// NewScheduleDB creates a ScheduleDB wrapper.
 func NewScheduleDB(db *sql.DB) *ScheduleDB {
 	return &ScheduleDB{db: db}
 }
 
+// Create inserts a new schedule entry.
 func (s *ScheduleDB) Create(sched *Schedule) error {
 	query := `
 		INSERT INTO schedules (user_id, title, date, time, end_time, location, description, attachment, embed_map)
@@ -62,6 +69,7 @@ func (s *ScheduleDB) Create(sched *Schedule) error {
 	return nil
 }
 
+// GetByUserID returns schedules for a user.
 func (s *ScheduleDB) GetByUserID(userID string) ([]Schedule, error) {
 	query := `
 		SELECT id, user_id, title, date, time, end_time, location, description, attachment, embed_map, created_at
@@ -111,6 +119,7 @@ func (s *ScheduleDB) GetByUserID(userID string) ([]Schedule, error) {
 	return schedules, nil
 }
 
+// Delete removes a schedule by id and user.
 func (s *ScheduleDB) Delete(id int64, userID string) error {
 	query := `
 		DELETE FROM schedules
@@ -132,12 +141,14 @@ func (s *ScheduleDB) Delete(id int64, userID string) error {
 	return nil
 }
 
+// DeleteAll removes all schedules for a user.
 func (s *ScheduleDB) DeleteAll(userID string) error {
 	query := `DELETE FROM schedules WHERE user_id = ?`
 	_, err := s.db.Exec(query, userID)
 	return err
 }
 
+// DeleteByTitlePrefix removes schedules whose title starts with prefix.
 func (s *ScheduleDB) DeleteByTitlePrefix(userID string, prefix string) error {
 	query := `DELETE FROM schedules WHERE user_id = ? AND title LIKE ?`
 	_, err := s.db.Exec(query, userID, prefix+"%")

@@ -20,17 +20,17 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/joho/godotenv"
+	"golang.org/x/mod/semver"
+	_ "modernc.org/sqlite"
+
 	"tabdock/getstatus"
 	"tabdock/schedule"
 	"tabdock/subscription"
 	"tabdock/wallpaper"
-	"time"
-
-	"golang.org/x/mod/semver"
-	_ "modernc.org/sqlite"
-
-	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 )
 
 // const
@@ -89,6 +89,7 @@ type weatherRequest struct {
 // 	status int
 // }
 
+// Forecast describes one weather forecast entry.
 type Forecast struct {
 	Date    string `json:"date"`
 	Label   string `json:"label"`
@@ -98,11 +99,13 @@ type Forecast struct {
 	Detail  string `json:"detail"`
 }
 
+// WeatherResponse represents the weather API response.
 type WeatherResponse struct {
 	City      string     `json:"city"`
 	Forecasts []Forecast `json:"forecasts"`
 }
 
+// Schedule represents a shift schedule payload.
 type Schedule struct {
 	ID          int    `json:"id,omitempty"`
 	Title       string `json:"title"`
@@ -116,6 +119,7 @@ type Schedule struct {
 	CreatedAt   string `json:"createdAt,omitempty"`
 }
 
+// ShiftEntry represents a stored shift entry.
 type ShiftEntry struct {
 	ID          int    `json:"id"`
 	Username    string `json:"username"`
@@ -223,24 +227,8 @@ func main() {
 	mux := http.NewServeMux()
 	fallbackHolidays = preloadHolidays()
 
-	if err := initDB(); err != nil {
-		log.Fatal("DB初期化失敗:", err)
-	}
-
-	if err := initShiftDB(); err != nil {
-		log.Fatal("シフトDB初期化失敗:", err)
-	}
-
-	if err := initScheduleDB(); err != nil {
-		log.Fatal("スケジュールDB初期化失敗:", err)
-	}
-
-	if err := initWallpaperDB(); err != nil {
-		log.Fatal("壁紙DB初期化失敗:", err)
-	}
-
-	if err := initSubscriptionDB(); err != nil {
-		log.Fatal("サブスクリプションDB初期化失敗:", err)
+	if err := initDatastores(); err != nil {
+		log.Fatal(err)
 	}
 
 	// バージョンアップフラグを設定
@@ -344,13 +332,36 @@ func main() {
 	serve(mux)
 }
 
+func initDatastores() error {
+	if err := initDB(); err != nil {
+		return fmt.Errorf("DB初期化失敗: %w", err)
+	}
+	if err := initShiftDB(); err != nil {
+		return fmt.Errorf("シフトDB初期化失敗: %w", err)
+	}
+	if err := initScheduleDB(); err != nil {
+		return fmt.Errorf("スケジュールDB初期化失敗: %w", err)
+	}
+	if err := initWallpaperDB(); err != nil {
+		return fmt.Errorf("壁紙DB初期化失敗: %w", err)
+	}
+	if err := initSubscriptionDB(); err != nil {
+		return fmt.Errorf("サブスクリプションDB初期化失敗: %w", err)
+	}
+	return nil
+}
+
 func setUpdateFlag(flagPath string) {
 	file, err := os.Create(flagPath)
 	if err != nil {
 		log.Printf("Failed to create update flag: %v", err)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Failed to close update flag: %v", closeErr)
+		}
+	}()
 	log.Println("Update flag set. Next ps1 execution will check for updates.")
 }
 
@@ -361,8 +372,8 @@ func checkForUpdates() {
 		return
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Printf("Failed to close response body: %v", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Failed to close response body: %v", closeErr)
 		}
 	}()
 
@@ -391,8 +402,8 @@ func initSubscriptionDB() error {
 		return fmt.Errorf("subscription.db接続エラー: %v", err)
 	}
 	defer func() {
-		if err := subscriptionDB.Close(); err != nil {
-			log.Printf("Failed to close subscription DB: %v", err)
+		if closeErr := subscriptionDB.Close(); closeErr != nil {
+			log.Printf("Failed to close subscription DB: %v", closeErr)
 		}
 	}()
 
@@ -429,8 +440,8 @@ func initScheduleDB() error {
 		return fmt.Errorf("スケジュールデータベース接続エラー: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -464,8 +475,8 @@ func initWallpaperDB() error {
 		return fmt.Errorf("壁紙データベース接続エラー: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -509,88 +520,109 @@ func initWallpaperDB() error {
 }
 
 func fixUnlinkedWallpapers(wallpaperDB *sql.DB) error {
-	// 1. 有効なユーザーIDを取得 (acc.db)
+	validUserIDs, err := loadValidWallpaperUsers()
+	if err != nil {
+		return err
+	}
+
+	orphanUserIDs, err := findOrphanWallpaperUsers(wallpaperDB, validUserIDs)
+	if err != nil {
+		return err
+	}
+
+	return updateOrphanWallpapers(wallpaperDB, orphanUserIDs)
+}
+
+func loadValidWallpaperUsers() (map[string]bool, error) {
 	accDBPath := getEnv("DB_ACC_PATH", "./database/acc.db")
 	accDB, err := sql.Open("sqlite", accDBPath)
 	if err != nil {
-		return fmt.Errorf("acc.db open failed: %v", err)
+		return nil, fmt.Errorf("acc.db open failed: %v", err)
 	}
 	defer func() {
-		if err := accDB.Close(); err != nil {
-			log.Printf("Failed to close accDB: %v", err)
+		if closeErr := accDB.Close(); closeErr != nil {
+			log.Printf("Failed to close accDB: %v", closeErr)
 		}
 	}()
 
 	rows, err := accDB.Query("SELECT id FROM users")
 	if err != nil {
-		return fmt.Errorf("users query failed: %v", err)
+		return nil, fmt.Errorf("users query failed: %v", err)
 	}
 	defer func() {
-		if err := rows.Close(); err != nil {
-			log.Printf("Failed to close rows: %v", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			log.Printf("Failed to close rows: %v", closeErr)
 		}
 	}()
 
 	validUserIDs := make(map[string]bool)
 	for rows.Next() {
 		var id string
-		if err := rows.Scan(&id); err == nil {
+		if scanErr := rows.Scan(&id); scanErr == nil {
 			validUserIDs[id] = true
 		}
 	}
 	validUserIDs["default"] = true
 
-	// 2. 壁紙DBのユーザーIDをチェック
+	return validUserIDs, nil
+}
+
+func findOrphanWallpaperUsers(wallpaperDB *sql.DB, validUserIDs map[string]bool) ([]string, error) {
 	wpRows, err := wallpaperDB.Query("SELECT DISTINCT user_id FROM wallpapers")
 	if err != nil {
-		return fmt.Errorf("wallpapers query failed: %v", err)
+		return nil, fmt.Errorf("wallpapers query failed: %v", err)
 	}
 	defer func() {
-		if err := wpRows.Close(); err != nil {
-			log.Printf("Failed to close wpRows: %v", err)
+		if closeErr := wpRows.Close(); closeErr != nil {
+			log.Printf("Failed to close wpRows: %v", closeErr)
 		}
 	}()
 
 	var orphanUserIDs []string
 	for wpRows.Next() {
 		var userID string
-		if err := wpRows.Scan(&userID); err == nil {
+		if scanErr := wpRows.Scan(&userID); scanErr == nil {
 			if !validUserIDs[userID] {
 				orphanUserIDs = append(orphanUserIDs, userID)
 			}
 		}
 	}
 
-	// 3. リンク切れ壁紙を default に更新
-	if len(orphanUserIDs) > 0 {
-		log.Printf("リンク切れ壁紙を持つユーザーIDを発見: %v -> 'default' (Public) に変更します", orphanUserIDs)
+	return orphanUserIDs, nil
+}
 
-		tx, err := wallpaperDB.Begin()
-		if err != nil {
-			return err
-		}
-
-		stmt, err := tx.Prepare("UPDATE wallpapers SET user_id = 'default' WHERE user_id = ?")
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-		defer func() {
-			if err := stmt.Close(); err != nil {
-				log.Printf("Failed to close statement: %v", err)
-			}
-		}()
-
-		for _, uid := range orphanUserIDs {
-			if _, err := stmt.Exec(uid); err != nil {
-				log.Printf("[WARN] ユーザーID %s の壁紙更新失敗: %v", uid, err)
-			}
-		}
-
-		return tx.Commit()
+func updateOrphanWallpapers(wallpaperDB *sql.DB, orphanUserIDs []string) error {
+	if len(orphanUserIDs) == 0 {
+		return nil
 	}
 
-	return nil
+	log.Printf("リンク切れ壁紙を持つユーザーIDを発見: %v -> 'default' (Public) に変更します", orphanUserIDs)
+
+	tx, err := wallpaperDB.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("UPDATE wallpapers SET user_id = 'default' WHERE user_id = ?")
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != sql.ErrTxDone {
+			log.Printf("Failed to rollback transaction: %v", rollbackErr)
+		}
+		return err
+	}
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil {
+			log.Printf("Failed to close statement: %v", closeErr)
+		}
+	}()
+
+	for _, uid := range orphanUserIDs {
+		if _, execErr := stmt.Exec(uid); execErr != nil {
+			log.Printf("[WARN] ユーザーID %s の壁紙更新失敗: %v", uid, execErr)
+		}
+	}
+
+	return tx.Commit()
 }
 
 // スラッシュ補完
@@ -611,8 +643,8 @@ func initShiftDB() error {
 		return fmt.Errorf("シフトデータベース接続エラー: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -643,8 +675,8 @@ func registerShift(username string, shift ShiftEntry) error {
 		return fmt.Errorf("データベース接続エラー: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -673,8 +705,8 @@ func getShifts(username string) ([]ShiftEntry, error) {
 		return nil, fmt.Errorf("データベース接続エラー: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -694,8 +726,8 @@ func getShifts(username string) ([]ShiftEntry, error) {
 		return nil, fmt.Errorf("シフト取得エラー: %v", err)
 	}
 	defer func() {
-		if err := rows.Close(); err != nil {
-			log.Printf("Failed to close rows: %v", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			log.Printf("Failed to close rows: %v", closeErr)
 		}
 	}()
 
@@ -775,69 +807,81 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var wReq weatherRequest
-	regionKey := ""
-	if err := json.Unmarshal(reqBody, &wReq); err == nil {
-		pref := strings.TrimSpace(wReq.Data.PrefName)
-		city := strings.TrimSpace(wReq.Data.CityName)
-		if pref != "" || city != "" {
-			regionKey = pref + "::" + city
-		}
-	}
+	regionKey := parseWeatherRegionKey(reqBody)
 
-	// APIにリクエストを転送
-	resp, err := http.Post("https://api.daruks.com/weather", "application/json", bytes.NewBuffer(reqBody))
+	resp, apiRespBody, err := fetchWeatherAPI(reqBody)
 	if err != nil {
 		http.Error(w, "failed to call weather API", http.StatusInternalServerError)
 		log.Println("weather API error:", err)
 		return
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Printf("Failed to close response body: %v", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Failed to close response body: %v", closeErr)
 		}
 	}()
 
-	// APIのレスポンスを読み取る
-	apiRespBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		http.Error(w, "failed to read weather API response", http.StatusInternalServerError)
-		return
-	}
-
 	if resp.StatusCode >= 400 {
-		w.WriteHeader(resp.StatusCode)
-		if _, err := w.Write(apiRespBody); err != nil {
-			log.Printf("Failed to write response: %v", err)
-		}
+		writeWeatherResponse(w, resp.StatusCode, apiRespBody)
 		return
 	}
 
-	var upstream map[string]interface{}
-	if err := json.Unmarshal(apiRespBody, &upstream); err != nil {
-		// パースできない場合はそのまま返す
-		w.WriteHeader(resp.StatusCode)
-		if _, err := w.Write(apiRespBody); err != nil {
-			log.Printf("Failed to write response: %v", err)
-		}
-		return
-	}
-
-	if regionKey != "" {
-		if merged, err := mergeWeatherResponse(regionKey, upstream); err == nil {
-			upstream = merged
-		}
-	}
-
-	finalBody, err := json.Marshal(upstream)
+	finalBody, err := mergeWeatherIfPossible(regionKey, apiRespBody)
 	if err != nil {
 		http.Error(w, "failed to encode weather response", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(resp.StatusCode)
-	if _, err := w.Write(finalBody); err != nil {
-		log.Printf("Failed to write response: %v", err)
+	writeWeatherResponse(w, resp.StatusCode, finalBody)
+}
+
+func parseWeatherRegionKey(reqBody []byte) string {
+	var wReq weatherRequest
+	if parseErr := json.Unmarshal(reqBody, &wReq); parseErr != nil {
+		return ""
+	}
+
+	pref := strings.TrimSpace(wReq.Data.PrefName)
+	city := strings.TrimSpace(wReq.Data.CityName)
+	if pref == "" && city == "" {
+		return ""
+	}
+	return pref + "::" + city
+}
+
+func fetchWeatherAPI(reqBody []byte) (*http.Response, []byte, error) {
+	resp, err := http.Post("https://api.daruks.com/weather", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	apiRespBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp, nil, err
+	}
+
+	return resp, apiRespBody, nil
+}
+
+func mergeWeatherIfPossible(regionKey string, apiRespBody []byte) ([]byte, error) {
+	var upstream map[string]interface{}
+	if parseErr := json.Unmarshal(apiRespBody, &upstream); parseErr != nil {
+		return apiRespBody, nil
+	}
+
+	if regionKey != "" {
+		if merged, mergeErr := mergeWeatherResponse(regionKey, upstream); mergeErr == nil {
+			upstream = merged
+		}
+	}
+
+	return json.Marshal(upstream)
+}
+
+func writeWeatherResponse(w http.ResponseWriter, status int, body []byte) {
+	w.WriteHeader(status)
+	if _, writeErr := w.Write(body); writeErr != nil {
+		log.Printf("Failed to write response: %v", writeErr)
 	}
 }
 
@@ -869,8 +913,8 @@ func mergeWeatherResponse(regionKey string, upstream map[string]interface{}) (ma
 
 	if cached := weatherCache[regionKey]; cached != nil {
 		prevBody, _ := cached.rawResponse["body"].(map[string]interface{})
-		prevMain, err := decodeWeatherMain(prevBody["main_data"])
-		if err != nil {
+		prevMain, decodeErr := decodeWeatherMain(prevBody["main_data"])
+		if decodeErr != nil {
 			merged = mergeWeatherMain(nil, newMain)
 		} else {
 			merged = mergeWeatherMain(prevMain, newMain)
@@ -1164,12 +1208,15 @@ func parseSafariVersion(ua string) (int, string, error) {
 }
 
 func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	r.ParseMultipartForm(10 << 20)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "Form parse error", http.StatusBadRequest)
+		return
+	}
 
 	username := r.FormValue("username")
 	if username == "" {
@@ -1182,7 +1229,11 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Failed to close uploaded file: %v", closeErr)
+		}
+	}()
 
 	ext := strings.ToLower(filepath.Ext(handler.Filename))
 	allowedExts := map[string]bool{
@@ -1203,7 +1254,11 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
 		return
 	}
-	defer out.Close()
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil {
+			log.Printf("Failed to close output file: %v", closeErr)
+		}
+	}()
 
 	_, err = io.Copy(out, file)
 	if err != nil {
@@ -1298,13 +1353,13 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Get(remoteURL)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				log.Printf("Failed to close response body: %v", err)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Printf("Failed to close response body: %v", closeErr)
 			}
 		}()
 		w.Header().Set("Content-Type", "application/json")
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			log.Printf("Failed to copy response: %v", err)
+		if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+			log.Printf("Failed to copy response: %v", copyErr)
 		}
 		return
 	}
@@ -1372,8 +1427,8 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 		return
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -1461,8 +1516,8 @@ func deleteAllShiftsForUser(username string) error {
 		return fmt.Errorf("データベース接続エラー: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 
@@ -1508,8 +1563,8 @@ func getUserIDFromSession(r *http.Request) (string, error) {
 		return "", fmt.Errorf("database error: %v", err)
 	}
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v", err)
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close DB: %v", closeErr)
 		}
 	}()
 

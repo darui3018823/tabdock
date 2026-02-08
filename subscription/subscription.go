@@ -2,6 +2,7 @@
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 
+// Package subscription manages subscription data and billing updates.
 package subscription
 
 import (
@@ -12,6 +13,7 @@ import (
 	"time"
 )
 
+// Subscription represents a stored subscription entry.
 type Subscription struct {
 	ID              int64           `json:"id"`
 	UserID          string          `json:"userId"`
@@ -28,6 +30,7 @@ type Subscription struct {
 	UpdatedAt       time.Time       `json:"updatedAt"`
 }
 
+// RenewalResult reports a renewed payment date.
 type RenewalResult struct {
 	ID           int64  `json:"id"`
 	ServiceName  string `json:"serviceName"`
@@ -36,6 +39,7 @@ type RenewalResult struct {
 	BillingCycle string `json:"billingCycle"`
 }
 
+// PaymentDetails contains method-specific metadata.
 type PaymentDetails struct {
 	CardLastFour string `json:"cardLastFour,omitempty"`
 	PaypalEmail  string `json:"paypalEmail,omitempty"`
@@ -43,10 +47,14 @@ type PaymentDetails struct {
 	Label        string `json:"label,omitempty"`
 }
 
+// SubscriptionDB handles subscription persistence.
+//
+//revive:disable-next-line:exported
 type SubscriptionDB struct {
 	db *sql.DB
 }
 
+// NewSubscriptionDB creates a SubscriptionDB wrapper.
 func NewSubscriptionDB(db *sql.DB) *SubscriptionDB {
 	return &SubscriptionDB{db: db}
 }
@@ -66,14 +74,15 @@ func calculateNextPaymentDate(current time.Time, billingCycle string) (time.Time
 	}
 }
 
+// RenewOverduePayments advances overdue subscriptions for a user.
 func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]RenewalResult, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			log.Printf("Failed to rollback transaction: %v", err)
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != sql.ErrTxDone {
+			log.Printf("Failed to rollback transaction: %v", rollbackErr)
 		}
 	}()
 
@@ -153,6 +162,7 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 	return results, nil
 }
 
+// Create inserts a new subscription.
 func (s *SubscriptionDB) Create(sub *Subscription) error {
 	query := `
 		INSERT INTO subscriptions (
@@ -186,6 +196,7 @@ func (s *SubscriptionDB) Create(sub *Subscription) error {
 	return nil
 }
 
+// GetByUserID returns active subscriptions for a user.
 func (s *SubscriptionDB) GetByUserID(userID string) ([]Subscription, error) {
 	query := `
 		SELECT id, user_id, service_name, plan_name, amount, currency,
@@ -232,6 +243,7 @@ func (s *SubscriptionDB) GetByUserID(userID string) ([]Subscription, error) {
 	return subs, nil
 }
 
+// GetUpcoming returns active subscriptions due soon.
 func (s *SubscriptionDB) GetUpcoming(userID string) ([]Subscription, error) {
 	query := `
 		SELECT id, user_id, service_name, plan_name, amount, currency,
@@ -280,6 +292,7 @@ func (s *SubscriptionDB) GetUpcoming(userID string) ([]Subscription, error) {
 	return subs, nil
 }
 
+// Update modifies an existing subscription.
 func (s *SubscriptionDB) Update(sub *Subscription) error {
 	query := `
 		UPDATE subscriptions
@@ -316,6 +329,7 @@ func (s *SubscriptionDB) Update(sub *Subscription) error {
 	return nil
 }
 
+// UpdateStatus changes a subscription status.
 func (s *SubscriptionDB) UpdateStatus(id int64, userID string, status string) error {
 	query := `
 		UPDATE subscriptions
@@ -338,6 +352,7 @@ func (s *SubscriptionDB) UpdateStatus(id int64, userID string, status string) er
 	return nil
 }
 
+// Delete removes a subscription.
 func (s *SubscriptionDB) Delete(id int64, userID string) error {
 	query := `
 		DELETE FROM subscriptions

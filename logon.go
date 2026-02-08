@@ -39,19 +39,21 @@ var (
 var challengeStore = map[string]*webauthn.SessionData{}
 var loginSessionStore = map[string]*webauthn.SessionData{}
 
-// 構造体定義
+// AuthRequest is the request payload for auth endpoints.
 type AuthRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email,omitempty"`
 	Password string `json:"password"`
 }
 
+// AuthResponse is the standard auth API response.
 type AuthResponse struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message,omitempty"`
 	User    interface{} `json:"user,omitempty"`
 }
 
+// AuthUser represents a database user record for auth APIs.
 type AuthUser struct {
 	ID           int       `json:"id"`
 	Username     string    `json:"username"`
@@ -63,25 +65,36 @@ type AuthUser struct {
 	LoginAt      int64     `json:"login_at"`
 }
 
-// WebAuthn用のUser構造体
+// User is the WebAuthn user used for registration.
 type User struct {
 	ID          []byte
 	Name        string
 	DisplayName string
 }
 
+// DBUser represents the database user record for WebAuthn.
 type DBUser struct {
 	ID          string
 	Username    string
 	DisplayName string
 }
 
-func (u User) WebAuthnID() []byte                         { return u.ID }
-func (u User) WebAuthnName() string                       { return u.Name }
-func (u User) WebAuthnDisplayName() string                { return u.DisplayName }
-func (u User) WebAuthnIcon() string                       { return "" }
+// WebAuthnID returns the binary user ID.
+func (u User) WebAuthnID() []byte { return u.ID }
+
+// WebAuthnName returns the username.
+func (u User) WebAuthnName() string { return u.Name }
+
+// WebAuthnDisplayName returns the display name.
+func (u User) WebAuthnDisplayName() string { return u.DisplayName }
+
+// WebAuthnIcon returns the user icon URL (unused).
+func (u User) WebAuthnIcon() string { return "" }
+
+// WebAuthnCredentials returns stored credentials (none for registration).
 func (u User) WebAuthnCredentials() []webauthn.Credential { return []webauthn.Credential{} }
 
+// WebAuthnUser holds a WebAuthn user with credentials.
 type WebAuthnUser struct {
 	ID          []byte
 	Name        string
@@ -89,12 +102,22 @@ type WebAuthnUser struct {
 	Credentials []webauthn.Credential
 }
 
-func (u WebAuthnUser) WebAuthnID() []byte                         { return u.ID }
-func (u WebAuthnUser) WebAuthnName() string                       { return u.Name }
-func (u WebAuthnUser) WebAuthnDisplayName() string                { return u.DisplayName }
-func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential { return u.Credentials }
-func (u WebAuthnUser) WebAuthnIcon() string                       { return "" }
+// WebAuthnID returns the binary user ID.
+func (u WebAuthnUser) WebAuthnID() []byte { return u.ID }
 
+// WebAuthnName returns the username.
+func (u WebAuthnUser) WebAuthnName() string { return u.Name }
+
+// WebAuthnDisplayName returns the display name.
+func (u WebAuthnUser) WebAuthnDisplayName() string { return u.DisplayName }
+
+// WebAuthnCredentials returns stored credentials.
+func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential { return u.Credentials }
+
+// WebAuthnIcon returns the user icon URL (unused).
+func (u WebAuthnUser) WebAuthnIcon() string { return "" }
+
+// DBUserToUser converts a DBUser into a WebAuthn User.
 func DBUserToUser(dbUser DBUser) *User {
 	return &User{
 		ID:          []byte(dbUser.ID),
@@ -494,11 +517,12 @@ func saveCredentialToDB(username string, cred *webauthn.Credential) error {
 	return err
 }
 
+// SaveSessionData stores WebAuthn session data for the user.
 func SaveSessionData(username string, data *webauthn.SessionData) {
 	loginSessionStore[username] = data
 }
 
-// WebAuthnユーザーを取得（credentialも含む）
+// FindWebAuthnUserByUsername loads a WebAuthn user with credentials.
 func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
 
@@ -512,10 +536,15 @@ func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 		fmt.Println("[DEBUG] 現在登録されているユーザー:")
 		for rows.Next() {
 			var id, uname string
-			rows.Scan(&id, &uname)
+			if scanErr := rows.Scan(&id, &uname); scanErr != nil {
+				fmt.Printf("[WARN] ユーザー読み込み失敗: %v\n", scanErr)
+				continue
+			}
 			fmt.Printf(" - id: %s / username: %q\n", id, uname)
 		}
-		rows.Close()
+		if closeErr := rows.Close(); closeErr != nil {
+			fmt.Printf("[WARN] 行クローズ失敗: %v\n", closeErr)
+		}
 	}
 
 	var dbUser struct {
@@ -560,7 +589,7 @@ func FindWebAuthnUserByUsername(username string) (*WebAuthnUser, error) {
 	return user, nil
 }
 
-// 元のUser型取得関数（登録時用）
+// FindUserByUsername returns a WebAuthn User for registration.
 func FindUserByUsername(username string) (*User, error) {
 	fmt.Printf("[DEBUG] 入力された username: %q\n", username)
 
@@ -602,8 +631,8 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			Message: "ユーザー名とパスワードが必要です",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
+		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+			log.Printf("JSON encode error: %v", encodeErr)
 		}
 		return
 	}
@@ -617,8 +646,8 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
+		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+			log.Printf("JSON encode error: %v", encodeErr)
 		}
 		return
 	}
@@ -634,8 +663,8 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("JSON encode error: %v", err)
+	if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+		log.Printf("JSON encode error: %v", encodeErr)
 	}
 }
 
@@ -697,11 +726,11 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]any{
+	if encodeErr := json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"message": "パスワードを更新しました",
-	}); err != nil {
-		log.Printf("JSON encode error: %v", err)
+	}); encodeErr != nil {
+		log.Printf("JSON encode error: %v", encodeErr)
 	}
 }
 
@@ -718,29 +747,8 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 入力検証
-	if req.Username == "" || req.Email == "" || req.Password == "" {
-		response := AuthResponse{
-			Success: false,
-			Message: "すべての項目を入力してください",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
-		}
-		return
-	}
-
-	// パスワード強度チェック
-	if len(req.Password) < 6 {
-		response := AuthResponse{
-			Success: false,
-			Message: "パスワードは6文字以上で入力してください",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
-		}
+	if response := validateAuthRegisterRequest(req); response != nil {
+		writeAuthResponse(w, http.StatusOK, *response)
 		return
 	}
 
@@ -752,11 +760,7 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			Success: false,
 			Message: "データベースエラーが発生しました",
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
-		}
+		writeAuthResponse(w, http.StatusInternalServerError, response)
 		return
 	}
 
@@ -765,10 +769,7 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			Success: false,
 			Message: "ユーザー名またはメールアドレスが既に使用されています",
 		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
-		}
+		writeAuthResponse(w, http.StatusOK, response)
 		return
 	}
 
@@ -780,11 +781,7 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			Success: false,
 			Message: "アカウント作成に失敗しました",
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("JSON encode error: %v", err)
-		}
+		writeAuthResponse(w, http.StatusInternalServerError, response)
 		return
 	}
 
@@ -799,14 +796,40 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			"registerId": time.Now().Unix(),
 		},
 	}
+	writeAuthResponse(w, http.StatusOK, response)
+}
+
+func validateAuthRegisterRequest(req AuthRequest) *AuthResponse {
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		return &AuthResponse{
+			Success: false,
+			Message: "すべての項目を入力してください",
+		}
+	}
+
+	if len(req.Password) < 6 {
+		return &AuthResponse{
+			Success: false,
+			Message: "パスワードは6文字以上で入力してください",
+		}
+	}
+
+	return nil
+}
+
+func writeAuthResponse(w http.ResponseWriter, status int, response AuthResponse) {
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("JSON encode error: %v", err)
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+		log.Printf("JSON encode error: %v", encodeErr)
 	}
 }
 
 // ===== WebAuthn APIハンドラ =====
 
+// HandleWebAuthnRegisterStart begins a WebAuthn registration ceremony.
 func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
 
@@ -860,107 +883,40 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 	challengeStore[req.Username] = sessionData
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(options); err != nil {
-		log.Printf("JSON encode error: %v", err)
+	if encodeErr := json.NewEncoder(w).Encode(options); encodeErr != nil {
+		log.Printf("JSON encode error: %v", encodeErr)
 	}
 }
 
+// HandleWebAuthnRegisterFinish completes a WebAuthn registration ceremony.
 func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
+	defer func() {
+		if closeErr := r.Body.Close(); closeErr != nil {
+			log.Printf("Failed to close request body: %v", closeErr)
+		}
+	}()
 
-	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	rawReq, bodyBytes, err := decodeRegisterFinishRequest(w, r)
 	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	fmt.Println("[DEBUG] body:", string(bodyBytes))
 
-	// カスタム構造体でbase64urlデータを受信
-	var rawReq struct {
-		Username   string `json:"username"`
-		Credential struct {
-			ID       string `json:"id"`
-			RawID    string `json:"rawId"`
-			Type     string `json:"type"`
-			Response struct {
-				ClientDataJSON    string `json:"clientDataJSON"`
-				AttestationObject string `json:"attestationObject"`
-			} `json:"response"`
-		} `json:"credential"`
-	}
-
-	if err := json.Unmarshal(bodyBytes, &rawReq); err != nil {
-		fmt.Println("[ERROR] Unmarshal失敗:", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-	if rawReq.Username == "" {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	// base64urlデコード
-	rawID, err := base64URLDecode(rawReq.Credential.RawID)
+	standardReqBytes, err := buildStandardRegisterRequest(rawReq)
 	if err != nil {
-		fmt.Println("[ERROR] RawID decode失敗:", err)
-		http.Error(w, "Invalid rawId", http.StatusBadRequest)
-		return
-	}
-
-	clientDataJSON, err := base64URLDecode(rawReq.Credential.Response.ClientDataJSON)
-	if err != nil {
-		fmt.Println("[ERROR] ClientDataJSON decode失敗:", err)
-		http.Error(w, "Invalid clientDataJSON", http.StatusBadRequest)
-		return
-	}
-
-	attestationObject, err := base64URLDecode(rawReq.Credential.Response.AttestationObject)
-	if err != nil {
-		fmt.Println("[ERROR] AttestationObject decode失敗:", err)
-		http.Error(w, "Invalid attestationObject", http.StatusBadRequest)
-		return
-	}
-
-	// 標準的なWebAuthnフォーマットに変換してからJSONに戻す
-	// WebAuthn仕様に従った正確な形式で構築
-	standardReq := map[string]interface{}{
-		"id":    rawReq.Credential.ID,
-		"rawId": base64.StdEncoding.EncodeToString(rawID),
-		"type":  rawReq.Credential.Type,
-		"response": map[string]interface{}{
-			"clientDataJSON":    base64.StdEncoding.EncodeToString(clientDataJSON),
-			"attestationObject": base64.StdEncoding.EncodeToString(attestationObject),
-		},
-	}
-
-	standardReqBytes, err := json.Marshal(standardReq)
-	if err != nil {
-		fmt.Println("[ERROR] 標準形式への変換失敗:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	fmt.Println("[DEBUG] 変換後のリクエスト:", string(standardReqBytes))
 
-	// WebAuthnライブラリ用にHTTPリクエストを再構築
-	// Content-Typeも設定
-	newRequest, err := http.NewRequest("POST", r.URL.String(), bytes.NewReader(standardReqBytes))
+	newRequest, err := buildJSONRequest(r, standardReqBytes)
 	if err != nil {
 		fmt.Println("[ERROR] リクエスト再構築失敗:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
-	}
-	newRequest.Header.Set("Content-Type", "application/json")
-
-	// 元のリクエストのヘッダーをコピー
-	for key, values := range r.Header {
-		if key != "Content-Length" { // Content-Lengthは自動で設定される
-			for _, value := range values {
-				newRequest.Header.Add(key, value)
-			}
-		}
 	}
 
 	user, err := FindUserByUsername(rawReq.Username)
@@ -1002,9 +958,103 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"success":true}`))
+	if _, writeErr := w.Write([]byte(`{"success":true}`)); writeErr != nil {
+		log.Printf("Failed to write response: %v", writeErr)
+	}
 }
 
+type registerFinishRawRequest struct {
+	Username   string `json:"username"`
+	Credential struct {
+		ID       string `json:"id"`
+		RawID    string `json:"rawId"`
+		Type     string `json:"type"`
+		Response struct {
+			ClientDataJSON    string `json:"clientDataJSON"`
+			AttestationObject string `json:"attestationObject"`
+		} `json:"response"`
+	} `json:"credential"`
+}
+
+func decodeRegisterFinishRequest(w http.ResponseWriter, r *http.Request) (*registerFinishRawRequest, []byte, error) {
+	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return nil, nil, err
+	}
+
+	var rawReq registerFinishRawRequest
+	if parseErr := json.Unmarshal(bodyBytes, &rawReq); parseErr != nil {
+		fmt.Println("[ERROR] Unmarshal失敗:", parseErr)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return nil, bodyBytes, parseErr
+	}
+	if rawReq.Username == "" {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return nil, bodyBytes, fmt.Errorf("missing username")
+	}
+
+	return &rawReq, bodyBytes, nil
+}
+
+func buildStandardRegisterRequest(rawReq *registerFinishRawRequest) ([]byte, error) {
+	rawID, err := base64URLDecode(rawReq.Credential.RawID)
+	if err != nil {
+		fmt.Println("[ERROR] RawID decode失敗:", err)
+		return nil, err
+	}
+
+	clientDataJSON, err := base64URLDecode(rawReq.Credential.Response.ClientDataJSON)
+	if err != nil {
+		fmt.Println("[ERROR] ClientDataJSON decode失敗:", err)
+		return nil, err
+	}
+
+	attestationObject, err := base64URLDecode(rawReq.Credential.Response.AttestationObject)
+	if err != nil {
+		fmt.Println("[ERROR] AttestationObject decode失敗:", err)
+		return nil, err
+	}
+
+	standardReq := map[string]interface{}{
+		"id":    rawReq.Credential.ID,
+		"rawId": base64.StdEncoding.EncodeToString(rawID),
+		"type":  rawReq.Credential.Type,
+		"response": map[string]interface{}{
+			"clientDataJSON":    base64.StdEncoding.EncodeToString(clientDataJSON),
+			"attestationObject": base64.StdEncoding.EncodeToString(attestationObject),
+		},
+	}
+
+	standardReqBytes, err := json.Marshal(standardReq)
+	if err != nil {
+		fmt.Println("[ERROR] 標準形式への変換失敗:", err)
+		return nil, err
+	}
+
+	return standardReqBytes, nil
+}
+
+func buildJSONRequest(r *http.Request, payload []byte) (*http.Request, error) {
+	newRequest, err := http.NewRequest(http.MethodPost, r.URL.String(), bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	newRequest.Header.Set("Content-Type", "application/json")
+
+	for key, values := range r.Header {
+		if key == "Content-Length" {
+			continue
+		}
+		for _, value := range values {
+			newRequest.Header.Add(key, value)
+		}
+	}
+
+	return newRequest, nil
+}
+
+// HandleWebAuthnLoginStart begins a WebAuthn login ceremony.
 func HandleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
@@ -1029,72 +1079,128 @@ func HandleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 	SaveSessionData(req.Username, sessionData)
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(options); err != nil {
-		log.Printf("JSON encode error: %v", err)
+	if encodeErr := json.NewEncoder(w).Encode(options); encodeErr != nil {
+		log.Printf("JSON encode error: %v", encodeErr)
 	}
 }
 
+// HandleWebAuthnLoginFinish completes a WebAuthn login ceremony.
 func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	initWebAuthn()
+	defer func() {
+		if closeErr := r.Body.Close(); closeErr != nil {
+			log.Printf("Failed to close request body: %v", closeErr)
+		}
+	}()
 
-	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	rawReq, bodyBytes, err := decodeLoginFinishRequest(w, r)
 	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	fmt.Println("[DEBUG] login body:", string(bodyBytes))
 
-	// カスタム構造体でbase64urlデータを受信
-	var rawReq struct {
-		Username   string `json:"username"`
-		Credential struct {
-			ID       string `json:"id"`
-			RawID    string `json:"rawId"`
-			Type     string `json:"type"`
-			Response struct {
-				AuthenticatorData string  `json:"authenticatorData"`
-				ClientDataJSON    string  `json:"clientDataJSON"`
-				Signature         string  `json:"signature"`
-				UserHandle        *string `json:"userHandle"`
-			} `json:"response"`
-		} `json:"credential"`
-	}
-
-	if err := json.Unmarshal(bodyBytes, &rawReq); err != nil {
-		fmt.Println("[ERROR] Login Unmarshal失敗:", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+	standardReqBytes, err := buildStandardLoginRequest(rawReq)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	// base64urlデコード
+	newRequest, err := buildJSONRequest(r, standardReqBytes)
+	if err != nil {
+		fmt.Println("[ERROR] Login リクエスト再構築失敗:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	user, err := FindWebAuthnUserByUsername(rawReq.Username)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	sessionData, ok := loginSessionStore[rawReq.Username]
+	if !ok {
+		http.Error(w, "Session data not found", http.StatusBadRequest)
+		return
+	}
+
+	// 認証処理
+	_, err = webAuthnInstance.FinishLogin(user, *sessionData, newRequest)
+
+	if err != nil {
+		log.Println("Login failed:", err)
+		http.Error(w, fmt.Sprintf(`{"success":false,"error":"%s"}`, err.Error()), http.StatusUnauthorized)
+		return
+	}
+
+	// 成功時のレスポンス
+	w.Header().Set("Content-Type", "application/json")
+	if _, writeErr := w.Write([]byte(`{"success":true}`)); writeErr != nil {
+		log.Printf("Failed to write response: %v", writeErr)
+	}
+}
+
+type loginFinishRawRequest struct {
+	Username   string `json:"username"`
+	Credential struct {
+		ID       string `json:"id"`
+		RawID    string `json:"rawId"`
+		Type     string `json:"type"`
+		Response struct {
+			AuthenticatorData string  `json:"authenticatorData"`
+			ClientDataJSON    string  `json:"clientDataJSON"`
+			Signature         string  `json:"signature"`
+			UserHandle        *string `json:"userHandle"`
+		} `json:"response"`
+	} `json:"credential"`
+}
+
+func decodeLoginFinishRequest(w http.ResponseWriter, r *http.Request) (*loginFinishRawRequest, []byte, error) {
+	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return nil, nil, err
+	}
+
+	var rawReq loginFinishRawRequest
+	if parseErr := json.Unmarshal(bodyBytes, &rawReq); parseErr != nil {
+		fmt.Println("[ERROR] Login Unmarshal失敗:", parseErr)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return nil, bodyBytes, parseErr
+	}
+
+	if rawReq.Username == "" {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return nil, bodyBytes, fmt.Errorf("missing username")
+	}
+
+	return &rawReq, bodyBytes, nil
+}
+
+func buildStandardLoginRequest(rawReq *loginFinishRawRequest) ([]byte, error) {
 	rawID, err := base64URLDecode(rawReq.Credential.RawID)
 	if err != nil {
 		fmt.Println("[ERROR] Login RawID decode失敗:", err)
-		http.Error(w, "Invalid rawId", http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
 	clientDataJSON, err := base64URLDecode(rawReq.Credential.Response.ClientDataJSON)
 	if err != nil {
 		fmt.Println("[ERROR] Login ClientDataJSON decode失敗:", err)
-		http.Error(w, "Invalid clientDataJSON", http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
 	authenticatorData, err := base64URLDecode(rawReq.Credential.Response.AuthenticatorData)
 	if err != nil {
 		fmt.Println("[ERROR] Login AuthenticatorData decode失敗:", err)
-		http.Error(w, "Invalid authenticatorData", http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
 	signature, err := base64URLDecode(rawReq.Credential.Response.Signature)
 	if err != nil {
 		fmt.Println("[ERROR] Login Signature decode失敗:", err)
-		http.Error(w, "Invalid signature", http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
 	var userHandle []byte
@@ -1102,12 +1208,10 @@ func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		userHandle, err = base64URLDecode(*rawReq.Credential.Response.UserHandle)
 		if err != nil {
 			fmt.Println("[ERROR] Login UserHandle decode失敗:", err)
-			http.Error(w, "Invalid userHandle", http.StatusBadRequest)
-			return
+			return nil, err
 		}
 	}
 
-	// 標準的なWebAuthnフォーマットに変換
 	standardReq := map[string]interface{}{
 		"id":    rawReq.Credential.ID,
 		"rawId": base64.StdEncoding.EncodeToString(rawID),
@@ -1126,35 +1230,8 @@ func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	standardReqBytes, err := json.Marshal(standardReq)
 	if err != nil {
 		fmt.Println("[ERROR] Login 標準形式への変換失敗:", err)
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	// 新しいリクエストボディでHTTPリクエストを再構成
-	r.Body = io.NopCloser(bytes.NewReader(standardReqBytes))
-
-	user, err := FindWebAuthnUserByUsername(rawReq.Username)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	sessionData, ok := loginSessionStore[rawReq.Username]
-	if !ok {
-		http.Error(w, "Session data not found", http.StatusBadRequest)
-		return
-	}
-
-	// 認証処理
-	_, err = webAuthnInstance.FinishLogin(user, *sessionData, r)
-
-	if err != nil {
-		log.Println("Login failed:", err)
-		http.Error(w, fmt.Sprintf(`{"success":false,"error":"%s"}`, err.Error()), http.StatusUnauthorized)
-		return
-	}
-
-	// 成功時のレスポンス
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"success":true}`))
+	return standardReqBytes, nil
 }

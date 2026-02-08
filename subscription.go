@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Subscription represents a subscription record.
 type Subscription struct {
 	ID              int64           `json:"id"`
 	UserID          int64           `json:"userId"`
@@ -23,6 +24,7 @@ type Subscription struct {
 	UpdatedAt       time.Time       `json:"updatedAt"`
 }
 
+// PaymentDetails contains payment metadata.
 type PaymentDetails struct {
 	CardLastFour string `json:"cardLastFour,omitempty"`
 	PaypalEmail  string `json:"paypalEmail,omitempty"`
@@ -30,14 +32,17 @@ type PaymentDetails struct {
 	Label        string `json:"label,omitempty"`
 }
 
+// SubscriptionDB manages subscription persistence.
 type SubscriptionDB struct {
 	db *sql.DB
 }
 
+// NewSubscriptionDB creates a SubscriptionDB wrapper.
 func NewSubscriptionDB(db *sql.DB) *SubscriptionDB {
 	return &SubscriptionDB{db: db}
 }
 
+// Create inserts a new subscription.
 func (s *SubscriptionDB) Create(sub *Subscription) error {
 	query := `
 		INSERT INTO subscriptions (
@@ -71,6 +76,7 @@ func (s *SubscriptionDB) Create(sub *Subscription) error {
 	return nil
 }
 
+// GetByUserID returns active subscriptions for a user.
 func (s *SubscriptionDB) GetByUserID(userID int64) ([]Subscription, error) {
 	query := `
 		SELECT id, user_id, service_name, plan_name, amount, currency,
@@ -117,6 +123,7 @@ func (s *SubscriptionDB) GetByUserID(userID int64) ([]Subscription, error) {
 	return subs, nil
 }
 
+// GetUpcoming returns subscriptions due soon.
 func (s *SubscriptionDB) GetUpcoming(userID int64) ([]Subscription, error) {
 	query := `
 		SELECT id, user_id, service_name, plan_name, amount, currency,
@@ -165,6 +172,7 @@ func (s *SubscriptionDB) GetUpcoming(userID int64) ([]Subscription, error) {
 	return subs, nil
 }
 
+// UpdateStatus changes a subscription status.
 func (s *SubscriptionDB) UpdateStatus(id int64, userID int64, status string) error {
 	query := `
 		UPDATE subscriptions
@@ -187,6 +195,7 @@ func (s *SubscriptionDB) UpdateStatus(id int64, userID int64, status string) err
 	return nil
 }
 
+// Delete removes a subscription.
 func (s *SubscriptionDB) Delete(id int64, userID int64) error {
 	query := `
 		DELETE FROM subscriptions
