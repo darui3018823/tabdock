@@ -4,6 +4,42 @@ Write-Host "Building TabDock for macOS arm64..."
 Write-Host "Removing old build files..."
 Remove-Item ./dist/tabdock_mac_arm64 -Force
 
+# ----------------------------------------------------------------
+# JSON Files Initialization
+# ----------------------------------------------------------------
+$JsonDir = "./json"
+if (-not (Test-Path $JsonDir)) {
+    New-Item -ItemType Directory -Force -Path $JsonDir | Out-Null
+    Write-Host "Created json directory."
+}
+
+# 1. ip_scores.json
+$IpScoresPath = "$JsonDir/ip_scores.json"
+if (-not (Test-Path $IpScoresPath)) {
+    Set-Content -Path $IpScoresPath -Value "{}" -Encoding UTF8
+    Write-Host "Created empty $IpScoresPath"
+}
+
+# 2. first_access_ips.json
+$FirstAccessIpsPath = "$JsonDir/first_access_ips.json"
+if (-not (Test-Path $FirstAccessIpsPath)) {
+    Set-Content -Path $FirstAccessIpsPath -Value "{`n  `"ips`": {}`n}" -Encoding UTF8
+    Write-Host "Created default $FirstAccessIpsPath"
+}
+
+# 3. security_config.json
+$SecurityConfigPath = "$JsonDir/security_config.json"
+$SecurityConfigExamplePath = "$JsonDir/security_config.example.json"
+if (-not (Test-Path $SecurityConfigPath)) {
+    if (Test-Path $SecurityConfigExamplePath) {
+        Copy-Item -Path $SecurityConfigExamplePath -Destination $SecurityConfigPath
+        Write-Host "Created $SecurityConfigPath from example."
+    } else {
+        Write-Host "Warning: $SecurityConfigExamplePath not found. Skipping security_config.json creation."
+    }
+}
+# ----------------------------------------------------------------
+
 Write-Host "Setting environment variables for GOOS and GOARCH..."
 $env:CGO_ENABLED="1"
 $env:GOOS = "darwin"

@@ -6,6 +6,42 @@ Write-Host "This script assumes it is run as root."
 $currentDir = (Get-Location).Path
 Write-Host "Current Directory: $currentDir"
 
+# ----------------------------------------------------------------
+# JSON Files Initialization
+# ----------------------------------------------------------------
+$JsonDir = "$currentDir/json"
+if (-not (Test-Path $JsonDir)) {
+    New-Item -ItemType Directory -Force -Path $JsonDir | Out-Null
+    Write-Host "Created json directory."
+}
+
+# 1. ip_scores.json
+$IpScoresPath = "$JsonDir/ip_scores.json"
+if (-not (Test-Path $IpScoresPath)) {
+    Set-Content -Path $IpScoresPath -Value "{}" -Encoding UTF8
+    Write-Host "Created empty $IpScoresPath"
+}
+
+# 2. first_access_ips.json
+$FirstAccessIpsPath = "$JsonDir/first_access_ips.json"
+if (-not (Test-Path $FirstAccessIpsPath)) {
+    Set-Content -Path $FirstAccessIpsPath -Value "{`n  `"ips`": {}`n}" -Encoding UTF8
+    Write-Host "Created default $FirstAccessIpsPath"
+}
+
+# 3. security_config.json
+$SecurityConfigPath = "$JsonDir/security_config.json"
+$SecurityConfigExamplePath = "$JsonDir/security_config.example.json"
+if (-not (Test-Path $SecurityConfigPath)) {
+    if (Test-Path $SecurityConfigExamplePath) {
+        Copy-Item -Path $SecurityConfigExamplePath -Destination $SecurityConfigPath
+        Write-Host "Created $SecurityConfigPath from example."
+    } else {
+        Write-Host "Warning: $SecurityConfigExamplePath not found. Skipping security_config.json creation."
+    }
+}
+# ----------------------------------------------------------------
+
 # Install Nginx if not installed
 if (-not (Get-Command nginx -ErrorAction SilentlyContinue)) {
     Write-Host "Nginx not found. Installing Nginx..."
