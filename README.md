@@ -1,7 +1,7 @@
 # tabdock
 Put your spare tablets to good use.<br>
 
-[日本語](README_ja.md)
+[日本語](./japanese/README_ja.md)
 
 # Recommended Environment
 

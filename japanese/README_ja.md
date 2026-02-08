@@ -1,7 +1,7 @@
 # tabdock
 使っていないタブレットを有効活用しましょう。<br>
 
-[English](README.md)
+[English](../README.md)
 
 ## 推奨動作環境
 
