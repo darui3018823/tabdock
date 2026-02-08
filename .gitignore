@@ -43,9 +43,11 @@ database/shift.db
 database/subscription.db
 database/acc.db
 database/schedule.db
+database/wallpaper.db
 
 json/schedule.json
 json/ip_scores.json
+json/schedule.json.bak
 json/working_schedule_user.json
 json/first_access_ips.json
 json/user/
