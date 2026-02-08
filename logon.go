@@ -27,7 +27,7 @@ import (
 
 var (
 	db     *sql.DB
-	dbPath = "./database/acc.db"
+	dbPath = getEnv("DB_ACC_PATH", "./database/acc.db")
 )
 
 // WebAuthn関連の変数

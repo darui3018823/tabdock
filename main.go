@@ -30,17 +30,25 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 )
 
 // const
 const version = "5.19.7"
-const versionURL = "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
+
+func getVersionURL() string {
+	url := os.Getenv("VERSION_URL")
+	if url == "" {
+		return "https://raw.githubusercontent.com/darui3018823/tabdock/refs/heads/main/latest_version.txt"
+	}
+	return url
+}
 
 // var
 var fallbackHolidays map[string]string
 
 var (
-	calendarDir   = "./home/assets/calendar"
+	calendarDir   = getEnv("CALENDAR_DIR", "./home/assets/calendar")
 	forbiddenExts = map[string]bool{
 		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
 		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
@@ -143,8 +151,8 @@ func serve(mux http.Handler) {
 		port = strings.TrimSpace(os.Getenv("PORT"))
 	}
 
-	certPath := "./cert/tabdock.crt"
-	keyPath := "./cert/tabdock.key"
+	certPath := getEnv("CERT_PATH", "./cert/tabdock.crt")
+	keyPath := getEnv("KEY_PATH", "./cert/tabdock.key")
 	certAvailable := fileExists(certPath) && fileExists(keyPath)
 
 	if port == "" {
@@ -195,6 +203,11 @@ func fileExists(p string) bool {
 }
 
 func main() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found or error loading it, using default values")
+	}
+
 	migrateSchedule := flag.Bool("migrate-schedule", false, "Migrate legacy schedule.json to DB")
 	flag.Parse()
 
@@ -230,7 +243,7 @@ func main() {
 	}
 
 	// バージョンアップフラグを設定
-	setUpdateFlag("./update_flag.txt")
+	setUpdateFlag(getEnv("UPDATE_FLAG_PATH", "./update_flag.txt"))
 
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
@@ -255,7 +268,8 @@ func main() {
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
 
 	// Schedule APIs
-	scheduleDB, err := sql.Open("sqlite", "./database/schedule.db")
+	scheduleDBPath := getEnv("DB_SCHEDULE_PATH", "./database/schedule.db")
+	scheduleDB, err := sql.Open("sqlite", scheduleDBPath)
 	if err != nil {
 		log.Fatal("スケジュールDB接続失敗:", err)
 	}
@@ -281,7 +295,8 @@ func main() {
 		handleShift(w, r, schedHandler.GetDB())
 	}))
 	// Wallpaper APIs
-	wallpaperDB, err := sql.Open("sqlite", "./database/wallpaper.db")
+	wallpaperDBPath := getEnv("DB_WALLPAPER_PATH", "./database/wallpaper.db")
+	wallpaperDB, err := sql.Open("sqlite", wallpaperDBPath)
 	if err != nil {
 		log.Fatal("壁紙DB接続失敗:", err)
 	}
@@ -299,7 +314,8 @@ func main() {
 	mux.HandleFunc("/api/auth/change-password", secureHandler(handleAuthChangePassword))
 
 	// Subscription APIs
-	subscriptionDB, err := sql.Open("sqlite", "./database/subscription.db")
+	subscriptionDBPath := getEnv("DB_SUBSCRIPTION_PATH", "./database/subscription.db")
+	subscriptionDB, err := sql.Open("sqlite", subscriptionDBPath)
 	if err != nil {
 		log.Fatal("サブスクリプションDB接続失敗:", err)
 	}
@@ -339,7 +355,7 @@ func setUpdateFlag(flagPath string) {
 
 func checkForUpdates() {
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(versionURL)
+	resp, err := client.Get(getVersionURL())
 	if err != nil {
 		return
 	}
@@ -364,7 +380,8 @@ func checkForUpdates() {
 
 func initSubscriptionDB() error {
 	// subscription.db
-	subscriptionDB, err := sql.Open("sqlite", "./database/subscription.db")
+	dbPath := getEnv("DB_SUBSCRIPTION_PATH", "./database/subscription.db")
+	subscriptionDB, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("subscription.db接続エラー: %v", err)
 	}
@@ -397,7 +414,8 @@ func initSubscriptionDB() error {
 }
 
 func initScheduleDB() error {
-	db, err := sql.Open("sqlite", "./database/schedule.db")
+	dbPath := getEnv("DB_SCHEDULE_PATH", "./database/schedule.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("スケジュールデータベース接続エラー: %v", err)
 	}
@@ -427,7 +445,8 @@ func initScheduleDB() error {
 }
 
 func initWallpaperDB() error {
-	db, err := sql.Open("sqlite", "./database/wallpaper.db")
+	dbPath := getEnv("DB_WALLPAPER_PATH", "./database/wallpaper.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("壁紙データベース接続エラー: %v", err)
 	}
@@ -474,7 +493,8 @@ func initWallpaperDB() error {
 
 func fixUnlinkedWallpapers(wallpaperDB *sql.DB) error {
 	// 1. 有効なユーザーIDを取得 (acc.db)
-	accDB, err := sql.Open("sqlite", "./database/acc.db")
+	accDBPath := getEnv("DB_ACC_PATH", "./database/acc.db")
+	accDB, err := sql.Open("sqlite", accDBPath)
 	if err != nil {
 		return fmt.Errorf("acc.db open failed: %v", err)
 	}
@@ -552,7 +572,8 @@ func withSlashAndErrorHandler(next http.Handler) http.Handler {
 }
 
 func initShiftDB() error {
-	db, err := sql.Open("sqlite", "./database/shift.db")
+	dbPath := getEnv("DB_SHIFT_PATH", "./database/shift.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("シフトデータベース接続エラー: %v", err)
 	}
@@ -579,7 +600,8 @@ func initShiftDB() error {
 }
 
 func registerShift(username string, shift ShiftEntry) error {
-	db, err := sql.Open("sqlite", "./database/shift.db")
+	dbPath := getEnv("DB_SHIFT_PATH", "./database/shift.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return fmt.Errorf("データベース接続エラー: %v", err)
 	}
@@ -604,7 +626,8 @@ func registerShift(username string, shift ShiftEntry) error {
 }
 
 func getShifts(username string) ([]ShiftEntry, error) {
-	db, err := sql.Open("sqlite", "./database/shift.db")
+	dbPath := getEnv("DB_SHIFT_PATH", "./database/shift.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("データベース接続エラー: %v", err)
 	}
@@ -1449,4 +1472,11 @@ func serveStaticJSON(path string) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		http.ServeFile(w, r, path)
 	}
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
