@@ -188,8 +188,12 @@ func addMissingColumns() error {
 	}
 
 	// NULL値のタイムスタンプを更新
-	db.Exec("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
-	db.Exec("UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
+	if _, err := db.Exec("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"); err != nil {
+		log.Printf("ユーザー作成日時更新エラー: %v", err)
+	}
+	if _, err := db.Exec("UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"); err != nil {
+		log.Printf("ユーザー更新日時更新エラー: %v", err)
+	}
 
 	return nil
 }
@@ -598,7 +602,9 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			Message: "ユーザー名とパスワードが必要です",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -611,7 +617,9 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -626,7 +634,9 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -687,10 +697,12 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	if err := json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"message": "パスワードを更新しました",
-	})
+	}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // 通常登録ハンドラ
@@ -713,7 +725,9 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			Message: "すべての項目を入力してください",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -724,7 +738,9 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			Message: "パスワードは6文字以上で入力してください",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -738,7 +754,9 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -748,7 +766,9 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 			Message: "ユーザー名またはメールアドレスが既に使用されています",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -762,7 +782,9 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
@@ -778,7 +800,9 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 // ===== WebAuthn APIハンドラ =====
@@ -836,7 +860,9 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 	challengeStore[req.Username] = sessionData
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(options)
+	if err := json.NewEncoder(w).Encode(options); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
@@ -1003,7 +1029,9 @@ func HandleWebAuthnLoginStart(w http.ResponseWriter, r *http.Request) {
 	SaveSessionData(req.Username, sessionData)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(options)
+	if err := json.NewEncoder(w).Encode(options); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {

@@ -35,7 +35,11 @@ func migrateLegacySchedules() error {
 	if err != nil {
 		return fmt.Errorf("failed to open acc.db: %v", err)
 	}
-	defer accDB.Close()
+	defer func() {
+		if err := accDB.Close(); err != nil {
+			log.Printf("Failed to close accDB: %v", err)
+		}
+	}()
 
 	rows, err := accDB.Query("SELECT id, username FROM users")
 	if err != nil {
@@ -50,7 +54,11 @@ func migrateLegacySchedules() error {
 	var users []User
 
 	if rows != nil {
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				log.Printf("Failed to close rows: %v", err)
+			}
+		}()
 		for rows.Next() {
 			var u User
 			if err := rows.Scan(&u.ID, &u.Username); err == nil {
@@ -92,7 +100,11 @@ func migrateLegacySchedules() error {
 	if err != nil {
 		return fmt.Errorf("failed to open schedule.db: %v", err)
 	}
-	defer schedDB.Close()
+	defer func() {
+		if err := schedDB.Close(); err != nil {
+			log.Printf("Failed to close schedDB: %v", err)
+		}
+	}()
 
 	tx, err := schedDB.Begin()
 	if err != nil {
@@ -107,7 +119,11 @@ func migrateLegacySchedules() error {
 		tx.Rollback()
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		if err := stmt.Close(); err != nil {
+			log.Printf("Failed to close statement: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	count := 0

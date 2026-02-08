@@ -48,11 +48,12 @@ func getVersionURL() string {
 var fallbackHolidays map[string]string
 
 var (
-	calendarDir   = getEnv("CALENDAR_DIR", "./home/assets/calendar")
-	forbiddenExts = map[string]bool{
-		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
-		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
-	}
+// calendarDir   = getEnv("CALENDAR_DIR", "./home/assets/calendar") // Unused
+// forbiddenExts = map[string]bool{ // Unused
+//
+//		".htaccess": true, ".php": true, ".asp": true, ".aspx": true,
+//		".bat": true, ".cmd": true, ".exe": true, ".sh": true, ".dll": true,
+//	}
 )
 
 var (
@@ -74,19 +75,19 @@ type weatherRequest struct {
 	} `json:"data"`
 }
 
-type weatherBody struct {
-	MainData interface{} `json:"main_data"`
-}
+// type weatherBody struct { // Unused
+// 	MainData interface{} `json:"main_data"`
+// }
 
-type weatherAPIResponse struct {
-	Body weatherBody `json:"body"`
-}
+// type weatherAPIResponse struct { // Unused
+// 	Body weatherBody `json:"body"`
+// }
 
 // type
-type responseWriterWithStatus struct {
-	http.ResponseWriter
-	status int
-}
+// type responseWriterWithStatus struct { // Unused
+// 	http.ResponseWriter
+// 	status int
+// }
 
 type Forecast struct {
 	Date    string `json:"date"`
@@ -127,10 +128,10 @@ type ShiftEntry struct {
 }
 
 // func
-func (rw *responseWriterWithStatus) WriteHeader(code int) {
-	rw.status = code
-	rw.ResponseWriter.WriteHeader(code)
-}
+// func (rw *responseWriterWithStatus) WriteHeader(code int) { // Unused
+// 	rw.status = code
+// 	rw.ResponseWriter.WriteHeader(code)
+// }
 
 func serve(mux http.Handler) {
 	update1 := "You can now view subscription schedules."
@@ -359,7 +360,11 @@ func checkForUpdates() {
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return
@@ -385,7 +390,11 @@ func initSubscriptionDB() error {
 	if err != nil {
 		return fmt.Errorf("subscription.db接続エラー: %v", err)
 	}
-	defer subscriptionDB.Close()
+	defer func() {
+		if err := subscriptionDB.Close(); err != nil {
+			log.Printf("Failed to close subscription DB: %v", err)
+		}
+	}()
 
 	// サブスクリプションテーブル作成
 	_, err = subscriptionDB.Exec(`
@@ -419,7 +428,11 @@ func initScheduleDB() error {
 	if err != nil {
 		return fmt.Errorf("スケジュールデータベース接続エラー: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS schedules (
@@ -450,7 +463,11 @@ func initWallpaperDB() error {
 	if err != nil {
 		return fmt.Errorf("壁紙データベース接続エラー: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS wallpapers (
@@ -498,13 +515,21 @@ func fixUnlinkedWallpapers(wallpaperDB *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("acc.db open failed: %v", err)
 	}
-	defer accDB.Close()
+	defer func() {
+		if err := accDB.Close(); err != nil {
+			log.Printf("Failed to close accDB: %v", err)
+		}
+	}()
 
 	rows, err := accDB.Query("SELECT id FROM users")
 	if err != nil {
 		return fmt.Errorf("users query failed: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	validUserIDs := make(map[string]bool)
 	for rows.Next() {
@@ -520,7 +545,11 @@ func fixUnlinkedWallpapers(wallpaperDB *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("wallpapers query failed: %v", err)
 	}
-	defer wpRows.Close()
+	defer func() {
+		if err := wpRows.Close(); err != nil {
+			log.Printf("Failed to close wpRows: %v", err)
+		}
+	}()
 
 	var orphanUserIDs []string
 	for wpRows.Next() {
@@ -546,7 +575,11 @@ func fixUnlinkedWallpapers(wallpaperDB *sql.DB) error {
 			tx.Rollback()
 			return err
 		}
-		defer stmt.Close()
+		defer func() {
+			if err := stmt.Close(); err != nil {
+				log.Printf("Failed to close statement: %v", err)
+			}
+		}()
 
 		for _, uid := range orphanUserIDs {
 			if _, err := stmt.Exec(uid); err != nil {
@@ -577,7 +610,11 @@ func initShiftDB() error {
 	if err != nil {
 		return fmt.Errorf("シフトデータベース接続エラー: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS shifts (
@@ -605,7 +642,11 @@ func registerShift(username string, shift ShiftEntry) error {
 	if err != nil {
 		return fmt.Errorf("データベース接続エラー: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	var userID string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
@@ -631,7 +672,11 @@ func getShifts(username string) ([]ShiftEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("データベース接続エラー: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	var userID string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
@@ -648,7 +693,11 @@ func getShifts(username string) ([]ShiftEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("シフト取得エラー: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var shifts []ShiftEntry
 	for rows.Next() {
@@ -743,7 +792,11 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 		log.Println("weather API error:", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 
 	// APIのレスポンスを読み取る
 	apiRespBody, err := io.ReadAll(resp.Body)
@@ -754,7 +807,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 	if resp.StatusCode >= 400 {
 		w.WriteHeader(resp.StatusCode)
-		w.Write(apiRespBody)
+		if _, err := w.Write(apiRespBody); err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 		return
 	}
 
@@ -762,7 +817,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(apiRespBody, &upstream); err != nil {
 		// パースできない場合はそのまま返す
 		w.WriteHeader(resp.StatusCode)
-		w.Write(apiRespBody)
+		if _, err := w.Write(apiRespBody); err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 		return
 	}
 
@@ -779,7 +836,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(resp.StatusCode)
-	w.Write(finalBody)
+	if _, err := w.Write(finalBody); err != nil {
+		log.Printf("Failed to write response: %v", err)
+	}
 }
 
 func mergeWeatherResponse(regionKey string, upstream map[string]interface{}) (map[string]interface{}, error) {
@@ -911,16 +970,8 @@ func isNullishString(value string) bool {
 		return true
 	}
 
-	if isHyphenPlaceholder(lower) {
-		return true
-	}
-
 	withoutPercent := strings.TrimSpace(strings.TrimSuffix(lower, "%"))
-	if isHyphenPlaceholder(withoutPercent) {
-		return true
-	}
-
-	return false
+	return isHyphenPlaceholder(withoutPercent)
 }
 
 func isHyphenPlaceholder(value string) bool {
@@ -1166,11 +1217,13 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   "success",
 		"filename": filename,
 		"path":     imagePath,
-	})
+	}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func handleUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -1197,15 +1250,17 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("[ERROR] ユーザー情報取得エラー: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"message": "ユーザー情報を取得できませんでした",
-		})
+		}); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"user": map[string]interface{}{
 			"username":     user.Username,
@@ -1213,7 +1268,9 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 			"profileImage": user.ProfileImage,
 			"loginAt":      user.LoginAt,
 		},
-	})
+	}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func preloadHolidays() map[string]string {
@@ -1240,16 +1297,25 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 	client := http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get(remoteURL)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("Failed to close response body: %v", err)
+			}
+		}()
 		w.Header().Set("Content-Type", "application/json")
-		io.Copy(w, resp.Body)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			log.Printf("Failed to copy response: %v", err)
+		}
 		return
 	}
 
 	// 外部取得失敗 → fallback
 	log.Println("外部APIからの取得に失敗。ローカルデータを返します。")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(fallbackHolidays)
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(fallbackHolidays); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.ScheduleDB) {
@@ -1276,10 +1342,12 @@ func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.Sched
 		log.Printf("[INFO] シフト削除成功 - ユーザー: %s", username)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": true,
 			"message": "すべてのシフトを削除しました",
-		})
+		}); err != nil {
+			log.Printf("JSON encode error: %v", err)
+		}
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
@@ -1303,7 +1371,11 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 		http.Error(w, "データベースエラー", http.StatusInternalServerError)
 		return
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	var userID string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
@@ -1356,9 +1428,11 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": fmt.Sprintf("%d件のシフトを登録しました", len(shifts)),
-	})
+	}); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func handleShiftGet(w http.ResponseWriter, r *http.Request) {
@@ -1376,7 +1450,9 @@ func handleShiftGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(shifts)
+	if err := json.NewEncoder(w).Encode(shifts); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
 }
 
 func deleteAllShiftsForUser(username string) error {
@@ -1384,7 +1460,11 @@ func deleteAllShiftsForUser(username string) error {
 	if err != nil {
 		return fmt.Errorf("データベース接続エラー: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	var userID string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
@@ -1427,7 +1507,11 @@ func getUserIDFromSession(r *http.Request) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("database error: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	var id string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&id)

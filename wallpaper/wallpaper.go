@@ -6,6 +6,7 @@ package wallpaper
 
 import (
 	"database/sql"
+	"log"
 	"time"
 )
 
@@ -56,7 +57,11 @@ func (w *WallpaperDB) GetByUserID(userID string) ([]Wallpaper, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var wallpapers []Wallpaper
 	for rows.Next() {

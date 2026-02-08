@@ -20,14 +20,14 @@ func getDarwinStatus() (*PCStatus, error) {
 	}
 
 	commands := map[string]string{
-		"PC":         `scutil --get ComputerName`,
-		"Battery":    `pmset -g batt | grep -Eo "\d+%" | head -1`,
-		"WAN":        `ping -c 1 -W 1 1.1.1.1 >/dev/null; if ($?) { "Active" } else { "Offline" }`,
-		"Uptime":     `uptime | awk '{print $3 " " $4 " " $5}'`,
-		"CPU":        `ps -A -o %cpu | awk '{s+=$1} END {print s "%"}'`,
-		"Mem":        `vm_stat | grep "Pages active" | awk '{print $3}'`,
-		"DriveC":     `df -h / | awk 'NR==2{print $5 " (" $3 "/" $2 ")"}'`,
-		"MainWindow": `osascript -e 'tell application "System Events" to get name of (processes where frontmost is true)'`,
+		FieldPC:         `scutil --get ComputerName`,
+		FieldBattery:    `pmset -g batt | grep -Eo "\d+%" | head -1`,
+		FieldWAN:        `ping -c 1 -W 1 1.1.1.1 >/dev/null; if ($?) { "Active" } else { "Offline" }`,
+		FieldUptime:     `uptime | awk '{print $3 " " $4 " " $5}'`,
+		FieldCPU:        `ps -A -o %cpu | awk '{s+=$1} END {print s "%"}'`,
+		FieldMem:        `vm_stat | grep "Pages active" | awk '{print $3}'`,
+		FieldDriveC:     `df -h / | awk 'NR==2{print $5 " (" $3 "/" $2 ")"}'`,
+		FieldMainWindow: `osascript -e 'tell application "System Events" to get name of (processes where frontmost is true)'`,
 	}
 
 	results := make(chan fieldResult, len(commands))
@@ -46,27 +46,27 @@ func getDarwinStatus() (*PCStatus, error) {
 
 	for res := range results {
 		switch res.field {
-		case "PC":
+		case FieldPC:
 			status.PC = res.value
-		case "Battery":
+		case FieldBattery:
 			status.Battery = res.value
-		case "WAN":
+		case FieldWAN:
 			status.WAN = res.value
-		case "Uptime":
+		case FieldUptime:
 			status.Uptime = res.value
-		case "CPU":
+		case FieldCPU:
 			status.CPU = res.value
-		case "Mem":
+		case FieldMem:
 			status.Mem = res.value
-		case "DriveC":
+		case FieldDriveC:
 			status.DriveC = res.value
-		case "MainWindow":
+		case FieldMainWindow:
 			status.MainWindow = res.value
 		}
 	}
 
-	status.GPU0 = "N/A" // macOSでは実装予定なし
-	status.VRAM = "N/A" // macOSでは実装予定なし
+	status.GPU0 = StatusNA // macOSでは実装予定なし
+	status.VRAM = StatusNA // macOSでは実装予定なし
 
 	return status, nil
 }
@@ -80,18 +80,18 @@ func getLinuxStatus() (*PCStatus, error) {
 	}
 
 	commands := map[string]string{
-		"PC":      `hostname`,
-		"Battery": `cat /sys/class/power_supply/BAT0/capacity`,
-		"WAN":     `ping -c 1 -W 1 1.1.1.1 >/dev/null; if ($?) { "Active" } else { "Offline" }`,
-		"Uptime":  `uptime -p`,
-		"CPU":     `top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}' | ForEach-Object { "$_%" }`,
-		"Mem":     `free -m | awk 'NR==2{printf "%.0f%% (%dMB/%dMB)", $3*100/$2, $3, $2 }'`,
-		"GPU0":    `nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | Select-Object -First 1`,
-		"VRAM": `nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | ForEach-Object {
+		FieldPC:      `hostname`,
+		FieldBattery: `cat /sys/class/power_supply/BAT0/capacity`,
+		FieldWAN:     `ping -c 1 -W 1 1.1.1.1 >/dev/null; if ($?) { "Active" } else { "Offline" }`,
+		FieldUptime:  `uptime -p`,
+		FieldCPU:     `top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}' | ForEach-Object { "$_%" }`,
+		FieldMem:     `free -m | awk 'NR==2{printf "%.0f%% (%dMB/%dMB)", $3*100/$2, $3, $2 }'`,
+		FieldGPU0:    `nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | Select-Object -First 1`,
+		FieldVRAM: `nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | ForEach-Object {
         $p=$_.Split(",");$u=[double]$p[0];$t=[double]$p[1];$pr=[math]::Round(($u/$t)*100,0);
         "$pr% ($u" + "MiB/$t" + "MiB)"
     } | Select-Object -First 1`,
-		"DriveC": `df -h / | awk 'NR==2{print $5 " (" $3 "/" $2 ")"}'`,
+		FieldDriveC: `df -h / | awk 'NR==2{print $5 " (" $3 "/" $2 ")"}'`,
 	}
 
 	results := make(chan fieldResult, len(commands))
@@ -110,28 +110,28 @@ func getLinuxStatus() (*PCStatus, error) {
 
 	for res := range results {
 		switch res.field {
-		case "PC":
+		case FieldPC:
 			status.PC = res.value
-		case "Battery":
+		case FieldBattery:
 			status.Battery = res.value
-		case "WAN":
+		case FieldWAN:
 			status.WAN = res.value
-		case "Uptime":
+		case FieldUptime:
 			status.Uptime = res.value
-		case "CPU":
+		case FieldCPU:
 			status.CPU = res.value
-		case "Mem":
+		case FieldMem:
 			status.Mem = res.value
-		case "GPU0":
+		case FieldGPU0:
 			status.GPU0 = res.value
-		case "VRAM":
+		case FieldVRAM:
 			status.VRAM = res.value
-		case "DriveC":
+		case FieldDriveC:
 			status.DriveC = res.value
 		}
 	}
 
-	status.MainWindow = "N/A" // Linuxでは未実装
+	status.MainWindow = StatusNA // Linuxでは未実装
 
 	return status, nil
 }
@@ -146,15 +146,15 @@ func GetStatus() (*PCStatus, error) {
 	default:
 		return &PCStatus{
 			PC:         "Unknown",
-			Battery:    "N/A",
-			WAN:        "N/A",
-			Uptime:     "N/A",
-			CPU:        "N/A",
-			Mem:        "N/A",
-			GPU0:       "N/A",
-			VRAM:       "N/A",
-			DriveC:     "N/A",
-			MainWindow: "N/A",
+			Battery:    StatusNA,
+			WAN:        StatusNA,
+			Uptime:     StatusNA,
+			CPU:        StatusNA,
+			Mem:        StatusNA,
+			GPU0:       StatusNA,
+			VRAM:       StatusNA,
+			DriveC:     StatusNA,
+			MainWindow: StatusNA,
 		}, nil
 	}
 }

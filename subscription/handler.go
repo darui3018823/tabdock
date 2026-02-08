@@ -93,7 +93,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(sub)
+	if err := json.NewEncoder(w).Encode(sub); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +117,9 @@ func (h *Handler) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(subs)
+	if err := json.NewEncoder(w).Encode(subs); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +141,9 @@ func (h *Handler) GetUpcoming(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(subs)
+	if err := json.NewEncoder(w).Encode(subs); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) RenewPaymentDates(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +166,9 @@ func (h *Handler) RenewPaymentDates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(results)
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +247,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sub)
+	if err := json.NewEncoder(w).Encode(sub); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +278,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if statusUpdate.Status != "active" && statusUpdate.Status != "cancelled" && statusUpdate.Status != "expired" {
+	if statusUpdate.Status != "active" && statusUpdate.Status != "canceled" && statusUpdate.Status != "expired" {
 		http.Error(w, "Invalid status", http.StatusBadRequest)
 		return
 	}

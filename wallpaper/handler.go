@@ -75,7 +75,11 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ファイルを取得できません", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close uploaded file: %v", err)
+		}
+	}()
 
 	if handler.Size > MaxFileSize {
 		http.Error(w, "File size exceeds 50MB limit", http.StatusRequestEntityTooLarge)
@@ -121,7 +125,11 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
 		return
 	}
-	defer out.Close()
+	defer func() {
+		if err := out.Close(); err != nil {
+			log.Printf("Failed to close output file: %v", err)
+		}
+	}()
 
 	reader := io.MultiReader(bytes.NewReader(sniffBuf[:n]), file)
 	if _, err := io.Copy(out, reader); err != nil {
@@ -142,10 +150,12 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status":   "success",
 		"filename": filename,
-	})
+	}); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -173,10 +183,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
 		"images": files,
-	})
+	}); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -213,8 +225,10 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "壁紙を削除しました",
-	})
+	}); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }

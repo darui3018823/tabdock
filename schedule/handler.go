@@ -77,7 +77,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if handler != nil {
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Printf("Failed to close uploaded file: %v", err)
+			}
+		}()
 		ext := strings.ToLower(filepath.Ext(handler.Filename))
 		if ForbiddenExts[ext] {
 			log.Println("アップロード拒否: 禁止拡張子", ext, "ファイル名:", handler.Filename, "リモートアドレス:", r.RemoteAddr)
@@ -93,8 +97,16 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Save failed", http.StatusInternalServerError)
 			return
 		}
-		defer out.Close()
-		io.Copy(out, file)
+		defer func() {
+			if err := out.Close(); err != nil {
+				log.Printf("Failed to close output file: %v", err)
+			}
+		}()
+		if _, err := io.Copy(out, file); err != nil {
+			log.Printf("Failed to save attachment file: %v", err)
+			http.Error(w, "Save failed", http.StatusInternalServerError)
+			return
+		}
 
 		sched.Attachment = uuidName
 	}
@@ -108,7 +120,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(sched)
+	if err := json.NewEncoder(w).Encode(sched); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) GetUserSchedules(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +148,9 @@ func (h *Handler) GetUserSchedules(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(schedules)
+	if err := json.NewEncoder(w).Encode(schedules); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -176,8 +192,10 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "スケジュールを削除しました",
-	})
+	}); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }

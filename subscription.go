@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"time"
 )
 
@@ -84,7 +85,11 @@ func (s *SubscriptionDB) GetByUserID(userID int64) ([]Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []Subscription
 	for rows.Next() {
@@ -128,7 +133,11 @@ func (s *SubscriptionDB) GetUpcoming(userID int64) ([]Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []Subscription
 	for rows.Next() {

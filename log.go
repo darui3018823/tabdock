@@ -89,6 +89,25 @@ const (
 	ScoreThresholdHigh   = 25
 	ScoreThresholdMedium = 15
 	ScoreThresholdLow    = 0
+
+	// Security Levels
+	SecurityLevelBalanced = "balanced-secure"
+	SecurityLevelRelaxed  = "relaxed"
+
+	// Actions/Levels
+	ActionBlock  = "block"
+	ActionWarn   = "warn"
+	ActionInfo   = "info"
+	ActionAttack = "attack"
+	ActionDeny   = "deny"
+	ActionClean  = "clean"
+
+	// Threats
+	ThreatClean              = "clean"
+	ThreatOversized          = "oversized"
+	ThreatHeaderManipulation = "header_manipulation"
+	ThreatLongHeader         = "long_header"
+	ThreatLongHeaderName     = "long_header_name"
 )
 
 type RateLimit struct {
@@ -140,14 +159,18 @@ func loadSecurityConfig(filepath string) error {
 	if err != nil {
 		return fmt.Errorf("セキュリティ設定ファイルが開けません: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Println("セキュリティ設定ファイルのクローズ失敗:", err)
+		}
+	}()
 
 	if err := json.NewDecoder(file).Decode(&secConfig); err != nil {
 		return fmt.Errorf("セキュリティ設定のJSONデコードに失敗: %w", err)
 	}
 
 	if secConfig.SecurityLevel == "" {
-		secConfig.SecurityLevel = "balanced-secure"
+		secConfig.SecurityLevel = SecurityLevelBalanced
 	}
 
 	// 正規表現をコンパイル
@@ -261,7 +284,7 @@ func isFirstAccessIP(ip string) (bool, time.Time) {
 // getGracePeriodMinutes returns the configured grace period in minutes.
 // Returns 60 minutes as default if not configured.
 func getGracePeriodMinutes() int {
-	if secConfig.SecurityLevel == "balanced-secure" && secConfig.BalancedSecure != nil {
+	if secConfig.SecurityLevel == SecurityLevelBalanced && secConfig.BalancedSecure != nil {
 		if secConfig.BalancedSecure.FirstAccessGracePeriodMin > 0 {
 			return secConfig.BalancedSecure.FirstAccessGracePeriodMin
 		}
@@ -278,7 +301,7 @@ func getGracePeriodMinutes() int {
 //
 // In balanced-secure mode, values are read from configuration; other modes use defaults.
 func getResetDuration(score int) time.Duration {
-	if secConfig.SecurityLevel != "balanced-secure" || secConfig.BalancedSecure == nil {
+	if secConfig.SecurityLevel != SecurityLevelBalanced || secConfig.BalancedSecure == nil {
 		// For strict/relaxed modes, use default thresholds
 		if score >= ScoreThresholdBlock {
 			return 0 // block
@@ -440,7 +463,11 @@ func loadTrustedIPs(filepath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Println("Failed to close trusted IPs file:", err)
+		}
+	}()
 
 	var data struct {
 		Trusted []string `json:"trusted"`
@@ -563,29 +590,6 @@ func incrementScore(ip string, amount int) {
 	saveScores()
 }
 
-func getScoreThreshold(score int) int {
-	if score >= ScoreThresholdBlock {
-		return ScoreThresholdBlock
-	} else if score >= ScoreThresholdHigh {
-		return ScoreThresholdHigh
-	} else if score >= ScoreThresholdMedium {
-		return ScoreThresholdMedium
-	}
-	return ScoreThresholdLow
-}
-
-func getLevel(ip string) string {
-	ipScoresMutex.RLock()
-	score := ipScores[ip]
-	ipScoresMutex.RUnlock()
-	if score >= 15 {
-		return "block"
-	} else if score >= 10 {
-		return "warn"
-	}
-	return "info"
-}
-
 func isFromCloudflare(r *http.Request) bool {
 	return r.Header.Get("CF-Connecting-IP") != "" || r.Header.Get("cf-ray") != ""
 }
@@ -594,27 +598,27 @@ func detectSuspiciousUA(ua string) string {
 	lower := strings.ToLower(ua)
 
 	if ua == "" || len(ua) < 10 {
-		return "deny"
+		return ActionDeny
 	}
 
 	for _, pattern := range maliciousUAPatterns {
 		if strings.Contains(lower, pattern) {
-			return "deny"
+			return ActionDeny
 		}
 	}
 
 	for _, pattern := range suspiciousUAPatterns {
 		if strings.Contains(lower, pattern) {
-			return "warn"
+			return ActionWarn
 		}
 	}
 
 	if len(ua) > 512 {
-		return "warn"
+		return ActionWarn
 	}
 
 	if sqlInjectionPattern.MatchString(ua) || xssPattern.MatchString(ua) {
-		return "deny"
+		return ActionDeny
 	}
 
 	return "ok"
@@ -668,13 +672,13 @@ func checkRateLimit(ip string, path string) bool {
 
 		rateLimit.Count++
 		return rateLimit.Count <= secConfig.RateLimitPerMin
-	} else {
-		rateLimitMap[ip] = &RateLimit{
-			Count:     1,
-			LastReset: time.Now(),
-		}
-		return true
 	}
+
+	rateLimitMap[ip] = &RateLimit{
+		Count:     1,
+		LastReset: time.Now(),
+	}
+	return true
 }
 
 func isDynamicallyBlocked(ip string) bool {
@@ -715,7 +719,7 @@ func isAllowedMethod(method string) bool {
 }
 
 func addSecurityHeaders(w http.ResponseWriter) {
-	if secConfig.SecurityLevel != "relaxed" {
+	if secConfig.SecurityLevel != SecurityLevelRelaxed {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 	}
 	w.Header().Set("X-Frame-Options", "DENY")
@@ -735,7 +739,7 @@ func detectAdvancedThreats(r *http.Request) string {
 	maxSize := secConfig.MaxRequestSizeMB * 1024 * 1024
 	if r.Method == "POST" || r.Method == "PUT" {
 		if r.ContentLength > maxSize {
-			return "oversized"
+			return ThreatOversized
 		}
 	}
 
@@ -752,21 +756,21 @@ func detectAdvancedThreats(r *http.Request) string {
 	}
 
 	if headerCount > 2 {
-		return "header_manipulation"
+		return ThreatHeaderManipulation
 	}
 
 	for key, values := range r.Header {
 		for _, value := range values {
 			if len(value) > 8192 {
-				return "long_header"
+				return ThreatLongHeader
 			}
 		}
 		if len(key) > 256 {
-			return "long_header_name"
+			return ThreatLongHeaderName
 		}
 	}
 
-	return "clean"
+	return ThreatClean
 }
 
 type LogEntry struct {
@@ -801,9 +805,9 @@ func logRequest(r *http.Request, ip, level string) {
 	}
 
 	switch level {
-	case "info", "warn", "attack", "error", "block":
+	case ActionInfo, ActionWarn, ActionAttack, "error", ActionBlock:
 	default:
-		level = "info"
+		level = ActionInfo
 	}
 
 	safeIP := sanitizeIP(ip)
@@ -822,11 +826,15 @@ func logRequest(r *http.Request, ip, level string) {
 	logFile := filepath.Join(dir, time.Now().Format("2006-01-02")+".log")
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				fmt.Println("Failed to close log file:", err)
+			}
+		}()
 		f.WriteString(string(logData) + "\n")
 	}
 
-	if level == "warn" || level == "attack" || level == "block" {
+	if level == ActionWarn || level == ActionAttack || level == ActionBlock {
 		if isTrustedIP(ip) || isPrivateOrLoopback(ip) {
 			return
 		}
@@ -869,28 +877,28 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		isPrivateIP := isPrivateOrLoopback(ip)
 		isTrusted := isTrustedIP(ip)
-		isRelaxedMode := secConfig.SecurityLevel == "relaxed"
-		isBalancedSecure := secConfig.SecurityLevel == "balanced-secure"
+		isRelaxedMode := secConfig.SecurityLevel == SecurityLevelRelaxed
+		isBalancedSecure := secConfig.SecurityLevel == SecurityLevelBalanced
 
 		if isPrivateIP || isTrusted {
 			if !isAllowedMethod(r.Method) {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
 
 			if !checkRateLimit(ip, r.URL.Path) {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			}
 
 			if isSuspiciousPath(r.URL.Path) {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			} else {
 				uaStatus := detectSuspiciousUA(ua)
-				if uaStatus == "deny" || uaStatus == "warn" {
-					logRequest(r, ip, "info")
+				if uaStatus == ActionDeny || uaStatus == ActionWarn {
+					logRequest(r, ip, ActionInfo)
 				} else {
-					logRequest(r, ip, "info")
+					logRequest(r, ip, ActionInfo)
 				}
 			}
 			next(w, r)
@@ -935,7 +943,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			// This can be disabled in config to allow direct access from internal networks or during outages
 			if secConfig.BalancedSecure != nil && secConfig.BalancedSecure.RequireCloudflare {
 				if !isFromCloudflare(r) {
-					logRequest(r, ip, "block")
+					logRequest(r, ip, ActionBlock)
 					http.Error(w, "Access Denied", http.StatusForbidden)
 					return
 				}
@@ -944,7 +952,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		// Country blocking (all non-relaxed modes)
 		if !isRelaxedMode && isBlockedCountry(ip) {
-			logRequest(r, ip, "block")
+			logRequest(r, ip, ActionBlock)
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
 		}
@@ -953,11 +961,11 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		if !isAllowedMethod(r.Method) {
 			incrementScore(ip, 10) // Track bad actors in all modes
 			if isBalancedSecure {
-				logRequest(r, ip, "block")
+				logRequest(r, ip, ActionBlock)
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			} else {
-				logRequest(r, ip, "attack")
+				logRequest(r, ip, ActionAttack)
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 				return
 			}
@@ -966,35 +974,35 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		// Direct IP blocking (immediate for balanced-secure)
 		if !isRelaxedMode && isBlockedDirectIP(ip) {
 			if isBalancedSecure {
-				logRequest(r, ip, "block")
-				http.Redirect(w, r, "/error/403", http.StatusFound)
-				return
-			} else {
-				incrementScore(ip, 5)
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionBlock)
 				http.Redirect(w, r, "/error/403", http.StatusFound)
 				return
 			}
+
+			incrementScore(ip, 5)
+			logRequest(r, ip, ActionWarn)
+			http.Redirect(w, r, "/error/403", http.StatusFound)
+			return
 		}
 
 		// Rate limit check
 		if !checkRateLimit(ip, r.URL.Path) {
 			if isRelaxedMode {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			} else if isBalancedSecure {
 				if isFirstAccess {
 					incrementScore(ip, 5) // Record but don't block
-					logRequest(r, ip, "warn")
+					logRequest(r, ip, ActionWarn)
 				} else {
 					incrementScore(ip, 5)
-					logRequest(r, ip, "block")
+					logRequest(r, ip, ActionBlock)
 					addDynamicBlock(ip)
 					http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
 					return
 				}
 			} else {
 				incrementScore(ip, 5)
-				logRequest(r, ip, "block")
+				logRequest(r, ip, ActionBlock)
 				addDynamicBlock(ip)
 				http.Error(w, "Rate Limit Exceeded", http.StatusTooManyRequests)
 				return
@@ -1002,25 +1010,25 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if !isRelaxedMode && isDynamicallyBlocked(ip) {
-			logRequest(r, ip, "block")
+			logRequest(r, ip, ActionBlock)
 			http.Error(w, "Access Denied", http.StatusForbidden)
 			return
 		}
 
 		// Advanced threat detection
 		threatLevel := detectAdvancedThreats(r)
-		if threatLevel != "clean" && !isRelaxedMode {
+		if threatLevel != ThreatClean && !isRelaxedMode {
 			switch threatLevel {
-			case "oversized":
+			case ThreatOversized:
 				// Always block oversized requests immediately as they represent DoS attempts
 				incrementScore(ip, 8)
-				logRequest(r, ip, "attack")
+				logRequest(r, ip, ActionAttack)
 				http.Error(w, "Request Too Large", http.StatusRequestEntityTooLarge)
 				return
-			case "header_manipulation", "long_header", "long_header_name":
+			case ThreatHeaderManipulation, ThreatLongHeader, ThreatLongHeaderName:
 				// Always block header manipulation immediately as it represents exploitation attempts
 				incrementScore(ip, 7)
-				logRequest(r, ip, "attack")
+				logRequest(r, ip, ActionAttack)
 				http.Redirect(w, r, "/error/403", http.StatusFound)
 				return
 			}
@@ -1039,7 +1047,7 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 			incrementScore(ip, 8+nonCloudflareBoost)
 
 			// During grace period, log as attack instead of allowing it to proceed
-			logRequest(r, ip, "attack")
+			logRequest(r, ip, ActionAttack)
 
 			if strings.Contains(strings.ToLower(r.URL.Path), "sql") ||
 				strings.Contains(strings.ToLower(r.URL.Path), "script") {
@@ -1053,32 +1061,32 @@ func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 		// User-Agent detection
 		uaStatus := detectSuspiciousUA(ua)
 		switch uaStatus {
-		case "deny":
+		case ActionDeny:
 			if isRelaxedMode {
 				incrementScore(ip, 1+nonCloudflareBoost)
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			} else if isBalancedSecure && isFirstAccess {
 				incrementScore(ip, 8+nonCloudflareBoost)
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			} else {
 				incrementScore(ip, 8+nonCloudflareBoost)
-				logRequest(r, ip, "attack")
+				logRequest(r, ip, ActionAttack)
 				addDynamicBlock(ip)
 				http.Redirect(w, r, "/error/403", http.StatusFound)
 				return
 			}
-		case "warn":
+		case ActionWarn:
 			if isRelaxedMode {
-				logRequest(r, ip, "info")
+				logRequest(r, ip, ActionInfo)
 			} else if isBalancedSecure && isFirstAccess {
 				incrementScore(ip, 4+nonCloudflareBoost)
-				logRequest(r, ip, "info") // Cap at info for first access
+				logRequest(r, ip, ActionInfo) // Cap at info for first access
 			} else {
 				incrementScore(ip, 4+nonCloudflareBoost)
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			}
 		default:
-logRequest(r, ip, "info")
+			logRequest(r, ip, ActionInfo)
 		}
 
 		// Final score check with graduated thresholds
@@ -1089,7 +1097,7 @@ logRequest(r, ip, "info")
 		if isRelaxedMode {
 			// Relaxed mode: Never block based on score, only log warnings
 			if finalScore >= ScoreThresholdBlock {
-				logRequest(r, ip, "warn")
+				logRequest(r, ip, ActionWarn)
 			}
 		} else if isBalancedSecure {
 			// Balanced-secure mode: Only block at score 50+
@@ -1097,7 +1105,7 @@ logRequest(r, ip, "info")
 				w.Header().Set("X-Blocked-Reason", "High Security Score")
 				w.Header().Set("X-Contact-Support", "https://daruks.com/contact")
 				addDynamicBlock(ip)
-				logRequest(r, ip, "block")
+				logRequest(r, ip, ActionBlock)
 				http.Redirect(w, r, "/error/503", http.StatusFound)
 				return
 			}
@@ -1106,7 +1114,7 @@ logRequest(r, ip, "info")
 			// Strict mode: Block at score 15+ (legacy behavior)
 			if finalScore >= ScoreThresholdMedium {
 				addDynamicBlock(ip)
-				logRequest(r, ip, "block")
+				logRequest(r, ip, ActionBlock)
 				http.Redirect(w, r, "/error/503", http.StatusFound)
 				return
 			}
@@ -1199,11 +1207,11 @@ func sendDiscordWebhook(ip, level, method, path, ua, reqHash string) {
 
 	color := 0xFFCC00
 	switch level {
-	case "attack":
+	case ActionAttack:
 		color = 0xFF0000
-	case "block":
+	case ActionBlock:
 		color = 0x800080
-	case "warn":
+	case ActionWarn:
 		color = 0xFFCC00
 	}
 
@@ -1243,5 +1251,14 @@ func sendDiscordWebhook(ip, level, method, path, ua, reqHash string) {
 	jsonPayload, _ := json.Marshal(payload)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	client.Post(webhookURL, "application/json", bytes.NewBuffer(jsonPayload))
+	resp, err := client.Post(webhookURL, "application/json", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		fmt.Println("Failed to send Discord webhook:", err)
+		return
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Println("Failed to close Discord webhook response body:", err)
+		}
+	}()
 }

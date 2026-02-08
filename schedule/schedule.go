@@ -6,6 +6,7 @@ package schedule
 
 import (
 	"database/sql"
+	"log"
 	"time"
 )
 
@@ -73,7 +74,11 @@ func (s *ScheduleDB) GetByUserID(userID string) ([]Schedule, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var schedules []Schedule
 	for rows.Next() {

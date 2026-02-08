@@ -14,21 +14,42 @@ type PCStatus struct {
 	PC, Battery, WAN, Uptime, CPU, Mem, GPU0, GPU1, VRAM, DriveC, MainWindow string
 }
 
+const (
+	OSWindows = "windows"
+	OSLinux   = "linux"
+	OSDarwin  = "darwin"
+
+	StatusNA    = "N/A"
+	StatusError = "Error"
+
+	FieldPC         = "PC"
+	FieldBattery    = "Battery"
+	FieldWAN        = "WAN"
+	FieldUptime     = "Uptime"
+	FieldCPU        = "CPU"
+	FieldMem        = "Mem"
+	FieldGPU0       = "GPU0"
+	FieldGPU1       = "GPU1"
+	FieldVRAM       = "VRAM"
+	FieldDriveC     = "DriveC"
+	FieldMainWindow = "MainWindow"
+)
+
 func runPS(cmd string) string {
 	switch runtime.GOOS {
-	case "windows":
+	case OSWindows:
 		out, err := exec.Command("powershell", "-Command", cmd).Output()
 		if err != nil {
-			return "Error"
+			return StatusError
 		}
 		return strings.TrimSpace(string(out))
-	case "linux", "darwin":
+	case OSLinux, OSDarwin:
 		out, err := exec.Command("sh", "-c", cmd).Output()
 		if err != nil {
-			return "Error"
+			return StatusError
 		}
 		return strings.TrimSpace(string(out))
 	default:
-		return "N/A"
+		return StatusNA
 	}
 }

@@ -7,6 +7,7 @@ package subscription
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"strings"
 	"time"
 )
@@ -70,7 +71,11 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			log.Printf("Failed to rollback transaction: %v", err)
+		}
+	}()
 
 	rows, err := tx.Query(`
                 SELECT id, service_name, billing_cycle, next_payment_date
@@ -82,7 +87,11 @@ func (s *SubscriptionDB) RenewOverduePayments(userID string, now time.Time) ([]R
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var results []RenewalResult
 
@@ -191,7 +200,11 @@ func (s *SubscriptionDB) GetByUserID(userID string) ([]Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []Subscription
 	for rows.Next() {
@@ -235,7 +248,11 @@ func (s *SubscriptionDB) GetUpcoming(userID string) ([]Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []Subscription
 	for rows.Next() {
