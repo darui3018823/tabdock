@@ -1,9 +1,10 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.10.5_devtools-r1
+// This code Version: 5.22.0_devtools-r1
 
-let debugLog = [];
+const STORAGE_KEY_DEBUG_LOG = 'tabdock_debug_log';
+let debugLog = loadDebugLogFromStorage();
 let maxLogEntries = 200;
 let lastFullSync = null;
 let burnInOverlayCleanup = null;
@@ -215,6 +216,24 @@ function closeBurnInOverlay() {
     }
 }
 
+function loadDebugLogFromStorage() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_DEBUG_LOG);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error('Failed to load debug log from storage:', e);
+        return [];
+    }
+}
+
+function saveDebugLogToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEY_DEBUG_LOG, JSON.stringify(debugLog));
+    } catch (e) {
+        console.error('Failed to save debug log to storage:', e);
+    }
+}
+
 function addDebugLog(level, message, data = null) {
     const timestamp = new Date().toISOString();
     const logEntry = { timestamp, level, message, data };
@@ -222,8 +241,145 @@ function addDebugLog(level, message, data = null) {
     if (debugLog.length > maxLogEntries) {
         debugLog = debugLog.slice(0, maxLogEntries);
     }
-    console.log(`[${level.toUpperCase()}] ${message}`, data || '');
+    saveDebugLogToStorage();
+
+    // Auto-scroll if modal is open
+    const entriesContainer = document.getElementById('debugLogEntries');
+    if (entriesContainer) {
+        // We can't easily append just one element because of the current rendering logic (innerHTML replacement),
+        // so for now we rely on the user refreshing or the next render cycle. 
+        // Real-time update would require changing renderDebugLogEntries to append.
+        // For this iteration, simply saving is enough, UI refresh happens on interaction or we can trigger it.
+        // Let's trigger a refresh if the modal is open and we have the refresh function available?
+        // Actually, pure data update is fine for background logs. 
+    }
 }
+
+// --- Console Capture ---
+const originalConsole = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error
+};
+
+function captureConsole() {
+    function proxyConsole(method, level) {
+        console[method] = (...args) => {
+            originalConsole[method].apply(console, args); // Keep original behavior
+            // Avoid infinite loop if addDebugLog uses console
+            try {
+                const message = args.map(arg => {
+                    if (typeof arg === 'object') {
+                        try {
+                            return JSON.stringify(arg);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+
+                // Don't call addDebugLog here directly if it calls console.log, 
+                // but our modified addDebugLog REMOVED the console.log call to avoid loop?
+                // Wait, the original addDebugLog had console.log. We must remove it or use originalConsole.log
+
+                // Let's modify addDebugLog to NOT use console.log, or use originalConsole.log
+                // *Self-correction*: I need to modify addDebugLog in the previous chunk or this one to use originalConsole.
+            } catch (e) {
+                originalConsole.error('Error in console proxy:', e);
+            }
+        };
+    }
+    // formatting issue in thought process, implementing below
+}
+
+// We need to redefine addDebugLog to NOT use global console.log to avoid recursion if we hook console.log
+// So I will replace addDebugLog completely.
+
+function addDebugLogSafe(level, message, data = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = { timestamp, level, message, data };
+    debugLog.unshift(logEntry);
+    if (debugLog.length > maxLogEntries) {
+        debugLog = debugLog.slice(0, maxLogEntries);
+    }
+    saveDebugLogToStorage();
+
+    // Use original console to avoid recursion
+    if (originalConsole[level] || originalConsole.log) {
+        const logFn = originalConsole[level] || originalConsole.log;
+        // Don't log to console again if it came FROM console capture (circular check needed?)
+        // Actually, if we capture console, we should distinguish sources.
+        // For simplicity: addDebugLog is for INTERNAL app logs. 
+        // If we capture console, console.log calls addDebugLog.
+        // So addDebugLog should NOT call console.log, OR we strictly separate them.
+        // Better approach: addDebugLog writes to array/storage. 
+        // Console proxy writes to console (naturally) AND calls addDebugLog.
+        // So addDebugLog should NOT write to console to avoid duplication/recursion.
+    }
+}
+
+// Redefine addDebugLog to match the safe version
+addDebugLog = addDebugLogSafe;
+
+function initConsoleCapture() {
+    ['log', 'info', 'warn', 'error'].forEach(method => {
+        console[method] = (...args) => {
+            originalConsole[method].apply(console, args);
+            // safe conversion of args
+            const msg = args.map(a =>
+                typeof a === 'object' ? (a instanceof Error ? a.stack : (JSON.stringify(a) || String(a))) : String(a)
+            ).join(' ');
+
+            // Map console levels to debugLog levels
+            const levelMap = { log: 'info', info: 'info', warn: 'warn', error: 'error' };
+            addDebugLogSafe(levelMap[method], `[Console] ${msg.substring(0, 200)}${msg.length > 200 ? '...' : ''}`, args.length > 1 ? args : null);
+        };
+    });
+    addDebugLogSafe('info', 'Console capture initialized');
+}
+
+// --- Network Capture ---
+const originalFetch = window.fetch;
+function initNetworkCapture() {
+    window.fetch = async (...args) => {
+        const [resource, config] = args;
+        const method = config?.method || 'GET';
+        const url = (typeof resource === 'string') ? resource : resource.url;
+        const start = performance.now();
+
+        try {
+            const response = await originalFetch(...args);
+            const time = Math.round(performance.now() - start);
+            const status = response.status;
+            const level = status >= 400 ? 'error' : 'info';
+
+            addDebugLogSafe(level, `[Fetch] ${method} ${url} (${status}) - ${time}ms`);
+            return response;
+        } catch (error) {
+            const time = Math.round(performance.now() - start);
+            addDebugLogSafe('error', `[Fetch] ${method} ${url} FAILED - ${time}ms`, error.message);
+            throw error;
+        }
+    };
+    addDebugLogSafe('info', 'Network capture initialized');
+}
+
+// --- Global Error Capture ---
+function initErrorCapture() {
+    window.addEventListener('error', (event) => {
+        addDebugLogSafe('error', `[Uncaught] ${event.message}`, event.error ? event.error.stack : null);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        addDebugLogSafe('error', `[Unhandled Promise] ${event.reason}`, event.reason);
+    });
+}
+
+// Initialize captures
+initConsoleCapture();
+initNetworkCapture();
+initErrorCapture();
 
 function checkJavaScriptLoadStatus() {
     const scripts = [
@@ -305,16 +461,16 @@ function checkJavaScriptLoadStatus() {
 async function performFullSync() {
     console.log('performFullSync関数の最初の行が実行されました！');
     console.log('try-catch外での実行確認:', new Date().toISOString());
-    
+
     try {
         console.log('performFullSync関数のtry-catch内に入りました');
         console.log('performFullSync関数が開始されました');
         const startTime = performance.now();
         console.log('=== 完全同期処理開始 ===');
         console.log('開始時刻:', new Date().toLocaleTimeString());
-        
+
         addDebugLog('info', '完全同期開始');
-        
+
         const syncTasks = [
             {
                 name: '天気データ',
@@ -428,76 +584,76 @@ async function performFullSync() {
                 addDebugLog('error', `${task.name}同期エラー`, error);
             }
         }
-    
-    console.log('=== 時計・日付更新開始 ===');
-    try {
-        const taskStart = performance.now();
-        
-        const clockEl = document.getElementById("clock");
-        const dateEl = document.getElementById("date");
-        console.log(`clock要素: ${clockEl ? '存在' : '不存在'}`);
-        console.log(`date要素: ${dateEl ? '存在' : '不存在'}`);
-        
-        const now = new Date();
-        if (clockEl) {
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const timeStr = `${hours}:${minutes}:${seconds}`;
-            clockEl.textContent = timeStr;
-            console.log(`時計を更新: ${timeStr}`);
+
+        console.log('=== 時計・日付更新開始 ===');
+        try {
+            const taskStart = performance.now();
+
+            const clockEl = document.getElementById("clock");
+            const dateEl = document.getElementById("date");
+            console.log(`clock要素: ${clockEl ? '存在' : '不存在'}`);
+            console.log(`date要素: ${dateEl ? '存在' : '不存在'}`);
+
+            const now = new Date();
+            if (clockEl) {
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const timeStr = `${hours}:${minutes}:${seconds}`;
+                clockEl.textContent = timeStr;
+                console.log(`時計を更新: ${timeStr}`);
+            }
+
+            if (dateEl) {
+                const weekdays = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                const day = weekdays[now.getDay()];
+                const dateStr = `${y}/${m}/${d} (${day})`;
+                dateEl.textContent = dateStr;
+                console.log(`日付を更新: ${dateStr}`);
+            }
+
+            const taskTime = Math.round(performance.now() - taskStart);
+            results.push({ name: '時計・日付更新', status: 'success', time: taskTime });
+            console.log(`✅ 時計・日付更新完了 (${taskTime}ms)`);
+            addDebugLog('info', `時計・日付更新完了 (${taskTime}ms)`);
+        } catch (error) {
+            results.push({ name: '時計・日付更新', status: 'error', error: error.message });
+            console.error(`❌ 時計・日付更新エラー:`, error);
+            addDebugLog('error', '時計・日付更新エラー', error);
         }
-        
-        if (dateEl) {
-            const weekdays = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const day = weekdays[now.getDay()];
-            const dateStr = `${y}/${m}/${d} (${day})`;
-            dateEl.textContent = dateStr;
-            console.log(`日付を更新: ${dateStr}`);
+
+        console.log('=== APIステータス確認開始 ===');
+        try {
+            const taskStart = performance.now();
+
+            console.log(`checkApi関数: ${typeof window.checkApi === 'function' ? '利用可能' : '利用不可'}`);
+            if (typeof window.checkApi === 'function') {
+                console.log('各種APIをチェック中...');
+                window.checkApi("/api/ping", "statusPing", "HEAD");
+                window.checkApi("/api/weather", "statusWeather", "HEAD");
+                window.checkApi("/api/schedule", "statusSchedule", "HEAD");
+                window.checkApi("/api/holidays", "statusHolidays", "HEAD");
+            }
+
+            const taskTime = Math.round(performance.now() - taskStart);
+            results.push({ name: 'APIステータス確認', status: 'success', time: taskTime });
+            console.log(`✅ APIステータス確認完了 (${taskTime}ms)`);
+            addDebugLog('info', `APIステータス確認完了 (${taskTime}ms)`);
+        } catch (error) {
+            results.push({ name: 'APIステータス確認', status: 'error', error: error.message });
+            console.error(`❌ APIステータス確認エラー:`, error);
+            addDebugLog('error', 'APIステータス確認エラー', error);
         }
-        
-        const taskTime = Math.round(performance.now() - taskStart);
-        results.push({ name: '時計・日付更新', status: 'success', time: taskTime });
-        console.log(`✅ 時計・日付更新完了 (${taskTime}ms)`);
-        addDebugLog('info', `時計・日付更新完了 (${taskTime}ms)`);
-    } catch (error) {
-        results.push({ name: '時計・日付更新', status: 'error', error: error.message });
-        console.error(`❌ 時計・日付更新エラー:`, error);
-        addDebugLog('error', '時計・日付更新エラー', error);
-    }
-    
-    console.log('=== APIステータス確認開始 ===');
-    try {
-        const taskStart = performance.now();
-        
-        console.log(`checkApi関数: ${typeof window.checkApi === 'function' ? '利用可能' : '利用不可'}`);
-        if (typeof window.checkApi === 'function') {
-            console.log('各種APIをチェック中...');
-            window.checkApi("/api/ping", "statusPing", "HEAD");
-            window.checkApi("/api/weather", "statusWeather", "HEAD");
-            window.checkApi("/api/schedule", "statusSchedule", "HEAD");
-            window.checkApi("/api/holidays", "statusHolidays", "HEAD");
-        }
-        
-        const taskTime = Math.round(performance.now() - taskStart);
-        results.push({ name: 'APIステータス確認', status: 'success', time: taskTime });
-        console.log(`✅ APIステータス確認完了 (${taskTime}ms)`);
-        addDebugLog('info', `APIステータス確認完了 (${taskTime}ms)`);
-    } catch (error) {
-        results.push({ name: 'APIステータス確認', status: 'error', error: error.message });
-        console.error(`❌ APIステータス確認エラー:`, error);
-        addDebugLog('error', 'APIステータス確認エラー', error);
-    }
-    
-    const totalTime = Math.round(performance.now() - startTime);
-    lastFullSync = new Date().toISOString();
-    console.log(`=== 完全同期完了 (合計${totalTime}ms) ===`);
-    addDebugLog('info', `完全同期完了 (${totalTime}ms)`, results);
-    
-    return { results, totalTime };
+
+        const totalTime = Math.round(performance.now() - startTime);
+        lastFullSync = new Date().toISOString();
+        console.log(`=== 完全同期完了 (合計${totalTime}ms) ===`);
+        addDebugLog('info', `完全同期完了 (${totalTime}ms)`, results);
+
+        return { results, totalTime };
     } catch (error) {
         console.error('performFullSync関数内でエラーが発生:', error);
         console.error('エラースタック:', error.stack);
@@ -509,7 +665,7 @@ function analyzeLocalStorage() {
     const storage = {};
     const totalItems = localStorage.length;
     let totalSize = 0;
-    
+
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         const value = localStorage.getItem(key);
@@ -521,7 +677,7 @@ function analyzeLocalStorage() {
             type: typeof value
         };
     }
-    
+
     return {
         totalItems,
         totalSize,
@@ -836,18 +992,18 @@ forceSyncButton?.addEventListener("click", async (event) => {
     console.log('イベントオブジェクト:', event);
     console.log('現在時刻:', new Date().toISOString());
     console.log('実行中フラグ:', isFullSyncRunning);
-    
+
     if (isFullSyncRunning) {
         console.log('⚠️ 既に完全同期が実行中です。処理をスキップします。');
         return;
     }
-    
+
     setFullSyncRunning(true, 'ボタンクリック開始');
-    
+
     forceSyncButton.disabled = true;
     forceSyncButton.textContent = '同期中...';
     console.log('ボタンを無効化しました');
-    
+
     try {
         console.log('Swalチェック開始...');
         if (typeof Swal === 'undefined') {
@@ -855,12 +1011,12 @@ forceSyncButton?.addEventListener("click", async (event) => {
             alert('SweetAlert2が読み込まれていません。ページを再読み込みしてください。');
             return;
         }
-        
+
         console.log('SweetAlert2は利用可能です');
-        
+
         console.log('SweetAlertダイアログを表示中...');
         console.log('Swal.fire呼び出し前の状態確認完了');
-        
+
         Swal.fire({
             title: '完全同期中…',
             text: '全データをサーバーから再取得しています。',
@@ -872,24 +1028,24 @@ forceSyncButton?.addEventListener("click", async (event) => {
             }
         });
         console.log('SweetAlertダイアログを開始しました（非同期）');
-        
+
         console.log('performFullSync関数の存在確認:', typeof performFullSync);
         console.log('performFullSync関数を呼び出し中...');
         console.log('performFullSync呼び出し直前の時刻:', new Date().toISOString());
-        
+
         const result = await performFullSync();
         console.log('performFullSync呼び出し完了の時刻:', new Date().toISOString());
         console.log('完全同期結果:', result);
-        
+
         const successCount = result.results.filter(r => r.status === 'success').length;
         const errorCount = result.results.filter(r => r.status === 'error').length;
         const skippedCount = result.results.filter(r => r.status === 'skipped').length;
-        
+
         console.log('同期結果詳細:');
         result.results.forEach(r => {
             console.log(`- ${r.name}: ${r.status}${r.time ? ` (${r.time}ms)` : ''}${r.error ? ` - Error: ${r.error}` : ''}${r.reason ? ` - Reason: ${r.reason}` : ''}`);
         });
-        
+
         const rowsHtml = result.results.map(r => {
             const statusLabel = r.status === 'success' ? '成功' : r.status === 'error' ? '失敗' : 'スキップ';
             const statusClass = r.status === 'success' ? 'text-green-400' : r.status === 'error' ? 'text-red-400' : 'text-yellow-300';
@@ -937,12 +1093,12 @@ forceSyncButton?.addEventListener("click", async (event) => {
                 htmlContainer: 'text-white'
             }
         });
-        
+
     } catch (error) {
         console.error('同期処理中にエラーが発生:', error);
         console.error('エラーの詳細:', error.stack);
         addDebugLog('error', '同期処理中にエラー', error);
-        
+
         try {
             await Swal.fire({
                 icon: 'error',
@@ -975,7 +1131,7 @@ forceSyncButton?.addEventListener("click", async (event) => {
         forceSyncButton.disabled = false;
         forceSyncButton.textContent = '完全同期';
         console.log('ボタンを復元しました');
-        
+
         if (typeof Swal !== 'undefined') {
             console.log('SweetAlertダイアログを閉じます');
             Swal.close();
@@ -1153,9 +1309,9 @@ document.getElementById("quickDiagBtn").addEventListener("click", async () => {
     resultHtml += `</div>`;
 
     const hasIssues = !diagnostics.swalLoaded ||
-                     Object.values(diagnostics.domElements).some(v => !v) ||
-                     Object.values(diagnostics.globalFunctions).some(v => !v) ||
-                     !diagnostics.network.online;
+        Object.values(diagnostics.domElements).some(v => !v) ||
+        Object.values(diagnostics.globalFunctions).some(v => !v) ||
+        !diagnostics.network.online;
 
     await Swal.fire({
         title: '簡易診断結果',
@@ -1175,7 +1331,7 @@ document.getElementById("quickDiagBtn").addEventListener("click", async () => {
 
 document.getElementById("clearLocalStorageBtn").addEventListener("click", async () => {
     const storageInfo = analyzeLocalStorage();
-    
+
     const result = await Swal.fire({
         title: 'ローカルストレージを初期化',
         html: `
@@ -1199,11 +1355,11 @@ document.getElementById("clearLocalStorageBtn").addEventListener("click", async 
             htmlContainer: 'text-white'
         }
     });
-    
+
     if (result.isConfirmed) {
         addDebugLog('info', 'ローカルストレージ初期化実行', storageInfo);
         localStorage.clear();
-        
+
         await Swal.fire({
             icon: 'success',
             title: '初期化完了',
@@ -1270,14 +1426,50 @@ document.getElementById("showDebugLogBtn").addEventListener("click", () => {
     const copyBtn = content.querySelector('#debugLogCopyBtn');
     const downloadBtn = content.querySelector('#debugLogDownloadBtn');
 
+    const clearBtn = document.createElement('button');
+    clearBtn.id = 'debugLogClearBtn';
+    clearBtn.className = 'px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white';
+    clearBtn.textContent = 'ログを消去';
+
+    // Insert Clear button before copy button
+    copyBtn.parentNode.insertBefore(clearBtn, copyBtn);
+
     const refresh = () => {
         const level = levelSelect.value;
         const limit = parseInt(limitSelect.value, 10);
         renderDebugLogEntries(entriesContainer, { level, limit });
+        // Auto-scroll to bottom
+        setTimeout(() => {
+            entriesContainer.scrollTop = entriesContainer.scrollHeight;
+        }, 0);
     };
 
     levelSelect.addEventListener('change', refresh);
     limitSelect.addEventListener('change', refresh);
+
+    clearBtn.addEventListener('click', async () => {
+        const result = await Swal.fire({
+            title: 'ログを消去しますか？',
+            text: 'すべてのデバッグログが削除されます。',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: '消去する',
+            cancelButtonText: 'キャンセル',
+            customClass: {
+                popup: 'bg-gray-800 text-white',
+                title: 'text-white',
+                htmlContainer: 'text-white'
+            }
+        });
+
+        if (result.isConfirmed) {
+            debugLog = [];
+            saveDebugLogToStorage();
+            refresh();
+            Toast?.fire({ icon: 'success', title: 'ログを消去しました' });
+        }
+    });
 
     copyBtn?.addEventListener('click', async () => {
         try {
@@ -1363,7 +1555,7 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
         perfBtn.disabled = true;
         perfBtn.innerHTML = 'テスト中...';
     }
-    
+
     Swal.fire({
         title: 'パフォーマンステスト実行中...',
         text: 'ブラウザとシステムの性能を測定しています',
@@ -1380,23 +1572,23 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
         }
     });
     console.log('パフォーマンステストのローディングダイアログを開始しました（非同期）');
-    
+
     try {
         console.log('パフォーマンステスト実行開始');
         const results = await runPerformanceTest();
         console.log('パフォーマンステスト実行完了:', results);
-        
+
         let resultHtml = `<div class="text-left text-sm">`;
         resultHtml += `<h4 class="font-bold mb-3 text-blue-400">📊 パフォーマンステスト結果</h4>`;
-        
+
         results.forEach(test => {
             resultHtml += `<div class="mb-3 p-2 border border-gray-600 rounded">`;
             resultHtml += `<div class="font-semibold text-white">${test.name}</div>`;
-            
+
             if (test.description) {
                 resultHtml += `<div class="text-xs text-gray-400 mb-1">${test.description}</div>`;
             }
-            
+
             if (test.error) {
                 resultHtml += `<div class="text-red-400 font-mono text-xs">❌ エラー: ${test.error}</div>`;
             } else if (test.time !== undefined) {
@@ -1405,9 +1597,9 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                 if (test.time < 50) performanceLevel = '(高速 🚀)';
                 else if (test.time < 200) performanceLevel = '(標準 ✅)';
                 else performanceLevel = '(低速 ⚠️)';
-                
+
                 resultHtml += `<div class="${timeClass} font-bold">⏱️ ${test.time}ms ${performanceLevel}</div>`;
-                
+
                 if (test.status) {
                     resultHtml += `<div class="text-xs text-gray-400">HTTP Status: ${test.status}</div>`;
                 }
@@ -1424,26 +1616,26 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                 resultHtml += `<div>上限: ${test.limit}</div>`;
                 resultHtml += `</div>`;
             }
-            
+
             resultHtml += `</div>`;
         });
-        
-    resultHtml += `<div class="mt-4 p-2 bg-black/20 rounded text-xs">`;
-    resultHtml += `<h5 class="font-bold text-blue-300 mb-1">📝 テスト内容説明(ヘビー):</h5>`;
-    resultHtml += `<ul class="text-blue-200 space-y-1">`;
-    resultHtml += `<li>• DOM構築/レイアウト: 大量要素追加とレイアウト計算</li>`;
-    resultHtml += `<li>• ネットワーク(並列): 5本の同時Ping平均/分散</li>`;
-    resultHtml += `<li>• ストレージ: 256KBの保存・読み込み・削除</li>`;
-    resultHtml += `<li>• 計算処理(ヘビー): 50万回の数学計算 + 10万要素reduce</li>`;
-    resultHtml += `<li>• JSON: 1万件のシリアライズ/デシリアライズ</li>`;
-    resultHtml += `<li>• ハッシュ: 1MBのSHA-256</li>`;
-    resultHtml += `<li>• Canvas: 512x512への1000回描画</li>`;
-    resultHtml += `<li>• メモリ: 現在の使用量/上限</li>`;
-    resultHtml += `</ul>`;
-    resultHtml += `</div>`;
-        
+
+        resultHtml += `<div class="mt-4 p-2 bg-black/20 rounded text-xs">`;
+        resultHtml += `<h5 class="font-bold text-blue-300 mb-1">📝 テスト内容説明(ヘビー):</h5>`;
+        resultHtml += `<ul class="text-blue-200 space-y-1">`;
+        resultHtml += `<li>• DOM構築/レイアウト: 大量要素追加とレイアウト計算</li>`;
+        resultHtml += `<li>• ネットワーク(並列): 5本の同時Ping平均/分散</li>`;
+        resultHtml += `<li>• ストレージ: 256KBの保存・読み込み・削除</li>`;
+        resultHtml += `<li>• 計算処理(ヘビー): 50万回の数学計算 + 10万要素reduce</li>`;
+        resultHtml += `<li>• JSON: 1万件のシリアライズ/デシリアライズ</li>`;
+        resultHtml += `<li>• ハッシュ: 1MBのSHA-256</li>`;
+        resultHtml += `<li>• Canvas: 512x512への1000回描画</li>`;
+        resultHtml += `<li>• メモリ: 現在の使用量/上限</li>`;
+        resultHtml += `</ul>`;
         resultHtml += `</div>`;
-        
+
+        resultHtml += `</div>`;
+
         console.log('パフォーマンステスト結果ダイアログを表示します');
         await Swal.fire({
             title: '🔍 パフォーマンステスト結果',
@@ -1459,10 +1651,10 @@ document.getElementById("runPerfTestBtn").addEventListener("click", async () => 
                 footer: 'text-white'
             }
         });
-        
+
     } catch (error) {
         console.error('パフォーマンステスト中にエラーが発生:', error);
-        
+
         try {
             await Swal.fire({
                 icon: 'error',
@@ -1514,7 +1706,7 @@ document.getElementById("reloadPageBtn").addEventListener("click", async () => {
             htmlContainer: 'text-white'
         }
     });
-    
+
     if (result.isConfirmed) {
         addDebugLog('info', 'ページ再読み込み実行');
         location.reload();
@@ -1824,29 +2016,29 @@ async function deleteAllShiftsForUser() {
 console.log('=== DevTools自動診断開始 ===');
 setTimeout(() => {
     console.log('=== 1秒後の自動診断実行 ===');
-    
+
     const forceSyncBtn = document.getElementById("forceSyncBtn");
     console.log('forceSyncBtn要素の確認:', forceSyncBtn);
     console.log('forceSyncBtn要素のイベントリスナー数:', forceSyncBtn?.getEventListeners ? forceSyncBtn.getEventListeners() : 'getEventListeners不利用可能');
-    
+
     console.log('performFullSync関数:', typeof performFullSync);
     console.log('Swal:', typeof Swal);
     console.log('SweetAlert2のバージョン:', typeof Swal !== 'undefined' ? Swal.version : '未定義');
-    
+
     performQuickDiagnostics();
-    
+
     console.log('=== DevTools初期化完了 ===');
 }, 1000);
 
-window.manualTestPerformFullSync = async function() {
+window.manualTestPerformFullSync = async function () {
     console.log('=== 手動テスト: performFullSync ===');
     console.log('実行中フラグ確認:', isFullSyncRunning);
-    
+
     if (isFullSyncRunning) {
         console.log('⚠️ 既に実行中のため手動テストをスキップします');
         return { skipped: true, reason: '既に実行中' };
     }
-    
+
     try {
         const result = await performFullSync();
         console.log('手動テスト結果:', result);
@@ -1857,13 +2049,13 @@ window.manualTestPerformFullSync = async function() {
     }
 };
 
-window.manualTestButtonClick = function() {
+window.manualTestButtonClick = function () {
     console.log('=== 手動テスト: ボタンクリック ===');
     console.log('実行中フラグ確認:', isFullSyncRunning);
     const btn = document.getElementById("forceSyncBtn");
     console.log('ボタン要素:', btn);
     console.log('ボタン状態 - disabled:', btn?.disabled, 'textContent:', btn?.textContent);
-    
+
     if (btn) {
         btn.click();
         console.log('ボタンクリック実行完了');
@@ -1872,7 +2064,7 @@ window.manualTestButtonClick = function() {
     }
 };
 
-window.checkSyncStatus = function() {
+window.checkSyncStatus = function () {
     console.log('=== 現在の同期状態 ===');
     console.log('実行中フラグ:', isFullSyncRunning);
     const btn = document.getElementById("forceSyncBtn");
@@ -1891,7 +2083,7 @@ window.checkSyncStatus = function() {
     };
 };
 
-window.resetSyncFlag = function() {
+window.resetSyncFlag = function () {
     console.log('=== 手動でフラグをリセット ===');
     const oldValue = isFullSyncRunning;
     setFullSyncRunning(false, '手動リセット');
