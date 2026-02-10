@@ -17,7 +17,13 @@ Range: `d30d768` ... `0bc8210`
 - **Automation Scripts**: Added PowerShell scripts to automate building, signing, and updating for Windows (amd64). (v5.19.3, v5.20.0)
 - **Account & Payment Improvements**: Added PayPal support, implemented dynamic field display for payment methods, and improved cancellation processing. (v5.2.1)
 
+<details>
+
+<summary>
+
 ## v4
+
+</summary>
 
 ### Major Changes
 - **Get Status Port to Golang**: Ported the system status retrieval logic to Golang, improving performance and stability. (v4.0.0)
@@ -26,7 +32,15 @@ Range: `d30d768` ... `0bc8210`
 ### Medium Changes
 - **Frontend Refactoring**: Refined the frontend codebase and enforced UTF-8 encoding. (v4.0.0)
 
+</details>
+
+<details>
+
+<summary>
+
 ## v3
+
+</summary>
 
 ### Major Changes
 - **Account Management System**: Built the foundation for account management, including user registration, login, and session management. (v3-alpha)
@@ -34,6 +48,8 @@ Range: `d30d768` ... `0bc8210`
 
 ### Medium Changes
 - **Database Management**: Introduced SQLite (modernc.org/sqlite) to start persisting user data and authentication capabilities. (v3-alpha)
+
+</details>
 
 ---
 
@@ -72,6 +88,14 @@ Range: `d30d768` ... `0bc8210`
 
 ## v5.20.0 (2026-02-08)
 
+### Summary
+- Cross-platform PowerShell automation added for build, setup, signing, plus a security config example.
+- Documentation and tooling refreshed (API docs, lint workflow, dotenv dependency, gitignore updates).
+
+<details>
+
+<summary>Details</summary>
+
 ### Features
 - Add cross-platform PowerShell automation scripts for build, setup, and signing, along with a security configuration example. (a70896f)
 
@@ -89,33 +113,42 @@ Range: `d30d768` ... `0bc8210`
 - add github.com/joho/godotenv dependency (24fa78b)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - Update .gitignore (cc0c54d)
 - sem: refactor to use environment variables for configuration (3d096d4)
 - sem: bump version to 5.20.0 (36b028a)
 
+</details>
+
+</details>
+
 ## v5.19.7 (2026-02-02)
+
+### Summary
+- Interactive CLI introduced to migrate legacy JSON schedules to the new format.
+- Automated cleanup for unlinked wallpapers and fetch interceptor fixes to carry encoded usernames.
+- Wallpaper management moved to per-user SQLite with subscription status toggles and path fixes.
+- Windows amd64 build/sign automation added; client schedule filtering deferred to backend.
+
+<details>
+
+<summary>Details</summary>
 
 ### Features
 - add interactive CLI tool for migrating legacy JSON schedules (v5.19.7) (1396b02)
-
-## v5.19.6 (2026-02-02)
-
-### Features
 - add automatic cleanup for unlinked wallpapers (convert to public) (43d67ee)
-
-### Bug Fixes
-- inject X-Username header via global fetch interceptor to resolve 401 unauthorized errors (cd0a5dd)
-- encode username in fetch interceptor to support multibyte characters (v5.19.6) (0bb6cce)
-
-## v5.19.3 (2026-02-02)
-
-### Features
 - migrate wallpaper management to user-specific SQLite database (a3069aa)
 - add subscription status toggle functionality (66ea5e1)
 - Add a PowerShell script to automate Windows amd64 build, update, and code signing processes. (adf7d2d)
 - Add `amd64_win_autorun.ps1` for automated Windows amd64 build, signing, and execution with update handling. (54504e1)
 
 ### Bug Fixes
+- inject X-Username header via global fetch interceptor to resolve 401 unauthorized errors (cd0a5dd)
+- encode username in fetch interceptor to support multibyte characters (v5.19.6) (0bb6cce)
 - correct image path prefix and bump version to 5.19.3 (32abfe3)
 
 ### Improvements
@@ -125,9 +158,25 @@ Range: `d30d768` ... `0bc8210`
 - add v5 updates to changelog in main.go (33a4a05)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - home: Fix PC status color not resetting when going from Offline to Online (7b95d0a)
 
+</details>
+
+</details>
+
 ## v5.18.0 (2026-02-02)
+
+### Summary
+- Schedule storage migrated to SQLite via the dedicated schedule package and version bumped accordingly.
+
+<details>
+
+<summary>Details</summary>
 
 ### Features
 - migrate schedule storage to SQLite database and separate to schedule package (b66729e)
@@ -135,7 +184,17 @@ Range: `d30d768` ... `0bc8210`
 ### Maintenance
 - Bump application version to 5.18.0. (93bc5b9)
 
+</details>
+
 ## v5.17.0 (2026-01-27)
+
+### Summary
+- Added update-flag handling with signing pipeline and improved subscription notification timing.
+- Dependency upgrades and PC status handling refinements bundled into the release.
+
+<details>
+
+<summary>Details</summary>
 
 ### Features
 - add update flag handling and signing process for builds (e2db9d7)
@@ -160,13 +219,30 @@ Range: `d30d768` ... `0bc8210`
 - bump modernc.org/sqlite from 1.44.2 to 1.44.3 (08f9906)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - Update Latest Version (b060d18)
 - Update License (9a10a01)
 - 確認不足 (bba92f8)
 - Remove Comentout (788ac07)
 - Update PC status logic to handle offline state and bump version to 5.17.0 (bad0b42)
 
+</details>
+
+</details>
+
 ## v5.16.2-patch3 (2025-12-26)
+
+### Summary
+- Fixed IP tracking performance/races and tightened balanced-secure scoring logic.
+- Immediate blocking hardened alongside security documentation updates in log handling.
+
+<details>
+
+<summary>Details</summary>
 
 ### Bug Fixes
 - Fix performance bottleneck and race condition in first-access IP tracking (1eeca97)
@@ -179,6 +255,11 @@ Range: `d30d768` ... `0bc8210`
 - remove redundant condition in strict mode check (489c8ce)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - Remove log_test.go as requested (5ad2fb3)
 - Apply feedback: update timer on any score increase and add scoring in balanced-secure mode (7112114)
 - Block high-severity attacks immediately even during grace period (1a1512d)
@@ -192,7 +273,19 @@ Range: `d30d768` ... `0bc8210`
 - Update log.go (17adba3)
 - version to 5.16.2-patch3 (69f3f08)
 
+</details>
+
+</details>
+
 ## v5.16.0 (2025-12-22)
+
+### Summary
+- Added weekly/daily billing cadence support and hardened payment popup escaping.
+- Simplified subscription UI/date handling with supporting dependency upgrades.
+
+<details>
+
+<summary>Details</summary>
 
 ### Features
 - add support for weekly and daily billing cycles in payment date calculation (20c8e41)
@@ -211,6 +304,11 @@ Range: `d30d768` ... `0bc8210`
 - bump modernc.org/sqlite from 1.40.1 to 1.41.0 (2997b48)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - Adjust SweetAlert text color for payment popup (e447f1a)
 - Update home/subscription_calendar.js (924d62b)
 - Update home/subscription_calendar.js (631af85)
@@ -226,7 +324,19 @@ Range: `d30d768` ... `0bc8210`
 - Address code review feedback: fix race conditions and improve logic (ad493f2)
 - Update version to 5.16.0 for balanced-secure mode release (128683f)
 
+</details>
+
+</details>
+
 ## v5.15.3 (2025-12-02)
+
+### Summary
+- Cleaned subscription renewal and payment popup styling while removing an unused password helper.
+- Overdue renewals now store the next payment date to align backend and UI.
+
+<details>
+
+<summary>Details</summary>
 
 ### Bug Fixes
 - remove unused verifyPassword function and fix variable declaration (90284ba)
@@ -238,6 +348,11 @@ Range: `d30d768` ... `0bc8210`
 - resolve merge conflicts in subscription renewal logic (02a15a0)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - adjust swal text color for payment popup (46b1c7a)
 - subscription: update overdue payment to store next payment date (654502c)
 - Version 5.15.1 - Add logging to payment renewal handler (f0d4f3b)
@@ -247,7 +362,20 @@ Range: `d30d768` ... `0bc8210`
 - Update home/subscription_calendar.js (c1ad7de)
 - v5.15.3: Adjust Swal text color and improve subscription renewal logic (23d4106)
 
+</details>
+
+</details>
+
 ## v5.15.0 (2025-12-02)
+
+### Summary
+- Introduced full calendar UI with holiday/schedule management and subscription management with payments.
+- Enhanced devtools, security logging, and PWA/burn-in styling for the home UI.
+- v5.15.3 refinements included subscription renewal fixes and payment popup styling cleanup.
+
+<details>
+
+<summary>Details</summary>
 
 ### Features
 - enhance devtools, subscriptions, and account tools (8dd6766)
@@ -280,11 +408,21 @@ Range: `d30d768` ... `0bc8210`
 - fix (1118707)
 - fix (ac0c48b)
 - fix (d69e861)
+- remove unused verifyPassword function and fix variable declaration (90284ba)
 
 ### Improvements
 - Remove unused burn-in styles and detail section from CSS (cac0211)
+- adjust swal text color for payment popup (ccbfa2e)
+
+### Maintenance
+- resolve merge conflicts in subscription renewal logic (02a15a0)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - Codexのミスを修正 (28888f0)
 - タイムアウトを延長 (13e5f4b)
 - Bump modernc.org/sqlite from 1.39.0 to 1.39.1 (ba4fce0)
@@ -358,29 +496,17 @@ Range: `d30d768` ... `0bc8210`
 - Update home/index.html (f54aacb)
 - Update home/calendar.js (43aa53f)
 - Update home/calendar.js (abed907)
+- subscription: update overdue payment to store next payment date (654502c)
+- Version 5.15.1 - Add logging to payment renewal handler (f0d4f3b)
+- Update subscription/subscription.go (7f3f83e)
+- Update subscription/subscription.go (547bd24)
+- Update home/subscription_calendar.js (72a08a8)
+- Update home/subscription_calendar.js (c1ad7de)
+- v5.15.3: Adjust Swal text color and improve subscription renewal logic (23d4106)
 - Update home/calendar.js (b754dec)
 - Update home/calendar.js (3fd541b)
 - Update supported version in SECURITY.md to reflect the latest stable version (937b28e)
 - a (42cd742)
-- HTTP/HTTPS mode enhancements: fallback to HTTP if certificates are not found, and improved port handling. (82ebdcd)
-- subscription: renew overdue payments via backend (ebd575c)
-- home: bump JS version headers to 5.15.0 (1aa3310)
-
-## v5.5.0 (2025-10-10)
-
-### Features
-- 完全同期の強化とシフト削除機能の修正 (88c9e66)
-- サブスクリプションリストの表示を改善し、スクロール制限を追加 (dc7e748)
-- 通知と支払いの合計計算を改善し、通貨のフォーマット機能を追加 (429da16)
-- セキュリティ機能を大幅に強化し、リクエストのレート制限と動的ブロックを追加 (0541ac8)
-
-### Bug Fixes
-- 通貨合計の表示形式を改善し、区切り文字を変更 (0000fa1)
-
-### Improvements
-- split getstatus implementation by OS using build tags (5a2667c)
-
-### Other
 - typo (da42242)
 - 不要になったため削除 (efccb15)
 - 少々処理負荷を向上 (ad60578)
@@ -401,12 +527,30 @@ Range: `d30d768` ... `0bc8210`
 - security: validate proxy IPs and wallpaper uploads (7da72f8)
 - Bump version identifiers to 5.5.0 (4dc0ebf)
 
+</details>
+
+</details>
+
+<details>
+
+<summary>
+
 ## v5.3.0 (2025-09-21)
+
+</summary>
 
 ### Other
 - v5.3.0 - すりガラス化へ (435b42f)
 
+</details>
+
+<details>
+
+<summary>
+
 ## v5.2.1 (2025-09-21)
+
+</summary>
 
 ### Bug Fixes
 - fix (5204ecd)
@@ -427,7 +571,15 @@ Range: `d30d768` ... `0bc8210`
 - 解約した場合の削除処理を作成 (566fe2c)
 - v5.2.1 - 省略する処理を追加 (0d3e72c)
 
+</details>
+
+<details>
+
+<summary>
+
 ## v5.0.0 (2025-09-20)
+
+</summary>
 
 ### Bug Fixes
 - fix (7b4d601)
@@ -440,6 +592,11 @@ Range: `d30d768` ... `0bc8210`
 - fix (00e63ff)
 
 ### Other
+
+<details>
+
+<summary>Other changes</summary>
+
 - UTF-8を強制 (2951f7e)
 - フロントエンドの改修 (7ef419e)
 - PowerShellの使用を削減 (c057654)
@@ -462,7 +619,17 @@ Range: `d30d768` ... `0bc8210`
 - カレンダーへ組み込み (3e10a65)
 - v5.0.0 (914e179)
 
-## v4.0.0 (2025-09-17)
+</details>
+
+</details>
+
+<details>
+
+<summary>
+
+## v4.0.0 (2025/09/17)
+
+</summary>
 
 ### Bug Fixes
 - fix (e402154)
@@ -476,7 +643,17 @@ Range: `d30d768` ... `0bc8210`
 ### Improvements
 - test用に127へ (ca2527a)
 
-### Other
+</details>
+
+<br>
+
+---
+
+<br>
+
+<details>
+<summary>Other changes</summary>
+
 - v3-alpha (eb5c2f8)
 - WebAuthn機能の追加とビルドスクリプトの修正 (16eef3d)
 - アカウント管理機能の追加 (7d633d1)
@@ -553,3 +730,4 @@ Range: `d30d768` ... `0bc8210`
 - Get StatusをGolangへ移植 (09e7702)
 - v4.0.0 (3716e29)
 
+</details>
