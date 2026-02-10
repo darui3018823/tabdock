@@ -2,38 +2,38 @@
 
 Range: `d30d768` ... `0bc8210`
 
-# リリースハイライト (v3 - v5)
+# Release Highlights (v3 - v5)
 
 ## v5
 
-### 大きな変更
-- **サブスクリプション管理機能の統合**: 支払履歴の追跡、通知、支払い方法の管理など、包括的なサブスクリプション管理機能を実装しました。(v5.0.0~)
-- **カレンダー機能**: スケジュール管理機能を含む、動的なカレンダーUIを追加しました。(v5.15.0~)
-- **セキュリティ強化**: リクエストのレート制限、動的ブロック、IPフィルタリングなど、セキュリティ機能を大幅に強化しました。(v5.5.0, v5.16.x)
-- **データベース移行**: スケジュールや壁紙の管理をJSONからSQLiteへ移行し、ユーザーごとのデータ管理を強化しました。(v5.18.0, v5.19.3)
+### Major Changes
+- **Subscription Management Integration**: Implemented comprehensive subscription management including payment history tracking, notifications, and payment method management. (v5.0.0~)
+- **Calendar Functionality**: Added a dynamic calendar UI which includes schedule management capabilities. (v5.15.0~)
+- **Security Enhancements**: Significantly strengthened security with request rate limiting, dynamic blocking, and IP filtering. (v5.5.0, v5.16.x)
+- **Database Migration**: Migrated schedule and wallpaper management from JSON to SQLite, optimizing data management for individual users. (v5.18.0, v5.19.3)
 
-### 中規模な変更
-- **UIの刷新**: すりガラス効果(Glassmorphism)の導入や、Toast通知の実装、支払いポップアップの改善など、UI/UXを大幅に向上させました。(v5.3.0)
-- **自動化スクリプト**: Windows (amd64) 向けのビルド、署名、アップデートを自動化するPowerShellスクリプトを追加しました。(v5.19.3, v5.20.0)
-- **アカウント・支払い機能改善**: PayPal対応、支払い方法の動的フィールド表示、解約処理の改善などを行いました。(v5.2.1)
+### Medium Changes
+- **UI Overhaul**: Significantly improved UI/UX by introducing Glassmorphism, implementing Toast notifications, and improving payment popups. (v5.3.0)
+- **Automation Scripts**: Added PowerShell scripts to automate building, signing, and updating for Windows (amd64). (v5.19.3, v5.20.0)
+- **Account & Payment Improvements**: Added PayPal support, implemented dynamic field display for payment methods, and improved cancellation processing. (v5.2.1)
 
 ## v4
 
-### 大きな変更
-- **Get StatusのGolang移植**: システムステータス取得ロジックをGolangに移植し、パフォーマンスと安定性を向上させました。(v4.0.0)
-- **クロスプラットフォーム対応強化**: PowerShell 5への対応およびシェルスクリプト(sh)の利用を可能にし、環境互換性を高めました。(v4.0.0)
+### Major Changes
+- **Get Status Port to Golang**: Ported the system status retrieval logic to Golang, improving performance and stability. (v4.0.0)
+- **Cross-Platform Support**: Enhanced environment compatibility by supporting PowerShell 5 and allowing the use of shell scripts (sh). (v4.0.0)
 
-### 中規模な変更
-- **フロントエンド改修**: フロントエンドのコードベースを整理し、UTF-8の強制などを行いました。(v4.0.0)
+### Medium Changes
+- **Frontend Refactoring**: Refined the frontend codebase and enforced UTF-8 encoding. (v4.0.0)
 
 ## v3
 
-### 大きな変更
-- **アカウント管理システム**: ユーザー登録、ログイン、セッション管理を含むアカウント管理の基盤を構築しました。(v3-alpha)
-- **WebAuthn (パスキー) 対応**: パスワードレス認証を実現するWebAuthnの登録・認証フローを実装しました。(v3-alpha)
+### Major Changes
+- **Account Management System**: Built the foundation for account management, including user registration, login, and session management. (v3-alpha)
+- **WebAuthn (Passkey) Support**: Implemented WebAuthn registration and authentication flows to enable passwordless login. (v3-alpha)
 
-### 中規模な変更
-- **データベース管理**: SQLite(modernc.org/sqlite)を導入し、ユーザーデータや認証情報の永続化を開始しました。(v3-alpha)
+### Medium Changes
+- **Database Management**: Introduced SQLite (modernc.org/sqlite) to start persisting user data and authentication capabilities. (v3-alpha)
 
 ---
 
