@@ -9,7 +9,6 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
     - goimports
     - revive
     - gosimple
@@ -23,3 +22,7 @@ linters:
     - unparam
     - unused
     - whitespace
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
