@@ -1,6 +1,6 @@
-# Release Notes (Generated from Git History)
+# Release Notes for Tabdock v5.22.1
 
-Range: `d30d768` ... `0bc8210`
+Range: `d30d768` (v2.9.6) ... `a0403bd` (v5.22.1)
 
 # Release Highlights (v3 - v5)
 
@@ -53,38 +53,53 @@ Range: `d30d768` ... `0bc8210`
 
 ---
 
-## Latest (Post-release) (2026-02-08)
+## v5.22.1 (2026-02-11)
+
+### Summary
+- DevTools enhanced with debug log persistence, console/fetch capture, and log clear functionality.
+- WebAuthn session security hardened.
+- Codebase-wide refactoring for improved readability and maintainability.
+- About modal enhanced with richer information.
+- CI/CD and dependency updates (golangci-lint, Go modules).
+
+<details>
+
+<summary>Details</summary>
 
 ### Features
 - Implement git update check to conditionally set the update flag. (468dd04)
+- Enhance debug log with persistence and capture capabilities (devtools). (898f0c2)
+- Enhance about modal with richer information. (303b9da)
+
+### Security
+- Harden WebAuthn sessions and bump version. (a0403bd)
 
 ### Bug Fixes
-- Add error handling for resource cleanup and JSON encoding (9745dea)
-- fix lint warnings and refactors (0e15dce)
+- Add error handling for resource cleanup and JSON encoding. (9745dea)
+- Fix lint warnings and refactors. (0e15dce)
+- Update version to 5.22.0. (c393673)
 
 ### Improvements
-- rearrange build steps for clarity and consistency (ac28482)
-- Refactor .golangci.yml for improved linter settings (6d0ac75)
-- Refactor .golangci.yml by simplifying linter settings (188cb97)
+- Refactor code structure for improved readability and maintainability. (cf00799)
+- Rearrange build steps for clarity and consistency. (ac28482)
+- Refactor .golangci.yml for improved linter settings. (6d0ac75, 188cb97)
+
+### Documentation
+- Translate release notes from Japanese to English for consistency. (b84c911)
+- Fold release notes for better readability. (ccabdc3)
 
 ### Maintenance
-- update golangci-lint to v1.64 (f202747)
-- update .golangci.yml to align with Sem (c0b42d7)
-- bump golang.org/x/sys from 0.40.0 to 0.41.0 (f7e099a)
-- bump actions/checkout from 4 to 6 (9129ad5)
-- bump actions/setup-go from 5 to 6 (0aa168c)
-- bump modernc.org/sqlite from 1.44.3 to 1.45.0 (c1c6dce)
-- bump golang.org/x/mod from 0.32.0 to 0.33.0 (b7ff289)
-- bump golang.org/x/crypto from 0.47.0 to 0.48.0 (96a0d52)
-- bump golangci/golangci-lint-action from 6 to 9 (32ef4ba)
+- Update golangci-lint to v1.64. (f202747)
+- Update .golangci.yml to align with Sem. (c0b42d7)
+- Bump golang.org/x/sys from 0.40.0 to 0.41.0. (f7e099a)
+- Bump actions/checkout from 4 to 6. (9129ad5)
+- Bump actions/setup-go from 5 to 6. (0aa168c)
+- Bump modernc.org/sqlite from 1.44.3 to 1.45.0. (c1c6dce)
+- Bump golang.org/x/mod from 0.32.0 to 0.33.0. (b7ff289)
+- Bump golang.org/x/crypto from 0.47.0 to 0.48.0. (96a0d52)
+- Bump golangci/golangci-lint-action from 6 to 9. (32ef4ba)
 
-### Other
-- Update golangci-lint version to latest (0764ca8)
-- Update .golangci.yml configuration (e6d249c)
-- Remove typecheck from golangci-lint configuration (97f3b3e)
-- Update .golangci.yml (8357fef)
-- Remove goimports from linter configuration (919a15d)
-- Remove unused linters from golangci configuration (c11a569)
+</details>
 
 ## v5.20.0 (2026-02-08)
 
