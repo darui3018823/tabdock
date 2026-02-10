@@ -38,13 +38,6 @@ if (-not (Test-Path $SecurityConfigPath)) {
 # ----------------------------------------------------------------
 
 Write-Host "Building TabDock for Windows amd64..."
-Write-Host "Removing old build files..."
-Remove-Item $DistPath -Force
-
-Write-Host "Setting environment variables for GOOS and GOARCH..."
-$env:CGO_ENABLED="1"
-$env:GOOS = "windows"
-$env:GOARCH = "amd64"
 
 # Check for update flag file
 Write-Host "Checking for update flag..."
@@ -106,6 +99,14 @@ if (Test-Path $FlagPath) {
     Write-Host "No update flag detected. Proceeding with the build."
 }
 
+Write-Host "Removing old build files..."
+Remove-Item $DistPath -Force
+
+Write-Host "Setting environment variables for GOOS and GOARCH..."
+$env:CGO_ENABLED="1"
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+
 Write-Host "Building the application..."
 go build -o $DistPath
 
@@ -126,8 +127,6 @@ if ($SignExec) {
                 $key = $matches['key'].Trim()
                 $value = $matches['value'].Trim()
                 Set-Item -Path "Env:$key" -Value $value
-            } else {
-                Write-Host "Skipping invalid .env line: $_" # Debug output for invalid lines
             }
         }
     } else {
