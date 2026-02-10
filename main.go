@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -232,7 +233,9 @@ func main() {
 	}
 
 	// バージョンアップフラグを設定
-	setUpdateFlag(getEnv("UPDATE_FLAG_PATH", "./update_flag.txt"))
+	if checkGitUpdates() {
+		setUpdateFlag(getEnv("UPDATE_FLAG_PATH", "./update_flag.txt"))
+	}
 
 	// main page!
 	mux.Handle("/main/", secureHandler(withSlashAndErrorHandler(http.StripPrefix("/main/", http.FileServer(http.Dir("./main")))).ServeHTTP))
@@ -349,6 +352,38 @@ func initDatastores() error {
 		return fmt.Errorf("サブスクリプションDB初期化失敗: %w", err)
 	}
 	return nil
+}
+
+func checkGitUpdates() bool {
+	// git fetch
+	cmdFetch := exec.Command("git", "fetch")
+	if err := cmdFetch.Run(); err != nil {
+		log.Printf("Failed to run git fetch: %v details: maybe not a git repository or no network connection", err)
+		return false
+	}
+
+	// git rev-list --count HEAD..@{u}
+	cmdCheck := exec.Command("git", "rev-list", "--count", "HEAD..@{u}")
+	var out bytes.Buffer
+	cmdCheck.Stdout = &out
+	if err := cmdCheck.Run(); err != nil {
+		log.Printf("Failed to run git rev-list: %v", err)
+		return false
+	}
+
+	countStr := strings.TrimSpace(out.String())
+	count, err := strconv.Atoi(countStr)
+	if err != nil {
+		log.Printf("Failed to parse git rev-list output: %v", err)
+		return false
+	}
+
+	if count > 0 {
+		log.Printf("Found %d new commits.", count)
+		return true
+	}
+
+	return false
 }
 
 func setUpdateFlag(flagPath string) {
