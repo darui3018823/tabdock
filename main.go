@@ -151,6 +151,12 @@ func serve(mux http.Handler) {
 	update10 := "Windows automated build script (amd64_win_autorun.ps1) with update handling and code signing."
 	update11 := "PC status logic now properly handles offline states."
 	update12 := "Subscription notification date formatting and timezone issues have been resolved."
+	update13 := "Cross-platform PowerShell automation scripts added for build/setup/signing."
+	update14 := "Security config example and API documentation published (EN/JA)."
+	update15 := "Interactive CLI added to migrate legacy schedule.json data."
+	update16 := "Wallpaper data cleanup auto-converts orphaned entries to public."
+	update17 := "DevTools now persist debug logs and capture console/fetch output."
+	update18 := "WebAuthn sessions hardened; codebase refactors improved maintainability."
 
 	port := strings.TrimSpace(os.Getenv("DOCKER_PORT"))
 	if port == "" {
@@ -183,6 +189,12 @@ func serve(mux http.Handler) {
 	log.Println(update10)
 	log.Println(update11)
 	log.Println(update12)
+	log.Println(update13)
+	log.Println(update14)
+	log.Println(update15)
+	log.Println(update16)
+	log.Println(update17)
+	log.Println(update18)
 	log.Println("=================")
 	go checkForUpdates()
 
