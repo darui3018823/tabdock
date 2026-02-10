@@ -1,32 +1,10 @@
 version: "2"
 
 run:
-
   timeout: 5m
 
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  goimports:
-    local-prefixes: tabdock
-
 linters:
-  disable-all: true
   enable:
-    - dogsled
     - errcheck
     - goconst
     - gocritic
@@ -46,7 +24,48 @@ linters:
     - unused
     - whitespace
 
+settings:
+  govet:
+    enable:
+      - asmdecl
+      - assign
+      - atomic
+      - bools
+      - buildtag
+      - cgocall
+      - composites
+      - copylocks
+      - errorsas
+      - httpresponse
+      - ifaceassert
+      - loopclosure
+      - lostcancel
+      - nilfunc
+      - printf
+      - shift
+      - stdmethods
+      - structtag
+      - tests
+      - unmarshal
+      - unreachable
+      - unsafeptr
+      - unusedresult
+    disable:
+      - fieldalignment
+  
+  gocyclo:
+    min-complexity: 15
+  
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  
+  misspell:
+    locale: US
+  
+  goimports:
+    local-prefixes: tabdock
+
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
