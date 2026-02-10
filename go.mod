@@ -7,12 +7,13 @@ toolchain go1.24.7
 require (
 	github.com/duo-labs/webauthn v0.0.0-20221205164246-ebaf9b74c6ec
 	github.com/google/uuid v1.6.0
+	github.com/joho/godotenv v1.5.1
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	golang.org/x/crypto v0.47.0
-	golang.org/x/mod v0.32.0
-	golang.org/x/sys v0.40.0
-	modernc.org/sqlite v1.44.3
+	golang.org/x/crypto v0.48.0
+	golang.org/x/mod v0.33.0
+	golang.org/x/sys v0.41.0
+	modernc.org/sqlite v1.45.0
 )
 
 require (
@@ -22,7 +23,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20251013123823-9fd1530e3ec3 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
