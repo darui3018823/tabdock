@@ -691,8 +691,8 @@ func isDynamicallyBlocked(ip string) bool {
 		return false
 	}
 
-	dynamicBlockMutex.RLock()
-	defer dynamicBlockMutex.RUnlock()
+	dynamicBlockMutex.Lock()
+	defer dynamicBlockMutex.Unlock()
 
 	blockDuration := time.Duration(secConfig.DynamicBlockTimeMin) * time.Minute
 	if blockTime, exists := dynamicBlockMap[ip]; exists {

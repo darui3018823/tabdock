@@ -35,7 +35,7 @@ import (
 )
 
 // const
-const version = "5.22.0"
+const version = "5.22.1"
 
 func getVersionURL() string {
 	url := os.Getenv("VERSION_URL")
@@ -846,6 +846,11 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 	resp, apiRespBody, err := fetchWeatherAPI(reqBody)
 	if err != nil {
+		if resp != nil {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Printf("Failed to close response body: %v", closeErr)
+			}
+		}
 		http.Error(w, "failed to call weather API", http.StatusInternalServerError)
 		log.Println("weather API error:", err)
 		return

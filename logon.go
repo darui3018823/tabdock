@@ -36,8 +36,16 @@ var (
 	once             sync.Once
 )
 
-var challengeStore = map[string]*webauthn.SessionData{}
-var loginSessionStore = map[string]*webauthn.SessionData{}
+type webAuthnSession struct {
+	data      *webauthn.SessionData
+	expiresAt time.Time
+}
+
+var challengeStore = map[string]webAuthnSession{}
+var challengeStoreMu sync.Mutex
+var loginSessionStore = map[string]webAuthnSession{}
+var loginSessionStoreMu sync.Mutex
+var webAuthnSessionTTL = 5 * time.Minute
 
 // AuthRequest is the request payload for auth endpoints.
 type AuthRequest struct {
@@ -505,7 +513,80 @@ func initWebAuthn() {
 		if err != nil {
 			log.Fatalf("WebAuthn init failed: %v", err)
 		}
+		startWebAuthnSessionCleanup()
 	})
+}
+
+func startWebAuthnSessionCleanup() {
+	ticker := time.NewTicker(10 * time.Minute)
+	go func() {
+		for range ticker.C {
+			cleanupExpiredWebAuthnSessions()
+		}
+	}()
+}
+
+func cleanupExpiredWebAuthnSessions() {
+	now := time.Now()
+	challengeStoreMu.Lock()
+	for username, entry := range challengeStore {
+		if now.After(entry.expiresAt) {
+			delete(challengeStore, username)
+		}
+	}
+	challengeStoreMu.Unlock()
+
+	loginSessionStoreMu.Lock()
+	for username, entry := range loginSessionStore {
+		if now.After(entry.expiresAt) {
+			delete(loginSessionStore, username)
+		}
+	}
+	loginSessionStoreMu.Unlock()
+}
+
+func setChallengeSession(username string, data *webauthn.SessionData) {
+	challengeStoreMu.Lock()
+	challengeStore[username] = webAuthnSession{
+		data:      data,
+		expiresAt: time.Now().Add(webAuthnSessionTTL),
+	}
+	challengeStoreMu.Unlock()
+}
+
+func popChallengeSession(username string) (*webauthn.SessionData, bool) {
+	challengeStoreMu.Lock()
+	entry, ok := challengeStore[username]
+	if ok {
+		delete(challengeStore, username)
+	}
+	challengeStoreMu.Unlock()
+	if !ok || time.Now().After(entry.expiresAt) {
+		return nil, false
+	}
+	return entry.data, true
+}
+
+func setLoginSession(username string, data *webauthn.SessionData) {
+	loginSessionStoreMu.Lock()
+	loginSessionStore[username] = webAuthnSession{
+		data:      data,
+		expiresAt: time.Now().Add(webAuthnSessionTTL),
+	}
+	loginSessionStoreMu.Unlock()
+}
+
+func popLoginSession(username string) (*webauthn.SessionData, bool) {
+	loginSessionStoreMu.Lock()
+	entry, ok := loginSessionStore[username]
+	if ok {
+		delete(loginSessionStore, username)
+	}
+	loginSessionStoreMu.Unlock()
+	if !ok || time.Now().After(entry.expiresAt) {
+		return nil, false
+	}
+	return entry.data, true
 }
 
 func saveCredentialToDB(username string, cred *webauthn.Credential) error {
@@ -519,7 +600,7 @@ func saveCredentialToDB(username string, cred *webauthn.Credential) error {
 
 // SaveSessionData stores WebAuthn session data for the user.
 func SaveSessionData(username string, data *webauthn.SessionData) {
-	loginSessionStore[username] = data
+	setLoginSession(username, data)
 }
 
 // FindWebAuthnUserByUsername loads a WebAuthn user with credentials.
@@ -880,7 +961,7 @@ func HandleWebAuthnRegisterStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	challengeStore[req.Username] = sessionData
+	setChallengeSession(req.Username, sessionData)
 
 	w.Header().Set("Content-Type", "application/json")
 	if encodeErr := json.NewEncoder(w).Encode(options); encodeErr != nil {
@@ -925,7 +1006,7 @@ func HandleWebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionData, ok := challengeStore[rawReq.Username]
+	sessionData, ok := popChallengeSession(rawReq.Username)
 	if !ok {
 		http.Error(w, "Session data not found", http.StatusBadRequest)
 		return
@@ -1119,7 +1200,7 @@ func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionData, ok := loginSessionStore[rawReq.Username]
+	sessionData, ok := popLoginSession(rawReq.Username)
 	if !ok {
 		http.Error(w, "Session data not found", http.StatusBadRequest)
 		return
