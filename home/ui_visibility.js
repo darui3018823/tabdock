@@ -16,6 +16,23 @@ function applyVisualSettings() {
     const brightness = parseInt(document.getElementById("brightnessRange")?.value || 100);
     const blurLayer = document.getElementById("wallpaperBlurLayer");
     if (blurLayer) {
+        // 素材クラスの適用
+        const material = document.getElementById("glassMaterial")?.value || "blur";
+        blurLayer.classList.remove("glass-blur", "glass-clear", "glass-frosted", "glass-colored");
+        switch(material) {
+            case "clear":
+                blurLayer.classList.add("glass-clear");
+                break;
+            case "frosted":
+                blurLayer.classList.add("glass-frosted");
+                break;
+            case "colored":
+                blurLayer.classList.add("glass-colored");
+                break;
+            default:
+                blurLayer.classList.add("glass-blur");
+        }
+        // ぼかし・明るさは従来通り適用（素材によっては上書きされる）
         blurLayer.style.backdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
         blurLayer.style.webkitBackdropFilter = `blur(${blur}px) brightness(${brightness}%)`;
     }
@@ -62,6 +79,17 @@ function tempApplyOpacity() {
 }
 
 (function initVisibilitySettings() {
+        // 素材選択のイベントで即時反映＆保存
+        const materialSelect = document.getElementById("glassMaterial");
+        if (materialSelect) {
+            // 復元
+            const savedMaterial = localStorage.getItem('tabdock_glass_material') || "blur";
+            materialSelect.value = savedMaterial;
+            materialSelect.addEventListener("change", () => {
+                localStorage.setItem('tabdock_glass_material', materialSelect.value);
+                applyVisualSettings();
+            });
+        }
     const savedWallpaper = localStorage.getItem("tabdock_wallpaper")
         ?? sessionStorage.getItem("tabdock_wallpaper_session");
     if (savedWallpaper) {
@@ -94,7 +122,9 @@ function tempApplyOpacity() {
             // 透明度の値を保存
             const opacity = document.getElementById("opacityRange").value;
             localStorage.setItem('tabdock_widget_opacity', opacity);
-            
+            // 素材の値も保存
+            const material = document.getElementById("glassMaterial")?.value || "blur";
+            localStorage.setItem('tabdock_glass_material', material);
             // TODO: ぼかしや明るさもここで保存するのが望ましい
             // const blur = document.getElementById("blurRange").value;
             // localStorage.setItem('tabdock_wallpaper_blur', blur);
@@ -103,7 +133,7 @@ function tempApplyOpacity() {
 
             // 保存した値を正式に適用
             applyVisualSettings();
-            
+
             document.getElementById("wallpaperAdvancedModal")?.classList.add("hidden");
             document.getElementById("menuModal")?.classList.remove("hidden");
         });

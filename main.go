@@ -35,7 +35,7 @@ import (
 )
 
 // const
-const version = "5.22.1"
+const version = "5.23.0-beta1"
 
 func getVersionURL() string {
 	url := os.Getenv("VERSION_URL")
