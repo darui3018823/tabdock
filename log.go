@@ -81,6 +81,8 @@ var (
 	suspiciousUAPatterns   []string
 	suspiciousPathPatterns []string
 	geoipDB                *geoip2.Reader
+	corsOriginsOnce        sync.Once
+	corsAllowedOrigins     map[string]struct{}
 )
 
 // Default score thresholds for auto-reset mechanism
@@ -723,7 +725,66 @@ func isAllowedMethod(method string) bool {
 	return false
 }
 
-func addSecurityHeaders(w http.ResponseWriter) {
+func loadAllowedCORSOrigins() {
+	corsOriginsOnce.Do(func() {
+		corsAllowedOrigins = map[string]struct{}{}
+		raw := strings.TrimSpace(getEnv("CORS_ALLOWED_ORIGINS", ""))
+		if raw == "" {
+			return
+		}
+		for _, origin := range strings.Split(raw, ",") {
+			trimmed := strings.TrimSpace(origin)
+			if trimmed == "" {
+				continue
+			}
+			corsAllowedOrigins[trimmed] = struct{}{}
+		}
+	})
+}
+
+func requestScheme(r *http.Request) string {
+	if r.TLS != nil {
+		return "https"
+	}
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https") {
+		return "https"
+	}
+	return "http"
+}
+
+func isAllowedCORSOrigin(r *http.Request, origin string) bool {
+	if origin == "" {
+		return false
+	}
+
+	loadAllowedCORSOrigins()
+	if _, ok := corsAllowedOrigins[origin]; ok {
+		return true
+	}
+
+	selfOrigin := requestScheme(r) + "://" + r.Host
+	return origin == selfOrigin
+}
+
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+
+	w.Header().Add("Vary", "Origin")
+	if !isAllowedCORSOrigin(r, origin) {
+		return false
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	return true
+}
+
+func addSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	if secConfig.SecurityLevel != SecurityLevelRelaxed {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 	}
@@ -733,11 +794,7 @@ func addSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdn.daruks.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-
-	// CORS headers for cross-origin requests
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Username")
+	applyCORSHeaders(w, r)
 }
 
 func detectAdvancedThreats(r *http.Request) string {
@@ -874,6 +931,10 @@ type securityContext struct {
 func handlePreflight(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method != http.MethodOptions {
 		return false
+	}
+	if !applyCORSHeaders(w, r) {
+		http.Error(w, "Origin not allowed", http.StatusForbidden)
+		return true
 	}
 	w.WriteHeader(http.StatusOK)
 	return true
@@ -1173,7 +1234,7 @@ func handleFinalScore(w http.ResponseWriter, r *http.Request, ctx securityContex
 
 func secureHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		addSecurityHeaders(w)
+		addSecurityHeaders(w, r)
 
 		if handlePreflight(w, r) {
 			return

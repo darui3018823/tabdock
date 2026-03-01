@@ -6,13 +6,18 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,10 +35,21 @@ var (
 	dbPath = getEnv("DB_ACC_PATH", "./database/acc.db")
 )
 
+const (
+	sessionCookieName = "tabdock_session"
+)
+
 // WebAuthn関連の変数
 var (
 	webAuthnInstance *webauthn.WebAuthn
 	once             sync.Once
+)
+
+var (
+	sessionSecretOnce sync.Once
+	sessionSecret     []byte
+	sessionTTLOnce    sync.Once
+	sessionTTL        = 24 * time.Hour
 )
 
 type webAuthnSession struct {
@@ -246,6 +262,161 @@ func hashPassword(password string) (string, error) {
 		return "", err
 	}
 	return string(hashed), nil
+}
+
+func randomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func getSessionSecret() []byte {
+	sessionSecretOnce.Do(func() {
+		if raw := strings.TrimSpace(getEnv("SESSION_SECRET", "")); raw != "" {
+			sessionSecret = []byte(raw)
+			return
+		}
+
+		randomSecret, err := randomBytes(32)
+		if err != nil {
+			sessionSecret = []byte(uuid.NewString())
+			log.Printf("[WARN] SESSION_SECRETの生成に失敗したためフォールバックを使用します: %v", err)
+			return
+		}
+		sessionSecret = randomSecret
+		log.Println("[WARN] SESSION_SECRET未設定のため一時キーを生成しました。再起動でセッションは失効します")
+	})
+	return sessionSecret
+}
+
+func getSessionTTL() time.Duration {
+	sessionTTLOnce.Do(func() {
+		raw := strings.TrimSpace(getEnv("SESSION_TTL_HOURS", "24"))
+		hours, err := strconv.Atoi(raw)
+		if err != nil || hours <= 0 {
+			sessionTTL = 24 * time.Hour
+			return
+		}
+		sessionTTL = time.Duration(hours) * time.Hour
+	})
+	return sessionTTL
+}
+
+func shouldUseSecureCookie(r *http.Request) bool {
+	switch strings.ToLower(strings.TrimSpace(getEnv("COOKIE_SECURE", "auto"))) {
+	case "true", "1", "yes", "on":
+		return true
+	case "false", "0", "no", "off":
+		return false
+	default:
+		if r.TLS != nil {
+			return true
+		}
+		return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
+	}
+}
+
+func createSessionCookieValue(username string, now time.Time) (string, time.Time, error) {
+	if strings.TrimSpace(username) == "" {
+		return "", time.Time{}, errors.New("username is required")
+	}
+
+	expiresAt := now.Add(getSessionTTL())
+	nonceBytes, err := randomBytes(16)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	nonce := base64.RawURLEncoding.EncodeToString(nonceBytes)
+	payload := username + "\n" + strconv.FormatInt(expiresAt.Unix(), 10) + "\n" + nonce
+
+	mac := hmac.New(sha256.New, getSessionSecret())
+	if _, err := mac.Write([]byte(payload)); err != nil {
+		return "", time.Time{}, err
+	}
+	sig := mac.Sum(nil)
+
+	value := base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + base64.RawURLEncoding.EncodeToString(sig)
+	return value, expiresAt, nil
+}
+
+func parseAndVerifySessionCookieValue(value string) (string, error) {
+	parts := strings.Split(value, ".")
+	if len(parts) != 2 {
+		return "", errors.New("invalid cookie format")
+	}
+
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return "", err
+	}
+	sigBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", err
+	}
+
+	mac := hmac.New(sha256.New, getSessionSecret())
+	if _, err := mac.Write(payloadBytes); err != nil {
+		return "", err
+	}
+	expectedSig := mac.Sum(nil)
+	if !hmac.Equal(sigBytes, expectedSig) {
+		return "", errors.New("invalid cookie signature")
+	}
+
+	segments := strings.Split(string(payloadBytes), "\n")
+	if len(segments) != 3 {
+		return "", errors.New("invalid payload")
+	}
+
+	username := strings.TrimSpace(segments[0])
+	if username == "" {
+		return "", errors.New("invalid username")
+	}
+
+	expiresUnix, err := strconv.ParseInt(segments[1], 10, 64)
+	if err != nil {
+		return "", err
+	}
+	if time.Now().After(time.Unix(expiresUnix, 0)) {
+		return "", errors.New("session expired")
+	}
+
+	return username, nil
+}
+
+func setSessionCookie(w http.ResponseWriter, r *http.Request, username string) error {
+	value, expiresAt, err := createSessionCookieValue(username, time.Now())
+	if err != nil {
+		return err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    value,
+		Path:     "/",
+		Expires:  expiresAt,
+		HttpOnly: true,
+		Secure:   shouldUseSecureCookie(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	return nil
+}
+
+func getUsernameFromSession(r *http.Request) (string, error) {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return "", err
+	}
+
+	username, err := parseAndVerifySessionCookieValue(cookie.Value)
+	if err != nil {
+		return "", err
+	}
+
+	return username, nil
 }
 
 func validatePasswordStrength(password string) error {
@@ -743,6 +914,11 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			"loginAt":      time.Now().Unix(),
 		},
 	}
+	if err := setSessionCookie(w, r, user.Username); err != nil {
+		log.Printf("[ERROR] セッションCookie設定失敗: %v", err)
+		http.Error(w, "認証セッションの作成に失敗しました", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
 		log.Printf("JSON encode error: %v", encodeErr)
@@ -765,13 +941,8 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := getHeaderUsername(r)
-	if username == "" {
-		http.Error(w, "認証情報が確認できません", http.StatusUnauthorized)
-		return
-	}
-
-	if _, err := getUserIDFromSession(r); err != nil {
+	username, err := getUsernameFromSession(r)
+	if err != nil {
 		http.Error(w, "認証情報が確認できません", http.StatusUnauthorized)
 		return
 	}
@@ -1212,6 +1383,12 @@ func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Login failed:", err)
 		http.Error(w, fmt.Sprintf(`{"success":false,"error":"%s"}`, err.Error()), http.StatusUnauthorized)
+		return
+	}
+
+	if err := setSessionCookie(w, r, user.Name); err != nil {
+		log.Printf("[ERROR] セッションCookie設定失敗: %v", err)
+		http.Error(w, "認証セッションの作成に失敗しました", http.StatusInternalServerError)
 		return
 	}
 

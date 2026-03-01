@@ -84,8 +84,7 @@ async function registerShifts(shifts, username) {
         const res = await fetch('/api/shift', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-Username': encodeURIComponent(username)
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(scheduleData),
             credentials: 'include'

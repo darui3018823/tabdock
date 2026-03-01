@@ -14,7 +14,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +34,7 @@ import (
 )
 
 // const
-const version = "5.23.2"
+const version = "5.24.0"
 
 func getVersionURL() string {
 	url := os.Getenv("VERSION_URL")
@@ -1270,9 +1269,9 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := r.FormValue("username")
-	if username == "" {
-		http.Error(w, "ユーザー名が必要です", http.StatusBadRequest)
+	username, err := getUsernameFromSession(r)
+	if err != nil {
+		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
 	}
 
@@ -1339,21 +1338,13 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Username string `json:"username"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	username, err := getUsernameFromSession(r)
+	if err != nil {
+		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
 	}
 
-	if req.Username == "" {
-		http.Error(w, "Username is required", http.StatusBadRequest)
-		return
-	}
-
-	user, err := getUserByUsername(req.Username)
+	user, err := getUserByUsername(username)
 	if err != nil {
 		log.Printf("[ERROR] ユーザー情報取得エラー: %v", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -1432,8 +1423,8 @@ func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.Sched
 	case http.MethodGet:
 		handleShiftGet(w, r)
 	case http.MethodDelete:
-		username := getHeaderUsername(r)
-		if username == "" {
+		username, err := getUsernameFromSession(r)
+		if err != nil {
 			http.Error(w, "認証が必要です", http.StatusUnauthorized)
 			return
 		}
@@ -1461,8 +1452,8 @@ func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.Sched
 }
 
 func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.ScheduleDB) {
-	username := getHeaderUsername(r)
-	if username == "" {
+	username, err := getUsernameFromSession(r)
+	if err != nil {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
 	}
@@ -1543,8 +1534,8 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 }
 
 func handleShiftGet(w http.ResponseWriter, r *http.Request) {
-	username := getHeaderUsername(r)
-	if username == "" {
+	username, err := getUsernameFromSession(r)
+	if err != nil {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
 	}
@@ -1590,24 +1581,10 @@ func deleteAllShiftsForUser(username string) error {
 	return nil
 }
 
-// getHeaderUsername は X-Username ヘッダーを取得し、URLデコードして返します（未設定時は空文字）。
-func getHeaderUsername(r *http.Request) string {
-	raw := r.Header.Get("X-Username")
-	if raw == "" {
-		return ""
-	}
-	// フロントエンド側で encodeURIComponent された値を復元
-	if decoded, err := url.QueryUnescape(raw); err == nil {
-		return decoded
-	}
-	// デコードに失敗した場合は生の値を返す（後方互換）
-	return raw
-}
-
 func getUserIDFromSession(r *http.Request) (string, error) {
-	username := getHeaderUsername(r)
-	if username == "" {
-		return "", fmt.Errorf("unauthorized: no username")
+	username, err := getUsernameFromSession(r)
+	if err != nil {
+		return "", fmt.Errorf("unauthorized: invalid session")
 	}
 
 	db, err := sql.Open("sqlite", "./database/acc.db")

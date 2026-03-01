@@ -328,8 +328,7 @@ class SubscriptionManager {
             const response = await fetch('/api/subscriptions', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Username': encodeURIComponent(username)
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload),
                 credentials: 'include'
@@ -401,7 +400,6 @@ class SubscriptionManager {
             }
 
             const response = await fetch('/api/subscriptions/upcoming', {
-                headers: { 'X-Username': encodeURIComponent(username) },
                 credentials: 'include'
             });
             if (!response.ok) throw new Error('通知の取得に失敗しました');

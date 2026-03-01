@@ -3,58 +3,7 @@
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
 // This code Version: 5.10.1-acc_r1
 
-// Global Fetch Interceptor for Authentication
-(function () {
-    const originalFetch = window.fetch;
-    window.fetch = function (input, init) {
-        // Get user from localStorage
-        const userStr = localStorage.getItem("tabdock_user");
-        let username = "";
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                username = user.username;
-            } catch (e) {
-                console.error("Failed to parse tabdock_user", e);
-            }
-        }
-
-        if (username) {
-            // Normalize init object
-            init = init || {};
-            init.headers = init.headers || {};
-
-            // Add X-Username header if not present
-            if (init.headers instanceof Headers) {
-                if (!init.headers.has("X-Username")) {
-                    init.headers.append("X-Username", encodeURIComponent(username));
-                }
-            } else if (Array.isArray(init.headers)) {
-                // If headers is array of arrays
-                let hasHeader = false;
-                for (let i = 0; i < init.headers.length; i++) {
-                    if (init.headers[i][0].toLowerCase() === "x-username") {
-                        hasHeader = true;
-                        break;
-                    }
-                }
-                if (!hasHeader) {
-                    init.headers.push(["X-Username", encodeURIComponent(username)]);
-                }
-            } else {
-                // If headers is POJO
-                // Case-insensitive check
-                const keys = Object.keys(init.headers);
-                const hasHeader = keys.some(k => k.toLowerCase() === "x-username");
-                if (!hasHeader) {
-                    init.headers["X-Username"] = encodeURIComponent(username);
-                }
-            }
-        }
-
-        return originalFetch(input, init);
-    };
-})();
+// Cookieベース認証へ移行済みのため、グローバルfetchヘッダー注入は不要
 
 document.addEventListener("DOMContentLoaded", () => {
     window.onPasskeyLoginSuccess = function (user) {
@@ -827,8 +776,7 @@ async function handlePasswordChangeSubmit(event) {
         const response = await fetch("/api/auth/change-password", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
-                "X-Username": encodeURIComponent(user.username)
+                "Content-Type": "application/json"
             },
             body: JSON.stringify({
                 currentPassword,

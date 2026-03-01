@@ -52,9 +52,7 @@ class SubscriptionCalendarManager {
             const username = this.getUsername();
             if (!username) return;
 
-            const response = await fetch('/api/subscriptions/list', {
-                headers: { 'X-Username': encodeURIComponent(username) }
-            });
+            const response = await fetch('/api/subscriptions/list');
 
             if (!response.ok) throw new Error('サブスクリプション取得エラー');
             const data = await response.json().catch(() => null);
@@ -636,8 +634,7 @@ class SubscriptionCalendarManager {
                 const response = await fetch(`/api/subscriptions/status?id=${sub.id}`, {
                     method: 'PATCH',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-Username': encodeURIComponent(this.getUsername())
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ status: 'cancelled' })
                 });
@@ -672,8 +669,7 @@ class SubscriptionCalendarManager {
             const response = await fetch(`/api/subscriptions/status?id=${sub.id}`, {
                 method: 'PATCH',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Username': encodeURIComponent(this.getUsername())
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ status: newStatus })
             });
@@ -716,10 +712,7 @@ class SubscriptionCalendarManager {
 
         try {
             const response = await fetch(`/api/subscriptions/delete?id=${sub.id}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-Username': encodeURIComponent(this.getUsername())
-                }
+                method: 'DELETE'
             });
 
             if (!response.ok) {
@@ -1189,8 +1182,7 @@ class SubscriptionCalendarManager {
                 const response = await fetch(`/api/subscriptions/update?id=${sub.id}`, {
                     method: 'PUT',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-Username': encodeURIComponent(this.getUsername())
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updatedData)
                 });
@@ -1222,9 +1214,7 @@ class SubscriptionCalendarManager {
 
     async checkUpcomingPayments() {
         try {
-            const response = await fetch('/api/subscriptions/upcoming', {
-                headers: { 'X-Username': encodeURIComponent(this.getUsername()) }
-            });
+            const response = await fetch('/api/subscriptions/upcoming');
             if (!response.ok) return;
 
             const upcoming = await response.json();
@@ -1278,8 +1268,7 @@ class SubscriptionCalendarManager {
             const response = await fetch('/api/subscriptions/renew', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Username': encodeURIComponent(username)
+                    'Content-Type': 'application/json'
                 }
             });
 

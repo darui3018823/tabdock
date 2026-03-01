@@ -1812,7 +1812,6 @@ async function fetchUpcomingSubscriptionsForDevtools() {
 
     try {
         const response = await fetch('/api/subscriptions/upcoming', {
-            headers: { 'X-Username': encodeURIComponent(username) },
             credentials: 'include'
         });
 
@@ -1965,8 +1964,7 @@ async function deleteAllShiftsForUser() {
             const response = await fetch('/api/shift', {
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Username': encodeURIComponent(username)
+                    'Content-Type': 'application/json'
                 }
             });
 
