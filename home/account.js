@@ -1,12 +1,29 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.10.1-acc_r1
+// This code Version: 5.25.0-acc_r1
 
-// Cookieベース認証へ移行済みのため、グローバルfetchヘッダー注入は不要
+const RESTORE_TOKEN_KEY = "tabdock_restore_token";
+
+function saveRestoreToken(token) {
+    if (token) {
+        localStorage.setItem(RESTORE_TOKEN_KEY, token);
+    }
+}
+
+function clearRestoreToken() {
+    localStorage.removeItem(RESTORE_TOKEN_KEY);
+}
+
+function getRestoreToken() {
+    return localStorage.getItem(RESTORE_TOKEN_KEY);
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     window.onPasskeyLoginSuccess = function (user) {
+        if (user.restoreToken) {
+            saveRestoreToken(user.restoreToken);
+        }
         fetch('/api/auth/user-info', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -58,6 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (isLoggedIn()) {
         notifyAuthState(getLoggedInUser());
+    } else {
+        attemptSessionRestore();
     }
 });
 
@@ -76,6 +95,47 @@ function getLoggedInUser() {
     return userStr ? JSON.parse(userStr) : null;
 }
 
+async function attemptSessionRestore() {
+    if (isLoggedIn()) {
+        return;
+    }
+
+    const restoreToken = getRestoreToken();
+    if (!restoreToken) {
+        return;
+    }
+
+    try {
+        const resp = await fetch("/api/auth/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ restoreToken })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            clearRestoreToken();
+            return;
+        }
+
+        saveRestoreToken(data.restoreToken);
+        const userInfo = {
+            username: data.user?.username,
+            email: data.user?.email || "",
+            loginAt: data.user?.loginAt || Math.floor(Date.now() / 1000),
+            loginMethod: "restore",
+            profileImage: data.user?.profileImage || null
+        };
+
+        saveLoginState(userInfo);
+        if (typeof updateUIForLoggedInUser === "function") {
+            updateUIForLoggedInUser(userInfo);
+        }
+    } catch (err) {
+        console.error("セッション復旧に失敗しました", err);
+    }
+}
+
 function saveLoginState(user) {
     localStorage.setItem("tabdock_user", JSON.stringify(user));
     notifyAuthState(user);
@@ -89,6 +149,7 @@ function saveLoginState(user) {
 
 function logout() {
     localStorage.removeItem("tabdock_user");
+	clearRestoreToken();
     Swal.fire("ログアウト", "正常にログアウトしました。", "success");
     notifyAuthState(null);
     setupAccountModal();
@@ -886,6 +947,7 @@ function handleNormalLogin() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+				saveRestoreToken(data.restoreToken);
                 fetch("/api/auth/user-info", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

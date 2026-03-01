@@ -37,7 +37,9 @@ var (
 )
 
 const (
-	sessionCookieName = "tabdock_session"
+	sessionCookieName  = "tabdock_session"
+	deviceIDCookieName = "tabdock_device_id"
+	restoreTokenName   = "tabdock_restore"
 )
 
 // WebAuthn関連の変数
@@ -51,6 +53,8 @@ var (
 	sessionSecret     []byte
 	sessionTTLOnce    sync.Once
 	sessionTTL        = 24 * time.Hour
+	restoreTTLOnce    sync.Once
+	restoreTTL        = 30 * 24 * time.Hour
 )
 
 type webAuthnSession struct {
@@ -73,9 +77,10 @@ type AuthRequest struct {
 
 // AuthResponse is the standard auth API response.
 type AuthResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	User    interface{} `json:"user,omitempty"`
+	Success      bool        `json:"success"`
+	Message      string      `json:"message,omitempty"`
+	User         interface{} `json:"user,omitempty"`
+	RestoreToken string      `json:"restoreToken,omitempty"`
 }
 
 // AuthUser represents a database user record for auth APIs.
@@ -305,6 +310,19 @@ func getSessionTTL() time.Duration {
 	return sessionTTL
 }
 
+func getRestoreTokenTTL() time.Duration {
+	restoreTTLOnce.Do(func() {
+		raw := strings.TrimSpace(getEnv("RESTORE_TOKEN_TTL_DAYS", "30"))
+		days, err := strconv.Atoi(raw)
+		if err != nil || days <= 0 {
+			restoreTTL = 30 * 24 * time.Hour
+			return
+		}
+		restoreTTL = time.Duration(days) * 24 * time.Hour
+	})
+	return restoreTTL
+}
+
 func shouldUseSecureCookie(r *http.Request) bool {
 	switch strings.ToLower(strings.TrimSpace(getEnv("COOKIE_SECURE", "auto"))) {
 	case "true", "1", "yes", "on":
@@ -406,6 +424,135 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, username string) e
 	return nil
 }
 
+func getDeviceIDFromCookie(r *http.Request) string {
+	cookie, err := r.Cookie(deviceIDCookieName)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(cookie.Value)
+}
+
+func setDeviceIDCookie(w http.ResponseWriter, r *http.Request, deviceID string) (string, error) {
+	id := strings.TrimSpace(deviceID)
+	if id == "" {
+		bytes, err := randomBytes(16)
+		if err != nil {
+			return "", err
+		}
+		id = base64.RawURLEncoding.EncodeToString(bytes)
+	}
+
+	expiresAt := time.Now().Add(180 * 24 * time.Hour)
+	http.SetCookie(w, &http.Cookie{
+		Name:     deviceIDCookieName,
+		Value:    id,
+		Path:     "/",
+		Expires:  expiresAt,
+		HttpOnly: true,
+		Secure:   shouldUseSecureCookie(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	return id, nil
+}
+
+func ensureDeviceIDCookie(w http.ResponseWriter, r *http.Request) (string, error) {
+	if existing := getDeviceIDFromCookie(r); existing != "" {
+		return existing, nil
+	}
+	return setDeviceIDCookie(w, r, "")
+}
+
+func createRestoreToken(username, deviceID string, now time.Time) (string, time.Time, error) {
+	username = strings.TrimSpace(username)
+	deviceID = strings.TrimSpace(deviceID)
+	if username == "" || deviceID == "" {
+		return "", time.Time{}, errors.New("username and device id are required")
+	}
+
+	expiresAt := now.Add(getRestoreTokenTTL())
+	nonceBytes, err := randomBytes(16)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	nonce := base64.RawURLEncoding.EncodeToString(nonceBytes)
+	payload := username + "\n" + deviceID + "\n" + strconv.FormatInt(expiresAt.Unix(), 10) + "\n" + nonce
+
+	mac := hmac.New(sha256.New, getSessionSecret())
+	if _, err := mac.Write([]byte(payload)); err != nil {
+		return "", time.Time{}, err
+	}
+	sig := mac.Sum(nil)
+
+	value := base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + base64.RawURLEncoding.EncodeToString(sig)
+	return value, expiresAt, nil
+}
+
+func parseAndVerifyRestoreToken(token string) (string, string, error) {
+	parts := strings.Split(strings.TrimSpace(token), ".")
+	if len(parts) != 2 {
+		return "", "", errors.New("invalid token format")
+	}
+
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return "", "", err
+	}
+	sigBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", "", err
+	}
+
+	mac := hmac.New(sha256.New, getSessionSecret())
+	if _, err := mac.Write(payloadBytes); err != nil {
+		return "", "", err
+	}
+	expectedSig := mac.Sum(nil)
+	if !hmac.Equal(sigBytes, expectedSig) {
+		return "", "", errors.New("invalid token signature")
+	}
+
+	segments := strings.Split(string(payloadBytes), "\n")
+	if len(segments) != 4 {
+		return "", "", errors.New("invalid token payload")
+	}
+
+	username := strings.TrimSpace(segments[0])
+	deviceID := strings.TrimSpace(segments[1])
+	expiresUnix, err := strconv.ParseInt(strings.TrimSpace(segments[2]), 10, 64)
+	if err != nil {
+		return "", "", err
+	}
+
+	if username == "" || deviceID == "" {
+		return "", "", errors.New("token missing identity")
+	}
+
+	if time.Now().After(time.Unix(expiresUnix, 0)) {
+		return "", "", errors.New("restore token expired")
+	}
+
+	return username, deviceID, nil
+}
+
+func issueSessionAndRestore(w http.ResponseWriter, r *http.Request, username string) (string, error) {
+	if err := setSessionCookie(w, r, username); err != nil {
+		return "", err
+	}
+
+	deviceID, err := ensureDeviceIDCookie(w, r)
+	if err != nil {
+		return "", err
+	}
+
+	restoreToken, _, err := createRestoreToken(username, deviceID, time.Now())
+	if err != nil {
+		return "", err
+	}
+
+	return restoreToken, nil
+}
+
 func getUsernameFromSession(r *http.Request) (string, error) {
 	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
@@ -460,6 +607,11 @@ func getUsernameFromRequest(r *http.Request) (string, error) {
 	}
 
 	return username, nil
+}
+
+func isLocalRequest(r *http.Request) bool {
+	ip := getIPAddress(r)
+	return isPrivateOrLoopback(ip) || isTrustedIP(ip)
 }
 
 func validatePasswordStrength(password string) error {
@@ -957,11 +1109,13 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			"loginAt":      time.Now().Unix(),
 		},
 	}
-	if err := setSessionCookie(w, r, user.Username); err != nil {
-		log.Printf("[ERROR] セッションCookie設定失敗: %v", err)
+	restoreToken, err := issueSessionAndRestore(w, r, user.Username)
+	if err != nil {
+		log.Printf("[ERROR] セッション発行失敗: %v", err)
 		http.Error(w, "認証セッションの作成に失敗しました", http.StatusInternalServerError)
 		return
 	}
+	response.RestoreToken = restoreToken
 	w.Header().Set("Content-Type", "application/json")
 	if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
 		log.Printf("JSON encode error: %v", encodeErr)
@@ -1024,6 +1178,71 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 	if encodeErr := json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"message": "パスワードを更新しました",
+	}); encodeErr != nil {
+		log.Printf("JSON encode error: %v", encodeErr)
+	}
+}
+
+func handleAuthRestore(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		RestoreToken string `json:"restoreToken"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.RestoreToken) == "" {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	username, tokenDeviceID, err := parseAndVerifyRestoreToken(req.RestoreToken)
+	if err != nil {
+		http.Error(w, "認証情報が無効です", http.StatusUnauthorized)
+		return
+	}
+
+	isLocal := isLocalRequest(r)
+	deviceID := getDeviceIDFromCookie(r)
+
+	if !isLocal {
+		if tokenDeviceID == "" || deviceID == "" || tokenDeviceID != deviceID {
+			http.Error(w, "デバイス認証が必要です", http.StatusUnauthorized)
+			return
+		}
+	} else if deviceID == "" && tokenDeviceID != "" {
+		if _, cookieErr := setDeviceIDCookie(w, r, tokenDeviceID); cookieErr != nil {
+			log.Printf("[WARN] デバイスIDクッキー設定失敗: %v", cookieErr)
+		}
+	}
+
+	restoreToken, issueErr := issueSessionAndRestore(w, r, username)
+	if issueErr != nil {
+		log.Printf("[ERROR] リストア用セッション発行失敗: %v", issueErr)
+		http.Error(w, "リストアに失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	user, err := getUserByUsername(username)
+	if err != nil {
+		log.Printf("[ERROR] ユーザー情報取得エラー: %v", err)
+		http.Error(w, "ユーザー情報を取得できませんでした", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"message":      "セッションを再発行しました",
+		"restoreToken": restoreToken,
+		"user": map[string]interface{}{
+			"username":     user.Username,
+			"email":        user.Email,
+			"profileImage": user.ProfileImage,
+			"loginAt":      time.Now().Unix(),
+		},
 	}); encodeErr != nil {
 		log.Printf("JSON encode error: %v", encodeErr)
 	}
@@ -1429,16 +1648,20 @@ func HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := setSessionCookie(w, r, user.Name); err != nil {
-		log.Printf("[ERROR] セッションCookie設定失敗: %v", err)
+	restoreToken, err := issueSessionAndRestore(w, r, user.Name)
+	if err != nil {
+		log.Printf("[ERROR] セッション発行失敗: %v", err)
 		http.Error(w, "認証セッションの作成に失敗しました", http.StatusInternalServerError)
 		return
 	}
 
 	// 成功時のレスポンス
 	w.Header().Set("Content-Type", "application/json")
-	if _, writeErr := w.Write([]byte(`{"success":true}`)); writeErr != nil {
-		log.Printf("Failed to write response: %v", writeErr)
+	if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"restoreToken": restoreToken,
+	}); encodeErr != nil {
+		log.Printf("Failed to write response: %v", encodeErr)
 	}
 }
 

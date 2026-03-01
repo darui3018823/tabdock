@@ -34,7 +34,7 @@ import (
 )
 
 // const
-const version = "5.24.1"
+const version = "5.25.0"
 
 func getVersionURL() string {
 	url := os.Getenv("VERSION_URL")
@@ -314,6 +314,7 @@ func main() {
 	mux.HandleFunc("/api/auth/login", secureHandler(handleAuthLogin))
 	mux.HandleFunc("/api/auth/register", secureHandler(handleAuthRegister))
 	mux.HandleFunc("/api/auth/user-info", secureHandler(handleUserInfo))
+	mux.HandleFunc("/api/auth/restore", secureHandler(handleAuthRestore))
 	mux.HandleFunc("/api/auth/change-password", secureHandler(handleAuthChangePassword))
 
 	// Subscription APIs
