@@ -1,23 +1,48 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.10.5_ui-r1
-
-// 2025 TabDock: darui3018823 All rights reserved.
-// All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
-// Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.10.0_ui-r1
+// This code Version: 5.23.0_ui-r1
 
 let wallpaperStorageWarningShown = false;
+
+function getSelectedGlassMaterial() {
+    const materialSelect = document.getElementById("glassMaterial");
+    const selected = materialSelect?.value || localStorage.getItem('tabdock_glass_material') || "blur";
+    return ["blur", "clear", "frosted", "colored"].includes(selected) ? selected : "blur";
+}
+
+function applyWidgetMaterial(widget, material) {
+    switch (material) {
+        case "clear":
+            widget.style.backdropFilter = "none";
+            widget.style.webkitBackdropFilter = "none";
+            widget.style.backgroundImage = "none";
+            break;
+        case "frosted":
+            widget.style.backdropFilter = "blur(22px) brightness(108%) grayscale(0.12)";
+            widget.style.webkitBackdropFilter = "blur(22px) brightness(108%) grayscale(0.12)";
+            widget.style.backgroundImage = "none";
+            break;
+        case "colored":
+            widget.style.backdropFilter = "blur(10px) brightness(105%) saturate(140%)";
+            widget.style.webkitBackdropFilter = "blur(10px) brightness(105%) saturate(140%)";
+            widget.style.backgroundImage = "linear-gradient(120deg, rgba(0,180,255,0.18) 0%, rgba(255,0,180,0.18) 100%)";
+            break;
+        default:
+            widget.style.backdropFilter = "blur(12px) brightness(100%)";
+            widget.style.webkitBackdropFilter = "blur(12px) brightness(100%)";
+            widget.style.backgroundImage = "none";
+    }
+}
 
 function applyVisualSettings() {
     // ぼかしと明るさをlocalStorageから読み込む（今回は変更しないが、元のロジックを維持）
     const blur = parseInt(document.getElementById("blurRange")?.value || 0);
     const brightness = parseInt(document.getElementById("brightnessRange")?.value || 100);
+    const material = getSelectedGlassMaterial();
     const blurLayer = document.getElementById("wallpaperBlurLayer");
     if (blurLayer) {
         // 素材クラスの適用
-        const material = document.getElementById("glassMaterial")?.value || "blur";
         blurLayer.classList.remove("glass-blur", "glass-clear", "glass-frosted", "glass-colored");
         switch(material) {
             case "clear":
@@ -42,6 +67,7 @@ function applyVisualSettings() {
     const alpha = (100 - parseInt(savedOpacity)) / 100;
     const widgets = document.querySelectorAll('.widget-box');
     widgets.forEach(widget => {
+        applyWidgetMaterial(widget, material);
         widget.style.backgroundColor = `rgba(0, 0, 0, ${alpha})`;
     });
 
