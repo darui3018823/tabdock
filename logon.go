@@ -602,7 +602,7 @@ func getUsernameFromRequest(r *http.Request) (string, error) {
 	}
 
 	ip := getIPAddress(r)
-	if !(isPrivateOrLoopback(ip) || isTrustedIP(ip)) {
+	if !isPrivateOrLoopback(ip) && !isTrustedIP(ip) {
 		return "", errors.New("header auth is not allowed from this ip")
 	}
 
