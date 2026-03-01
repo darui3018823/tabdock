@@ -1,9 +1,55 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.23.0_ui-r1
+// This code Version: 5.23.x_ui-r2
 
 let wallpaperStorageWarningShown = false;
+
+function normalizeHexColor(value) {
+    if (typeof value !== "string") return "#ffffff";
+    const normalized = value.trim().toLowerCase();
+    if (/^#[0-9a-f]{6}$/.test(normalized)) return normalized;
+    if (/^#[0-9a-f]{3}$/.test(normalized)) {
+        const r = normalized[1];
+        const g = normalized[2];
+        const b = normalized[3];
+        return `#${r}${r}${g}${g}${b}${b}`;
+    }
+    return "#ffffff";
+}
+
+function hexToRgbTuple(hexColor) {
+    const hex = normalizeHexColor(hexColor);
+    return {
+        r: parseInt(hex.slice(1, 3), 16),
+        g: parseInt(hex.slice(3, 5), 16),
+        b: parseInt(hex.slice(5, 7), 16)
+    };
+}
+
+function getSelectedTextColor() {
+    const colorInput = document.getElementById("defaultTextColor");
+    return normalizeHexColor(
+        colorInput?.value || localStorage.getItem('tabdock_default_text_color') || "#ffffff"
+    );
+}
+
+function applyTextColorSetting(hexColor) {
+    const color = normalizeHexColor(hexColor);
+    const { r, g, b } = hexToRgbTuple(color);
+    document.documentElement.style.setProperty("--tabdock-default-text-color", color);
+    document.documentElement.style.setProperty("--tabdock-default-text-color-rgb", `${r}, ${g}, ${b}`);
+
+    const colorInput = document.getElementById("defaultTextColor");
+    if (colorInput) {
+        colorInput.value = color;
+    }
+
+    const colorValueEl = document.getElementById("defaultTextColorValue");
+    if (colorValueEl) {
+        colorValueEl.textContent = color.toUpperCase();
+    }
+}
 
 function getSelectedGlassMaterial() {
     const materialSelect = document.getElementById("glassMaterial");
@@ -40,6 +86,10 @@ function applyVisualSettings() {
     const blur = parseInt(document.getElementById("blurRange")?.value || 0);
     const brightness = parseInt(document.getElementById("brightnessRange")?.value || 100);
     const material = getSelectedGlassMaterial();
+    const textColor = getSelectedTextColor();
+
+    applyTextColorSetting(textColor);
+
     const blurLayer = document.getElementById("wallpaperBlurLayer");
     if (blurLayer) {
         // 素材クラスの適用
@@ -116,6 +166,18 @@ function tempApplyOpacity() {
                 applyVisualSettings();
             });
         }
+
+    const textColorInput = document.getElementById("defaultTextColor");
+    if (textColorInput) {
+        const savedTextColor = normalizeHexColor(localStorage.getItem('tabdock_default_text_color') || "#ffffff");
+        textColorInput.value = savedTextColor;
+        textColorInput.addEventListener("input", () => {
+            const color = normalizeHexColor(textColorInput.value);
+            localStorage.setItem('tabdock_default_text_color', color);
+            applyVisualSettings();
+        });
+    }
+
     const savedWallpaper = localStorage.getItem("tabdock_wallpaper")
         ?? sessionStorage.getItem("tabdock_wallpaper_session");
     if (savedWallpaper) {
@@ -151,6 +213,8 @@ function tempApplyOpacity() {
             // 素材の値も保存
             const material = document.getElementById("glassMaterial")?.value || "blur";
             localStorage.setItem('tabdock_glass_material', material);
+            const textColor = normalizeHexColor(document.getElementById("defaultTextColor")?.value || "#ffffff");
+            localStorage.setItem('tabdock_default_text_color', textColor);
             // TODO: ぼかしや明るさもここで保存するのが望ましい
             // const blur = document.getElementById("blurRange").value;
             // localStorage.setItem('tabdock_wallpaper_blur', blur);
@@ -190,6 +254,11 @@ function initializeSliders() {
     const opacitySlider = document.getElementById("opacityRange");
     if (opacitySlider) {
         opacitySlider.value = localStorage.getItem('tabdock_widget_opacity') ?? 30;
+    }
+
+    const textColorInput = document.getElementById("defaultTextColor");
+    if (textColorInput) {
+        textColorInput.value = normalizeHexColor(localStorage.getItem('tabdock_default_text_color') || "#ffffff");
     }
 
     // 全ての視覚設定を適用

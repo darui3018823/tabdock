@@ -65,6 +65,32 @@ body {
 
 :root {
     --widget-bg: rgba(30, 30, 30, 0.7);
+    --tabdock-default-text-color: #ffffff;
+    --tabdock-default-text-color-rgb: 255, 255, 255;
+}
+
+.text-white {
+    color: var(--tabdock-default-text-color) !important;
+}
+
+.text-white\/90 {
+    color: rgba(var(--tabdock-default-text-color-rgb), 0.9) !important;
+}
+
+.text-white\/80 {
+    color: rgba(var(--tabdock-default-text-color-rgb), 0.8) !important;
+}
+
+.text-white\/70 {
+    color: rgba(var(--tabdock-default-text-color-rgb), 0.7) !important;
+}
+
+.text-white\/60 {
+    color: rgba(var(--tabdock-default-text-color-rgb), 0.6) !important;
+}
+
+.text-white\/50 {
+    color: rgba(var(--tabdock-default-text-color-rgb), 0.5) !important;
 }
 
 .widget-box {
