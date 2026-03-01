@@ -17,6 +17,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -414,6 +415,48 @@ func getUsernameFromSession(r *http.Request) (string, error) {
 	username, err := parseAndVerifySessionCookieValue(cookie.Value)
 	if err != nil {
 		return "", err
+	}
+
+	return username, nil
+}
+
+func headerAuthFallbackEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(getEnv("ALLOW_HEADER_AUTH_FALLBACK", "true"))) {
+	case "false", "0", "no", "off":
+		return false
+	default:
+		return true
+	}
+}
+
+func getHeaderUsername(r *http.Request) string {
+	raw := strings.TrimSpace(r.Header.Get("X-Username"))
+	if raw == "" {
+		return ""
+	}
+	if decoded, err := url.QueryUnescape(raw); err == nil {
+		return strings.TrimSpace(decoded)
+	}
+	return raw
+}
+
+func getUsernameFromRequest(r *http.Request) (string, error) {
+	if username, err := getUsernameFromSession(r); err == nil {
+		return username, nil
+	}
+
+	if !headerAuthFallbackEnabled() {
+		return "", errors.New("invalid session")
+	}
+
+	username := getHeaderUsername(r)
+	if username == "" {
+		return "", errors.New("missing auth identity")
+	}
+
+	ip := getIPAddress(r)
+	if !(isPrivateOrLoopback(ip) || isTrustedIP(ip)) {
+		return "", errors.New("header auth is not allowed from this ip")
 	}
 
 	return username, nil
@@ -941,7 +984,7 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := getUsernameFromSession(r)
+	username, err := getUsernameFromRequest(r)
 	if err != nil {
 		http.Error(w, "認証情報が確認できません", http.StatusUnauthorized)
 		return

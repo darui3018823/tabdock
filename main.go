@@ -34,7 +34,7 @@ import (
 )
 
 // const
-const version = "5.24.0"
+const version = "5.24.1"
 
 func getVersionURL() string {
 	url := os.Getenv("VERSION_URL")
@@ -1269,7 +1269,7 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := getUsernameFromSession(r)
+	username, err := getUsernameFromRequest(r)
 	if err != nil {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
@@ -1338,7 +1338,7 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := getUsernameFromSession(r)
+	username, err := getUsernameFromRequest(r)
 	if err != nil {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
@@ -1423,7 +1423,7 @@ func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.Sched
 	case http.MethodGet:
 		handleShiftGet(w, r)
 	case http.MethodDelete:
-		username, err := getUsernameFromSession(r)
+		username, err := getUsernameFromRequest(r)
 		if err != nil {
 			http.Error(w, "認証が必要です", http.StatusUnauthorized)
 			return
@@ -1452,7 +1452,7 @@ func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.Sched
 }
 
 func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.ScheduleDB) {
-	username, err := getUsernameFromSession(r)
+	username, err := getUsernameFromRequest(r)
 	if err != nil {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
@@ -1534,7 +1534,7 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 }
 
 func handleShiftGet(w http.ResponseWriter, r *http.Request) {
-	username, err := getUsernameFromSession(r)
+	username, err := getUsernameFromRequest(r)
 	if err != nil {
 		http.Error(w, "認証が必要です", http.StatusUnauthorized)
 		return
@@ -1582,7 +1582,7 @@ func deleteAllShiftsForUser(username string) error {
 }
 
 func getUserIDFromSession(r *http.Request) (string, error) {
-	username, err := getUsernameFromSession(r)
+	username, err := getUsernameFromRequest(r)
 	if err != nil {
 		return "", fmt.Errorf("unauthorized: invalid session")
 	}
