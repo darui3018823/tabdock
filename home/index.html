@@ -12,13 +12,28 @@
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <link rel="stylesheet" href="style.css">
-        <link rel="manifest" href="/manifest.json">
+        <link rel="manifest" href="manifest.json">
+
+        <!-- iOS 向け PWA 設定 -->
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <link rel="apple-touch-icon" href="assets/icon/pwa/tabdock_betalogo-192.png">
 
         <meta property="og:site_name" content="Tabdock">
         <meta property="og:title" content="Tabdock Home">
         <meta property="og:description" content="A gateway to making effective use of surplus tablets.">
         <meta property="og:url" content="https://192.168.3.57/home/">
         <meta property="og:type" content="website">
+
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('sw.js')
+                        .then(reg => console.log('ServiceWorker registered:', reg))
+                        .catch(err => console.error('ServiceWorker registration failed:', err));
+                });
+            }
+        </script>
 
     </head>
 

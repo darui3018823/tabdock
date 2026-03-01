@@ -8,17 +8,17 @@
     "theme_color": "#111827",
     "icons": [
 		{
-			"src": "/home/assets/icon/pwa/tabdock_betalogo-192.png",
+			"src": "assets/icon/pwa/tabdock_betalogo-192.png",
 			"type": "image/png",
 			"sizes": "192x192"
 		},
 		{
-			"src": "/home/assets/icon/pwa/tabdock_betalogo-512.png",
+			"src": "assets/icon/pwa/tabdock_betalogo-512.png",
 			"type": "image/png",
 			"sizes": "512x512"
 		},
 		{
-			"src": "/home/assets/icon/pwa/tabdock_betalogo.png",
+			"src": "assets/icon/pwa/tabdock_betalogo.png",
 			"type": "image/png",
 			"sizes": "700x700"
 		}
