@@ -37,21 +37,6 @@ body {
     text-align: center;
 }
 
-.card-standard {
-    border-radius: 1rem;
-    padding: 1rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    background-color: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(12px);
-    color: white;
-    min-height: 140px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    max-width: 500px;
-    width: 100%;
-}
-
 .omgfooter {
     position: fixed;
     bottom: 0;
