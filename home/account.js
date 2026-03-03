@@ -19,6 +19,98 @@ function getRestoreToken() {
     return localStorage.getItem(RESTORE_TOKEN_KEY);
 }
 
+function getLegacyAuthUsername() {
+    try {
+        if (typeof window.getLoggedInUser === "function") {
+            const user = window.getLoggedInUser();
+            if (user?.username) return String(user.username).trim();
+        }
+
+        const stored = localStorage.getItem("tabdock_user");
+        if (!stored) return "";
+
+        const parsed = JSON.parse(stored);
+        return parsed?.username ? String(parsed.username).trim() : "";
+    } catch (error) {
+        console.warn("従来認証ユーザー名の取得に失敗しました:", error);
+        return "";
+    }
+}
+
+function isSameOriginAPIRequest(input) {
+    try {
+        const rawUrl = typeof input === "string" ? input : input?.url;
+        if (!rawUrl) return false;
+
+        if (rawUrl.startsWith("/api/")) return true;
+
+        const url = new URL(rawUrl, window.location.origin);
+        return url.origin === window.location.origin && url.pathname.startsWith("/api/");
+    } catch {
+        return false;
+    }
+}
+
+    function isPrivateIPv4Host(hostname) {
+        const m = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+        if (!m) return false;
+
+        const octets = m.slice(1).map(Number);
+        if (octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+
+        return (
+            octets[0] === 10 ||
+            (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+            (octets[0] === 192 && octets[1] === 168) ||
+            octets[0] === 127
+        );
+    }
+
+    function isLocalAccessContext() {
+        try {
+            const host = String(window.location.hostname || "").toLowerCase();
+            if (!host) return false;
+
+            if (host === "localhost" || host === "::1") return true;
+            if (host.endsWith(".local")) return true;
+            if (isPrivateIPv4Host(host)) return true;
+
+            return false;
+        } catch {
+            return false;
+        }
+    }
+
+function initLegacyAuthFetchInterceptor() {
+    if (window.__tabdockLegacyAuthFetchPatched) return;
+    if (typeof window.fetch !== "function") return;
+
+    const originalFetch = window.fetch.bind(window);
+    const allowLegacyHeader = isLocalAccessContext();
+
+    window.fetch = (input, init = {}) => {
+        const username = getLegacyAuthUsername();
+        if (!allowLegacyHeader || !username || !isSameOriginAPIRequest(input)) {
+            return originalFetch(input, init);
+        }
+
+        const headers = new Headers(init.headers || {});
+        if (!headers.has("X-Username")) {
+            headers.set("X-Username", encodeURIComponent(username));
+        }
+
+        return originalFetch(input, {
+            ...init,
+            headers,
+            credentials: init.credentials || "include"
+        });
+    };
+
+    window.__tabdockLegacyAuthFetchPatched = true;
+}
+
+initLegacyAuthFetchInterceptor();
+
 document.addEventListener("DOMContentLoaded", () => {
     window.onPasskeyLoginSuccess = function (user) {
         if (user.restoreToken) {
