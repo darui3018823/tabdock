@@ -48,7 +48,7 @@ The host machine must meet the following requirements:
 
 ## Minimum Specifications
 - PowerShell 5.1 or 7.5 and above
-- Golang 1.23.2 or later
+- Golang 1.25 or later
 - CPU: 1.00 GHz or higher
 - RAM: At least 300 MB
 - Storage: At least 300 MB of available space

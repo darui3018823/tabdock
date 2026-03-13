@@ -36,7 +36,7 @@ We appreciate code contributions! Please follow these steps to contribute:
     cd tabdock
     ```
 3.  **Set Up Your Development Environment:**
-    *   **Go:** Ensure you have Go (version 1.24.0 or newer) installed.
+    *   **Go:** Ensure you have Go (version 1.25 or newer) installed.
     *   **Dependencies:** Install Go modules.
         ```bash
         go mod tidy
