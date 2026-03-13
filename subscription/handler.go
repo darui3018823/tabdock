@@ -16,6 +16,7 @@ import (
 
 const (
 	subscriptionStatusActive   = "active"
+	subscriptionStatusInactive = "inactive"
 	subscriptionStatusCanceled = "canceled"
 	subscriptionStatusExpired  = "expired"
 )
@@ -292,6 +293,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if statusUpdate.Status != subscriptionStatusActive &&
+		statusUpdate.Status != subscriptionStatusInactive &&
 		statusUpdate.Status != subscriptionStatusCanceled &&
 		statusUpdate.Status != subscriptionStatusExpired {
 		http.Error(w, "Invalid status", http.StatusBadRequest)
