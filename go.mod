@@ -11,7 +11,7 @@ require (
 	golang.org/x/crypto v0.49.0
 	golang.org/x/mod v0.34.0
 	golang.org/x/sys v0.42.0
-	modernc.org/sqlite v1.46.1
+	modernc.org/sqlite v1.47.0
 )
 
 require (
@@ -33,8 +33,7 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6 // indirect
-	modernc.org/libc v1.67.6 // indirect
+	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
