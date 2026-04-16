@@ -203,7 +203,7 @@ func (s *SubscriptionDB) GetByUserID(userID string) ([]Subscription, error) {
 			   billing_cycle, payment_method, payment_details, next_payment_date,
 			   status, created_at, updated_at
 		FROM subscriptions
-		WHERE user_id = ? AND status = 'active'
+		WHERE user_id = ?
 		ORDER BY next_payment_date ASC
 	`
 

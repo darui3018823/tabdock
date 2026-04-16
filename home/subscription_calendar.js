@@ -1,7 +1,7 @@
 // 2025 TabDock: darui3018823 All rights reserved.
 // All works created by darui3018823 associated with this repository are the intellectual property of darui3018823.
 // Packages and other third-party materials used in this repository are subject to their respective licenses and copyrights.
-// This code Version: 5.15.3_subsccal-r1
+// This code Version: 5.25.x_subsccal-r2
 
 class SubscriptionCalendarManager {
     constructor() {
@@ -636,7 +636,7 @@ class SubscriptionCalendarManager {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ status: 'cancelled' })
+                    body: JSON.stringify({ status: 'canceled' })
                 });
 
                 if (!response.ok) throw new Error('キャンセル処理に失敗しました');
@@ -676,9 +676,15 @@ class SubscriptionCalendarManager {
 
             if (!response.ok) throw new Error(`${actionText}処理に失敗しました`);
 
+            // ローカルデータを即時更新
+            const idx = this.subscriptions.findIndex(s => s.id === sub.id);
+            if (idx !== -1) {
+                this.subscriptions[idx].status = newStatus;
+            }
+
             await Swal.fire('完了', `サブスクリプションを${actionText}しました`, 'success');
 
-            // データを再読み込みして画面を更新
+            // サーバーからも再取得して同期
             await this.loadSubscriptions();
             await this.updateSubscriptionList({ reload: false });
 
