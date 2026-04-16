@@ -23,6 +23,10 @@ go.work.sum
 # env file
 .env
 
+# IDE/Editor
+.vscode/
+.idea/
+
 # PyInstaller
 # The directory where PyInstaller stores its temporary files
 # This directory is created by PyInstaller when you run it
@@ -55,12 +59,5 @@ json/user/
 home/wallpapers/
 home/assets/calendar/
 home/assets/acc_icon/
-home/assets/payment/Apple_Pay_Mark_RGB_041619.svg
-home/assets/payment/google-pay-mark_800.svg
-home/assets/payment/pp_h_rgb.png
-home/assets/payment/credit-card.png
-home/assets/payment/paypay_3_rgb.png
-home/assets/payment/logo_amazonpay-primary-fullcolor-negative.png
-home/assets/payment/Black-XL.png
-
+home/assets/payment/
 update_flag.txt
