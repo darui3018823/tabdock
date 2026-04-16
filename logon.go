@@ -417,7 +417,7 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, username string) e
 		Path:     "/",
 		Expires:  expiresAt,
 		HttpOnly: true,
-		Secure:   shouldUseSecureCookie(r),
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -449,7 +449,7 @@ func setDeviceIDCookie(w http.ResponseWriter, r *http.Request, deviceID string) 
 		Path:     "/",
 		Expires:  expiresAt,
 		HttpOnly: true,
-		Secure:   shouldUseSecureCookie(r),
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 
