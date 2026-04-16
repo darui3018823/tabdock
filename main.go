@@ -83,7 +83,6 @@ type weatherRequest struct {
 // 	Body weatherBody `json:"body"`
 // }
 
-// type
 // type responseWriterWithStatus struct { // Unused
 // 	http.ResponseWriter
 // 	status int
@@ -97,12 +96,6 @@ type Forecast struct {
 	TempMin string `json:"temp_min"`
 	TempMax string `json:"temp_max"`
 	Detail  string `json:"detail"`
-}
-
-// WeatherResponse represents the weather API response.
-type WeatherResponse struct {
-	City      string     `json:"city"`
-	Forecasts []Forecast `json:"forecasts"`
 }
 
 // Schedule represents a shift schedule payload.
@@ -265,7 +258,7 @@ func main() {
 
 	// apis
 	mux.HandleFunc("/api/ping", secureHandler(handlePing))
-	mux.HandleFunc("/api/version", secureHandler(handleVesion))
+	mux.HandleFunc("/api/version", secureHandler(handleVersion))
 	mux.HandleFunc("/api/status", secureHandler(handleStatusAPI))
 	mux.HandleFunc("/api/weather", secureHandler(handleWeather))
 	mux.HandleFunc("/api/holidays", secureHandler(holidaysHandler))
@@ -652,7 +645,7 @@ func updateOrphanWallpapers(wallpaperDB *sql.DB, orphanUserIDs []string) error {
 
 	stmt, err := tx.Prepare("UPDATE wallpapers SET user_id = 'default' WHERE user_id = ?")
 	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != sql.ErrTxDone {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
 			log.Printf("Failed to rollback transaction: %v", rollbackErr)
 		}
 		return err
@@ -1298,10 +1291,10 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 
 	uniqueID := uuid.New().String()
 	filename := uniqueID + ext
-	filepath := "home/assets/acc_icon/" + filename
+	filePath := "home/assets/acc_icon/" + filename
 	imagePath := "/home/assets/acc_icon/" + filename
 
-	out, err := os.Create(filepath)
+	out, err := os.Create(filePath)
 	if err != nil {
 		http.Error(w, "ファイル保存に失敗しました", http.StatusInternalServerError)
 		return
@@ -1395,17 +1388,19 @@ func holidaysHandler(w http.ResponseWriter, r *http.Request) {
 
 	client := http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get(remoteURL)
-	if err == nil && resp.StatusCode == http.StatusOK {
+	if err == nil {
 		defer func() {
 			if closeErr := resp.Body.Close(); closeErr != nil {
 				log.Printf("Failed to close response body: %v", closeErr)
 			}
 		}()
-		w.Header().Set("Content-Type", "application/json")
-		if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
-			log.Printf("Failed to copy response: %v", copyErr)
+		if resp.StatusCode == http.StatusOK {
+			w.Header().Set("Content-Type", "application/json")
+			if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+				log.Printf("Failed to copy response: %v", copyErr)
+			}
+			return
 		}
-		return
 	}
 
 	// 外部取得失敗 → fallback
@@ -1479,7 +1474,7 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 	var userID string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "ユーザーが見つかりません", http.StatusUnauthorized)
 		} else {
 			http.Error(w, "データベースエラー", http.StatusInternalServerError)
@@ -1568,7 +1563,7 @@ func deleteAllShiftsForUser(username string) error {
 	var userID string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("ログインユーザーが見つかりません: %s", username)
 		}
 		return fmt.Errorf("ユーザー確認エラー: %v", err)
@@ -1601,7 +1596,7 @@ func getUserIDFromSession(r *http.Request) (string, error) {
 	var id string
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("unauthorized: user not found")
 		}
 		return "", fmt.Errorf("database error: %v", err)
@@ -1610,7 +1605,7 @@ func getUserIDFromSession(r *http.Request) (string, error) {
 	return id, nil
 }
 
-func handleVesion(w http.ResponseWriter, r *http.Request) {
+func handleVersion(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		w.WriteHeader(http.StatusOK)
 		return
