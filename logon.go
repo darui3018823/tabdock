@@ -40,6 +40,13 @@ const (
 	sessionCookieName  = "tabdock_session"
 	deviceIDCookieName = "tabdock_device_id"
 	restoreTokenName   = "tabdock_restore"
+
+	keyUsername     = "username"
+	keyEmail        = "email"
+	keyProfileImage = "profileImage"
+	keyLoginAt      = "loginAt"
+	keySuccess      = "success"
+	keyMessage      = "message"
 )
 
 // WebAuthn関連の変数
@@ -1103,10 +1110,10 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: "ログイン成功",
 		User: map[string]interface{}{
-			"username":     user.Username,
-			"email":        user.Email,
-			"profileImage": user.ProfileImage,
-			"loginAt":      time.Now().Unix(),
+			keyUsername:     user.Username,
+			keyEmail:        user.Email,
+			keyProfileImage: user.ProfileImage,
+			keyLoginAt:      time.Now().Unix(),
 		},
 	}
 	restoreToken, err := issueSessionAndRestore(w, r, user.Username)
@@ -1176,8 +1183,8 @@ func handleAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if encodeErr := json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"message": "パスワードを更新しました",
+		keySuccess: true,
+		keyMessage: "パスワードを更新しました",
 	}); encodeErr != nil {
 		log.Printf("JSON encode error: %v", encodeErr)
 	}
@@ -1234,14 +1241,14 @@ func handleAuthRestore(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":      true,
-		"message":      "セッションを再発行しました",
+		keySuccess:      true,
+		keyMessage:      "セッションを再発行しました",
 		"restoreToken": restoreToken,
 		"user": map[string]interface{}{
-			"username":     user.Username,
-			"email":        user.Email,
-			"profileImage": user.ProfileImage,
-			"loginAt":      time.Now().Unix(),
+			keyUsername:     user.Username,
+			keyEmail:        user.Email,
+			keyProfileImage: user.ProfileImage,
+			keyLoginAt:      time.Now().Unix(),
 		},
 	}); encodeErr != nil {
 		log.Printf("JSON encode error: %v", encodeErr)
@@ -1305,8 +1312,8 @@ func handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: "アカウントが正常に作成されました",
 		User: map[string]interface{}{
-			"username":   user.Username,
-			"email":      user.Email,
+			keyUsername:   user.Username,
+			keyEmail:      user.Email,
 			"registerId": time.Now().Unix(),
 		},
 	}
