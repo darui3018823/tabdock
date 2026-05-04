@@ -1318,7 +1318,7 @@ func handleProfileImageUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":   "success",
+		"status":   keySuccess,
 		"filename": filename,
 		"path":     imagePath,
 	}); err != nil {
@@ -1343,8 +1343,8 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[ERROR] ユーザー情報取得エラー: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "ユーザー情報を取得できませんでした",
+			keySuccess: false,
+			keyMessage: "ユーザー情報を取得できませんでした",
 		}); err != nil {
 			log.Printf("JSON encode error: %v", err)
 		}
@@ -1353,12 +1353,12 @@ func handleUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
+		keySuccess: true,
 		"user": map[string]interface{}{
-			"username":     user.Username,
-			"email":        user.Email,
-			"profileImage": user.ProfileImage,
-			"loginAt":      user.LoginAt,
+			keyUsername:     user.Username,
+			keyEmail:        user.Email,
+			keyProfileImage: user.ProfileImage,
+			keyLoginAt:      user.LoginAt,
 		},
 	}); err != nil {
 		log.Printf("JSON encode error: %v", err)
@@ -1437,8 +1437,8 @@ func handleShift(w http.ResponseWriter, r *http.Request, schedDB *schedule.Sched
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": true,
-			"message": "すべてのシフトを削除しました",
+			keySuccess: true,
+			keyMessage: "すべてのシフトを削除しました",
 		}); err != nil {
 			log.Printf("JSON encode error: %v", err)
 		}
@@ -1523,7 +1523,7 @@ func handleShiftPost(w http.ResponseWriter, r *http.Request, schedDB *schedule.S
 
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": fmt.Sprintf("%d件のシフトを登録しました", len(shifts)),
+		keyMessage: fmt.Sprintf("%d件のシフトを登録しました", len(shifts)),
 	}); err != nil {
 		log.Printf("JSON encode error: %v", err)
 	}
