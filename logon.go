@@ -330,19 +330,6 @@ func getRestoreTokenTTL() time.Duration {
 	return restoreTTL
 }
 
-func shouldUseSecureCookie(r *http.Request) bool {
-	switch strings.ToLower(strings.TrimSpace(getEnv("COOKIE_SECURE", "auto"))) {
-	case "true", "1", "yes", "on":
-		return true
-	case "false", "0", "no", "off":
-		return false
-	default:
-		if r.TLS != nil {
-			return true
-		}
-		return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
-	}
-}
 
 func createSessionCookieValue(username string, now time.Time) (string, time.Time, error) {
 	if strings.TrimSpace(username) == "" {
@@ -412,7 +399,7 @@ func parseAndVerifySessionCookieValue(value string) (string, error) {
 	return username, nil
 }
 
-func setSessionCookie(w http.ResponseWriter, r *http.Request, username string) error {
+func setSessionCookie(w http.ResponseWriter, _ *http.Request, username string) error {
 	value, expiresAt, err := createSessionCookieValue(username, time.Now())
 	if err != nil {
 		return err
@@ -439,7 +426,7 @@ func getDeviceIDFromCookie(r *http.Request) string {
 	return strings.TrimSpace(cookie.Value)
 }
 
-func setDeviceIDCookie(w http.ResponseWriter, r *http.Request, deviceID string) (string, error) {
+func setDeviceIDCookie(w http.ResponseWriter, _ *http.Request, deviceID string) (string, error) {
 	id := strings.TrimSpace(deviceID)
 	if id == "" {
 		bytes, err := randomBytes(16)

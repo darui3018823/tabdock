@@ -22,6 +22,7 @@ import (
 
 // Upload limits and storage settings.
 const (
+	statusSuccess = "success"
 	MaxFileSize  = 50 << 20 // 50MB
 	WallpaperDir = "home/wallpapers"
 	KiloBytes    = 1024
@@ -115,7 +116,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
-		"status":   "success",
+		"status":   statusSuccess,
 		"filename": filename,
 	}); err != nil {
 		log.Printf("Failed to encode response: %v", err)
@@ -149,7 +150,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
+		"status": statusSuccess,
 		"images": files,
 	}); err != nil {
 		log.Printf("Failed to encode response: %v", err)
@@ -192,7 +193,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
+		statusSuccess: true,
 		"message": "壁紙を削除しました",
 	}); err != nil {
 		log.Printf("Failed to encode response: %v", err)
