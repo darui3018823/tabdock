@@ -1,6 +1,6 @@
 module tabdock
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/duo-labs/webauthn v0.0.0-20221205164246-ebaf9b74c6ec
@@ -8,7 +8,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/mod v0.40.0
 	golang.org/x/sys v0.47.0
 	modernc.org/sqlite v1.58.0
