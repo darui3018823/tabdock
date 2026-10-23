@@ -1,6 +1,6 @@
 module tabdock
 
-go 1.26.0
+go 1.27.3
 
 require (
 	github.com/duo-labs/webauthn v0.0.0-20221205164246-ebaf9b74c6ec
